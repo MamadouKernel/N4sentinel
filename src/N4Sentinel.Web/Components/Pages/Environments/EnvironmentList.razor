@@ -1,0 +1,63 @@
+@page "/environments"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>Environnements - N4 Sentinel</PageTitle>
+
+<h1>Environnements</h1>
+
+<AuthorizeView Roles="@Roles.Administrateur">
+    <Authorized>
+        <a class="btn btn-primary mb-3" href="environments/new">Nouvel environnement</a>
+    </Authorized>
+</AuthorizeView>
+
+@if (environments is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else if (environments.Count == 0)
+{
+    <p>Aucun environnement enregistré.</p>
+}
+else
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Code</th>
+                <th>Type</th>
+                <th>Statut</th>
+                <th>Composants</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var env in environments)
+            {
+                <tr class="@(env.Kind == EnvironmentKind.Production ? "table-danger" : "")">
+                    <td>
+                        <a href="environments/@env.Id">@env.Name</a>
+                        @if (env.Kind == EnvironmentKind.Production)
+                        {
+                            <span class="badge bg-danger ms-2">PRODUCTION</span>
+                        }
+                    </td>
+                    <td>@env.Code</td>
+                    <td>@env.Kind.ToLabel()</td>
+                    <td>@env.Status.ToLabel()</td>
+                    <td>@env.ComponentCount</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<EnvironmentDto>? environments;
+
+    protected override async Task OnInitializedAsync()
+    {
+        environments = await Mediator.Send(new ListEnvironmentsQuery());
+    }
+}

@@ -1,0 +1,79 @@
+@page "/environments/new"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject IMediator Mediator
+@inject NavigationManager NavigationManager
+
+<PageTitle>Nouvel environnement - N4 Sentinel</PageTitle>
+
+<h1>Nouvel environnement</h1>
+
+<EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="CreateEnvironment">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <div class="mb-3">
+        <label class="form-label" for="name">Nom</label>
+        <InputText id="name" class="form-control" @bind-Value="model.Name" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="code">Code (court, unique)</label>
+        <InputText id="code" class="form-control" @bind-Value="model.Code" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="kind">Type</label>
+        <InputSelect id="kind" class="form-select" @bind-Value="model.Kind">
+            @foreach (var kind in Enum.GetValues<EnvironmentKind>())
+            {
+                <option value="@kind">@kind.ToLabel()</option>
+            }
+        </InputSelect>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="description">Description</label>
+        <InputTextArea id="description" class="form-control" @bind-Value="model.Description" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Créer</button>
+    <a class="btn btn-secondary" href="environments">Annuler</a>
+</EditForm>
+
+@code {
+    private readonly CreateEnvironmentModel model = new();
+    private string? errorMessage;
+
+    private async Task SubmitAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            var id = await Mediator.Send(new CreateEnvironmentCommand(
+                model.Name, model.Code, model.Kind, model.Description));
+            NavigationManager.NavigateTo($"environments/{id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private sealed class CreateEnvironmentModel
+    {
+        [Required(ErrorMessage = "Le nom est obligatoire.")]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Le code est obligatoire.")]
+        public string Code { get; set; } = string.Empty;
+
+        public EnvironmentKind Kind { get; set; } = EnvironmentKind.Other;
+
+        public string? Description { get; set; }
+    }
+}

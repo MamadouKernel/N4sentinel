@@ -1,0 +1,133 @@
+@page "/environments/{Id:guid}"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>@(detail?.Name ?? "Environnement") - N4 Sentinel</PageTitle>
+
+@if (detail is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <h1>
+        @detail.Name
+        @if (detail.Kind == EnvironmentKind.Production)
+        {
+            <span class="badge bg-danger ms-2">PRODUCTION</span>
+        }
+        <span class="badge bg-secondary ms-2">@detail.Status.ToLabel()</span>
+    </h1>
+
+    <p>@detail.Description</p>
+    <p><strong>Code :</strong> @detail.Code</p>
+    <p><a href="environments/@Id/workflows">Workflows de cet environnement →</a></p>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <AuthorizeView Roles="@Roles.Administrateur">
+        <Authorized>
+            <div class="mb-3 d-flex gap-2">
+                <a class="btn btn-outline-secondary btn-sm" href="environments/@Id/edit">Modifier</a>
+                @if (detail.Status == EnvironmentStatus.Draft)
+                {
+                    <button class="btn btn-outline-primary btn-sm" @onclick="() => ChangeStatusAsync(EnvironmentStatusAction.SubmitForValidation)">Soumettre pour validation</button>
+                }
+                @if (detail.Status == EnvironmentStatus.PendingValidation)
+                {
+                    <button class="btn btn-outline-primary btn-sm" @onclick="() => ChangeStatusAsync(EnvironmentStatusAction.Validate)">Valider</button>
+                }
+                @if (detail.Status == EnvironmentStatus.Validated)
+                {
+                    <button class="btn btn-outline-success btn-sm" @onclick="() => ChangeStatusAsync(EnvironmentStatusAction.Activate)">Activer</button>
+                }
+                @if (detail.Status is EnvironmentStatus.Active or EnvironmentStatus.Validated)
+                {
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => ChangeStatusAsync(EnvironmentStatusAction.Disable)">Désactiver</button>
+                }
+            </div>
+        </Authorized>
+    </AuthorizeView>
+
+    <h2>Composants</h2>
+
+    <AuthorizeView Roles="@Roles.Administrateur">
+        <Authorized>
+            <a class="btn btn-primary btn-sm mb-3" href="environments/@Id/components/new">Nouveau composant</a>
+        </Authorized>
+    </AuthorizeView>
+
+    @if (detail.Components.Count == 0)
+    {
+        <p>Aucun composant enregistré pour cet environnement.</p>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Nom</th>
+                    <th>Rôle</th>
+                    <th>Serveur / VM</th>
+                    <th>Criticité</th>
+                    <th>Gouvernance</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var component in detail.Components)
+                {
+                    <tr>
+                        <td>@component.Name</td>
+                        <td>@component.Role</td>
+                        <td>@component.HostName</td>
+                        <td>@component.Criticality.ToLabel()</td>
+                        <td>@component.Governance.ToLabel()</td>
+                        <td>
+                            <AuthorizeView Roles="@Roles.Administrateur">
+                                <Authorized>
+                                    <a class="btn btn-sm btn-outline-secondary" href="environments/@Id/components/@component.Id/edit">Modifier</a>
+                                </Authorized>
+                            </AuthorizeView>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private EnvironmentDetailDto? detail;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        detail = await Mediator.Send(new GetEnvironmentByIdQuery(Id));
+    }
+
+    private async Task ChangeStatusAsync(EnvironmentStatusAction action)
+    {
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new ChangeEnvironmentStatusCommand(Id, action));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}

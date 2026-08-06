@@ -1,0 +1,181 @@
+@page "/environments/{EnvironmentId:guid}/workflows/{WorkflowId:guid}/versions/{VersionId:guid}/steps"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>Étapes - N4 Sentinel</PageTitle>
+
+@if (detail is null || version is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <h1>@detail.Name — v@(version.VersionNumber)</h1>
+    <p>
+        <span class="badge bg-secondary">@version.Status.ToLabel()</span>
+    </p>
+    <p><a href="environments/@EnvironmentId/workflows/@WorkflowId">← Retour au workflow</a></p>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <AuthorizeView Roles="@Roles.Administrateur">
+        <Authorized>
+            @if (IsDraft)
+            {
+                <a class="btn btn-primary btn-sm mb-3" href="environments/@EnvironmentId/workflows/@WorkflowId/versions/@VersionId/steps/new">Nouvelle étape</a>
+            }
+        </Authorized>
+    </AuthorizeView>
+
+    @if (version.Steps.Count == 0)
+    {
+        <p>Aucune étape définie.</p>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Nom</th>
+                    <th>Action</th>
+                    <th>Critique/destructrice</th>
+                    <th>Confirmation</th>
+                    <th>Approbation</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < version.Steps.Count; i++)
+                {
+                    var step = version.Steps[i];
+                    var position = i;
+                    <tr>
+                        <td>@(position + 1)</td>
+                        <td>@step.Name</td>
+                        <td>@step.Action.ToLabel()</td>
+                        <td>@(step.IsCriticalOrDestructive ? "Oui" : "Non")</td>
+                        <td>@(step.RequiresConfirmation ? "Oui" : "Non")</td>
+                        <td>@(step.RequiresApproval ? "Oui" : "Non")</td>
+                        <td class="d-flex gap-1">
+                            <AuthorizeView Roles="@Roles.Administrateur">
+                                <Authorized>
+                                    @if (IsDraft)
+                                    {
+                                        <button class="btn btn-sm btn-outline-secondary" disabled="@(position == 0)" @onclick="() => MoveAsync(step.Id, WorkflowStepMoveDirection.Up)">↑</button>
+                                        <button class="btn btn-sm btn-outline-secondary" disabled="@(position == version.Steps.Count - 1)" @onclick="() => MoveAsync(step.Id, WorkflowStepMoveDirection.Down)">↓</button>
+                                        <a class="btn btn-sm btn-outline-secondary" href="environments/@EnvironmentId/workflows/@WorkflowId/versions/@VersionId/steps/@step.Id/edit">Modifier</a>
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveAsync(step.Id)">Supprimer</button>
+                                    }
+                                </Authorized>
+                            </AuthorizeView>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <h2>Retour arrière</h2>
+    <EditForm Model="rollbackModel" OnValidSubmit="SaveRollbackPlanAsync" FormName="RollbackPlan">
+        <div class="form-check mb-2">
+            <InputCheckbox id="allowsRollback" class="form-check-input" @bind-Value="rollbackModel.AllowsRollback" disabled="@(!IsDraft)" />
+            <label class="form-check-label" for="allowsRollback">Ce workflow permet un retour arrière</label>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="rollbackNotes">Notes de retour arrière</label>
+            <InputTextArea id="rollbackNotes" class="form-control" @bind-Value="rollbackModel.RollbackNotes" disabled="@(!IsDraft)" />
+        </div>
+        <AuthorizeView Roles="@Roles.Administrateur">
+            <Authorized Context="rollbackAuthContext">
+                @if (IsDraft)
+                {
+                    <button type="submit" class="btn btn-outline-primary btn-sm">Enregistrer</button>
+                }
+            </Authorized>
+        </AuthorizeView>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid EnvironmentId { get; set; }
+
+    [Parameter]
+    public Guid WorkflowId { get; set; }
+
+    [Parameter]
+    public Guid VersionId { get; set; }
+
+    private WorkflowDetailDto? detail;
+    private WorkflowVersionDto? version;
+    private readonly RollbackPlanModel rollbackModel = new();
+    private string? errorMessage;
+
+    private bool IsDraft => version?.Status == WorkflowVersionStatus.Draft;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        detail = await Mediator.Send(new GetWorkflowByIdQuery(WorkflowId));
+        version = detail?.Versions.FirstOrDefault(v => v.Id == VersionId);
+        if (version is not null)
+        {
+            rollbackModel.AllowsRollback = version.AllowsRollback;
+            rollbackModel.RollbackNotes = version.RollbackNotes;
+        }
+    }
+
+    private async Task MoveAsync(Guid stepId, WorkflowStepMoveDirection direction)
+    {
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new MoveWorkflowStepCommand(WorkflowId, VersionId, stepId, direction));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task RemoveAsync(Guid stepId)
+    {
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new RemoveWorkflowStepCommand(WorkflowId, VersionId, stepId));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task SaveRollbackPlanAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new UpdateRollbackPlanCommand(
+                WorkflowId, VersionId, rollbackModel.AllowsRollback, rollbackModel.RollbackNotes));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private sealed class RollbackPlanModel
+    {
+        public bool AllowsRollback { get; set; }
+        public string? RollbackNotes { get; set; }
+    }
+}

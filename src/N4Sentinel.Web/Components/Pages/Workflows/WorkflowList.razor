@@ -1,0 +1,61 @@
+@page "/environments/{EnvironmentId:guid}/workflows"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>Workflows - N4 Sentinel</PageTitle>
+
+<h1>Workflows</h1>
+<p><a href="environments/@EnvironmentId">← Retour à l'environnement</a></p>
+
+<AuthorizeView Roles="@Roles.Administrateur">
+    <Authorized>
+        <a class="btn btn-primary mb-3" href="environments/@EnvironmentId/workflows/new">Nouveau workflow</a>
+    </Authorized>
+</AuthorizeView>
+
+@if (workflows is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else if (workflows.Count == 0)
+{
+    <p>Aucun workflow défini pour cet environnement.</p>
+}
+else
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Type</th>
+                <th>Périmètre</th>
+                <th>Dernière version</th>
+                <th>Version active</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var workflow in workflows)
+            {
+                <tr>
+                    <td><a href="environments/@EnvironmentId/workflows/@workflow.Id">@workflow.Name</a></td>
+                    <td>@workflow.Type.ToLabel()</td>
+                    <td>@workflow.Scope.ToLabel()</td>
+                    <td>v@(workflow.LatestVersionNumber) — @workflow.LatestVersionStatus.ToLabel()</td>
+                    <td>@(workflow.ActiveVersionNumber is { } n ? $"v{n}" : "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter]
+    public Guid EnvironmentId { get; set; }
+
+    private IReadOnlyList<WorkflowDto>? workflows;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        workflows = await Mediator.Send(new ListWorkflowsByEnvironmentQuery(EnvironmentId));
+    }
+}

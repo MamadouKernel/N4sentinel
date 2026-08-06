@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/N4Sentinel.Application/N4Sentinel.Application.csproj" />
+    <Project Path="src/N4Sentinel.Domain/N4Sentinel.Domain.csproj" />
+    <Project Path="src/N4Sentinel.Infrastructure/N4Sentinel.Infrastructure.csproj" />
+    <Project Path="src/N4Sentinel.Web/N4Sentinel.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/N4Sentinel.Application.Tests/N4Sentinel.Application.Tests.csproj" />
+    <Project Path="tests/N4Sentinel.Domain.Tests/N4Sentinel.Domain.Tests.csproj" />
+    <Project Path="tests/N4Sentinel.IntegrationTests/N4Sentinel.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

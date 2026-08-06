@@ -1,0 +1,82 @@
+@page "/environments/{Id:guid}/edit"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject IMediator Mediator
+@inject NavigationManager NavigationManager
+
+<PageTitle>Modifier @(model?.Name) - N4 Sentinel</PageTitle>
+
+@if (model is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <h1>Modifier l'environnement</h1>
+
+    <EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="EditEnvironment">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="mb-3">
+            <label class="form-label" for="name">Nom</label>
+            <InputText id="name" class="form-control" @bind-Value="model.Name" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="description">Description</label>
+            <InputTextArea id="description" class="form-control" @bind-Value="model.Description" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <a class="btn btn-secondary" href="environments/@Id">Annuler</a>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private EditEnvironmentModel? model;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var detail = await Mediator.Send(new GetEnvironmentByIdQuery(Id));
+        if (detail is not null)
+        {
+            model = new EditEnvironmentModel { Name = detail.Name, Description = detail.Description };
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (model is null)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new UpdateEnvironmentCommand(Id, model.Name, model.Description));
+            NavigationManager.NavigateTo($"environments/{Id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private sealed class EditEnvironmentModel
+    {
+        [Required(ErrorMessage = "Le nom est obligatoire.")]
+        public string Name { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+    }
+}

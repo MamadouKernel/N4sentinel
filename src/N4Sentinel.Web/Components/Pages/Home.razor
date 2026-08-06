@@ -1,0 +1,18 @@
+@page "/"
+
+<PageTitle>N4 Sentinel</PageTitle>
+
+<h1>N4 Sentinel</h1>
+
+<p>
+    Supervision, pilotage contrôlé et diagnostic de l'écosystème Navis N4 pour Côte d'Ivoire Terminal.
+</p>
+
+<AuthorizeView>
+    <Authorized>
+        <a class="btn btn-primary" href="environments">Consulter les environnements</a>
+    </Authorized>
+    <NotAuthorized>
+        <a class="btn btn-primary" href="Account/Login">Se connecter</a>
+    </NotAuthorized>
+</AuthorizeView>
