@@ -1,0 +1,64 @@
+@page "/admin/diagnostic-rules"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject IMediator Mediator
+
+<PageTitle>Règles de diagnostic - N4 Sentinel</PageTitle>
+
+<h1>Règles de diagnostic</h1>
+<p class="text-muted">
+    Signatures, seuils, règles de corrélation (FR-065) : configurables, versionnées et testables sans
+    modification du code. Toute nouvelle règle ou version doit être testée et validée avant activation en
+    Production — seule la version Active de chaque identifiant compte pour un diagnostic.
+</p>
+
+<a class="btn btn-primary btn-sm mb-3" href="admin/diagnostic-rules/new">Nouvelle règle</a>
+
+@if (rules is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else if (rules.Count == 0)
+{
+    <p>Aucune règle de diagnostic définie.</p>
+}
+else
+{
+    <div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Identifiant</th>
+                <th>Version</th>
+                <th>Domaine</th>
+                <th>Hypothèse</th>
+                <th>Sévérité</th>
+                <th>Statut</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var rule in rules)
+            {
+                <tr class="@(rule.Status == DiagnosticRuleStatus.Active ? "table-success" : "")">
+                    <td>@rule.RuleKey</td>
+                    <td>v@(rule.VersionNumber)</td>
+                    <td>@rule.Domain.ToLabel()</td>
+                    <td>@rule.Hypothesis</td>
+                    <td>@rule.Severity.ToLabel()</td>
+                    <td>@rule.Status.ToLabel()</td>
+                    <td><a class="btn btn-sm btn-outline-secondary" href="admin/diagnostic-rules/@rule.Id">Détail</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<DiagnosticRuleDto>? rules;
+
+    protected override async Task OnInitializedAsync()
+    {
+        rules = await Mediator.Send(new ListDiagnosticRulesQuery());
+    }
+}

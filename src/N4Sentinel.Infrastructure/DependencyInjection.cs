@@ -30,11 +30,14 @@ public static class DependencyInjection
         services.AddScoped<ISyncEndpointRepository, EfSyncEndpointRepository>();
         services.AddScoped<IFolderReconstitutionRepository, EfFolderReconstitutionRepository>();
         services.AddScoped<IEdiFileRepository, EfEdiFileRepository>();
+        services.AddScoped<IDiagnosticSignalRepository, EfDiagnosticSignalRepository>();
+        services.AddScoped<IDiagnosticRuleRepository, EfDiagnosticRuleRepository>();
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 
         // Seule implémentation disponible tant que les accès réseau réels aux serveurs N4 ne sont pas autorisés.
         services.AddScoped<IServerConnector, SimulationServerConnector>();
         services.AddScoped<ISupervisionSignalProvider, SimulationSupervisionSignalProvider>();
+        services.AddScoped<IDiagnosticSignalProvider, SimulationDiagnosticSignalProvider>();
 
         return services;
     }

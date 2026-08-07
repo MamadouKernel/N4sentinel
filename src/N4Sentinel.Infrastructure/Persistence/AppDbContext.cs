@@ -33,6 +33,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<EdiFile> EdiFiles => Set<EdiFile>();
 
+    public DbSet<DiagnosticSignal> DiagnosticSignals => Set<DiagnosticSignal>();
+
+    public DbSet<DiagnosticRule> DiagnosticRules => Set<DiagnosticRule>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

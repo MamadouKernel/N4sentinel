@@ -66,9 +66,9 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
-| E7.1 | En tant qu'Opérateur, je veux que la collecte des journaux/événements/métriques utiles à un incident soit automatique, avec import manuel en complément. | 8 | Must | À faire |
+| E7.1 | En tant qu'Opérateur, je veux que la collecte des journaux/événements/métriques utiles à un incident soit automatique, avec import manuel en complément. | 8 | Must | **Fait** (Sprint 12) |
 | E7.2 | En tant qu'Opérateur, je veux que le moteur de diagnostic classe les causes possibles par domaine (réseau, base de données, système/VM, services, composants N4, ActiveMQ/KahaDB, Bridge/XPS, dossiers partagés, EDI) et niveau de confiance. | 13 | Must | À faire |
-| E7.3 | En tant qu'Administrateur, je veux définir et versionner des règles de diagnostic validées (pattern → cause probable → SOP associée). | 8 | Must | À faire |
+| E7.3 | En tant qu'Administrateur, je veux définir et versionner des règles de diagnostic validées (pattern → cause probable → SOP associée). | 8 | Must | **Fait** (Sprint 12) |
 
 ## Epic 8 — Analyse des fichiers de logs
 

@@ -156,6 +156,69 @@ public static class DisplayLabels
         _ => status.ToString(),
     };
 
+    public static string ToLabel(this DiagnosticDomain domain) => domain switch
+    {
+        DiagnosticDomain.Network => "Réseau",
+        DiagnosticDomain.Database => "Base de données",
+        DiagnosticDomain.SystemVm => "Système / VM",
+        DiagnosticDomain.N4ClusterNodes => "N4 Cluster Nodes",
+        DiagnosticDomain.CenterStandbyNode => "Center / Standby Node",
+        DiagnosticDomain.ActiveMqKahaDb => "ActiveMQ / KahaDB",
+        DiagnosticDomain.BridgeXps => "Bridge / XPS",
+        DiagnosticDomain.Ecn4 => "ECN4 / ECN4Web",
+        DiagnosticDomain.SharedFolders => "Dossiers partagés",
+        DiagnosticDomain.EdiInterfaces => "Interfaces EDI",
+        DiagnosticDomain.Configuration => "Configuration",
+        DiagnosticDomain.ExistingSupervision => "Supervision existante",
+        _ => domain.ToString(),
+    };
+
+    public static string ToLabel(this DiagnosticSignalCollectionStatus status) => status switch
+    {
+        DiagnosticSignalCollectionStatus.Collected => "Collecté",
+        DiagnosticSignalCollectionStatus.Unavailable => "Indisponible",
+        _ => status.ToString(),
+    };
+
+    public static string ToLabel(this DiagnosticSignalUnavailableReason reason) => reason switch
+    {
+        DiagnosticSignalUnavailableReason.AccessDenied => "Accès refusé",
+        DiagnosticSignalUnavailableReason.ConnectorUnavailable => "Connecteur indisponible",
+        DiagnosticSignalUnavailableReason.Timeout => "Timeout",
+        DiagnosticSignalUnavailableReason.SourceMissing => "Source absente",
+        DiagnosticSignalUnavailableReason.UnrecognizedFormat => "Format non reconnu",
+        DiagnosticSignalUnavailableReason.ControlNotConfigured => "Contrôle non configuré",
+        _ => reason.ToString(),
+    };
+
+    public static string ToLabel(this DiagnosticSignalReliability reliability) => reliability switch
+    {
+        DiagnosticSignalReliability.Unknown => "Inconnue",
+        DiagnosticSignalReliability.Low => "Faible",
+        DiagnosticSignalReliability.Medium => "Moyenne",
+        DiagnosticSignalReliability.High => "Élevée",
+        _ => reliability.ToString(),
+    };
+
+    public static string ToLabel(this DiagnosticSeverity severity) => severity switch
+    {
+        DiagnosticSeverity.Low => "Faible",
+        DiagnosticSeverity.Medium => "Moyenne",
+        DiagnosticSeverity.High => "Élevée",
+        DiagnosticSeverity.Critical => "Critique",
+        _ => severity.ToString(),
+    };
+
+    public static string ToLabel(this DiagnosticRuleStatus status) => status switch
+    {
+        DiagnosticRuleStatus.Draft => "Brouillon",
+        DiagnosticRuleStatus.PendingValidation => "À valider",
+        DiagnosticRuleStatus.Validated => "Validé",
+        DiagnosticRuleStatus.Active => "Actif",
+        DiagnosticRuleStatus.Disabled => "Désactivé",
+        _ => status.ToString(),
+    };
+
     /// <summary>Vocabulaire exact du Cluster Services view N4 réel (docs/navis-reference.md §4).</summary>
     public static string ToLabel(this ComponentHealthStatus status) => status switch
     {

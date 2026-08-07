@@ -1,0 +1,285 @@
+@page "/admin/diagnostic-rules/{RuleId:guid}"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject IMediator Mediator
+@inject NavigationManager NavigationManager
+
+<PageTitle>Règle de diagnostic - N4 Sentinel</PageTitle>
+
+@if (rule is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <h1>
+        @rule.RuleKey <span class="badge bg-secondary">v@(rule.VersionNumber)</span>
+        <span class="badge @StatusBadgeClass(rule.Status)">@rule.Status.ToLabel()</span>
+    </h1>
+    <p><a href="admin/diagnostic-rules">← Retour aux règles</a></p>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (rule.Status == DiagnosticRuleStatus.Draft)
+    {
+        <EditForm Model="editModel" OnValidSubmit="SaveAsync" FormName="EditDiagnosticRule">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="mb-3">
+                <label class="form-label" for="domain">Domaine</label>
+                <InputSelect id="domain" class="form-select" @bind-Value="editModel.Domain">
+                    @foreach (var d in Enum.GetValues<DiagnosticDomain>())
+                    {
+                        <option value="@d">@d.ToLabel()</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="condition">Conditions d'application</label>
+                <InputTextArea id="condition" class="form-control" @bind-Value="editModel.ConditionDescription" rows="2" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="sources">Sources nécessaires</label>
+                <InputTextArea id="sources" class="form-control" @bind-Value="editModel.RequiredSources" rows="2" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="hypothesis">Conclusion / hypothèse produite</label>
+                <InputTextArea id="hypothesis" class="form-control" @bind-Value="editModel.Hypothesis" rows="2" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="severity">Sévérité</label>
+                <InputSelect id="severity" class="form-select" @bind-Value="editModel.Severity">
+                    @foreach (var s in Enum.GetValues<DiagnosticSeverity>())
+                    {
+                        <option value="@s">@s.ToLabel()</option>
+                    }
+                </InputSelect>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="confidence">Méthode de calcul du niveau de confiance</label>
+                <InputTextArea id="confidence" class="form-control" @bind-Value="editModel.ConfidenceCalculationMethod" rows="2" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="checks">Contrôles complémentaires</label>
+                <InputTextArea id="checks" class="form-control" @bind-Value="editModel.AdditionalChecks" rows="2" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="recommendation">Recommandations autorisées</label>
+                <InputTextArea id="recommendation" class="form-control" @bind-Value="editModel.Recommendation" rows="2" />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-sm">Enregistrer</button>
+            <button type="button" class="btn btn-success btn-sm" @onclick="SubmitForValidationAsync" disabled="@isBusy">Soumettre pour validation</button>
+        </EditForm>
+    }
+    else
+    {
+        <dl class="row">
+            <dt class="col-sm-3">Domaine</dt>
+            <dd class="col-sm-9">@rule.Domain.ToLabel()</dd>
+            <dt class="col-sm-3">Conditions d'application</dt>
+            <dd class="col-sm-9">@rule.ConditionDescription</dd>
+            <dt class="col-sm-3">Sources nécessaires</dt>
+            <dd class="col-sm-9">@rule.RequiredSources</dd>
+            <dt class="col-sm-3">Hypothèse</dt>
+            <dd class="col-sm-9">@rule.Hypothesis</dd>
+            <dt class="col-sm-3">Sévérité</dt>
+            <dd class="col-sm-9">@rule.Severity.ToLabel()</dd>
+            <dt class="col-sm-3">Méthode de confiance</dt>
+            <dd class="col-sm-9">@rule.ConfidenceCalculationMethod</dd>
+            @if (!string.IsNullOrEmpty(rule.AdditionalChecks))
+            {
+                <dt class="col-sm-3">Contrôles complémentaires</dt>
+                <dd class="col-sm-9">@rule.AdditionalChecks</dd>
+            }
+            <dt class="col-sm-3">Recommandation</dt>
+            <dd class="col-sm-9">@rule.Recommendation</dd>
+        </dl>
+
+        <div class="d-flex gap-2 mb-3">
+            @if (rule.Status == DiagnosticRuleStatus.PendingValidation)
+            {
+                <button class="btn btn-success btn-sm" @onclick="ValidateAsync" disabled="@isBusy">Valider</button>
+            }
+            @if (rule.Status == DiagnosticRuleStatus.Validated)
+            {
+                <button class="btn btn-success btn-sm" @onclick="ActivateAsync" disabled="@isBusy">Activer en Production</button>
+            }
+            @if (rule.Status is DiagnosticRuleStatus.Active or DiagnosticRuleStatus.Validated)
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick="DisableAsync" disabled="@isBusy">Désactiver</button>
+            }
+            <button class="btn btn-outline-secondary btn-sm" @onclick="CreateNewVersionAsync" disabled="@isBusy">Nouvelle version</button>
+        </div>
+    }
+
+    <h2>Historique des versions</h2>
+    @if (versions is null)
+    {
+        <p><em>Chargement...</em></p>
+    }
+    else
+    {
+        <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Version</th>
+                    <th>Statut</th>
+                    <th>Créée le</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var v in versions)
+                {
+                    <tr class="@(v.Id == rule.Id ? "table-info" : "")">
+                        <td>v@(v.VersionNumber)</td>
+                        <td>@v.Status.ToLabel()</td>
+                        <td>@v.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                        <td><a class="btn btn-sm btn-outline-secondary" href="admin/diagnostic-rules/@v.Id">Détail</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid RuleId { get; set; }
+
+    private DiagnosticRuleDto? rule;
+    private IReadOnlyList<DiagnosticRuleDto>? versions;
+    private EditModel editModel = new();
+    private bool isBusy;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        rule = await Mediator.Send(new GetDiagnosticRuleByIdQuery(RuleId));
+        if (rule is null)
+        {
+            return;
+        }
+
+        versions = await Mediator.Send(new ListDiagnosticRuleVersionsQuery(rule.RuleKey));
+        editModel = new EditModel
+        {
+            Domain = rule.Domain,
+            ConditionDescription = rule.ConditionDescription,
+            RequiredSources = rule.RequiredSources,
+            Hypothesis = rule.Hypothesis,
+            Severity = rule.Severity,
+            ConfidenceCalculationMethod = rule.ConfidenceCalculationMethod,
+            AdditionalChecks = rule.AdditionalChecks,
+            Recommendation = rule.Recommendation,
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new UpdateDiagnosticRuleCommand(
+                RuleId, editModel.Domain, editModel.ConditionDescription, editModel.RequiredSources,
+                editModel.Hypothesis, editModel.Severity, editModel.ConfidenceCalculationMethod,
+                editModel.AdditionalChecks, editModel.Recommendation));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task SubmitForValidationAsync() => await RunAsync(() => Mediator.Send(new SubmitDiagnosticRuleForValidationCommand(RuleId)));
+
+    private async Task ValidateAsync() => await RunAsync(() => Mediator.Send(new ValidateDiagnosticRuleCommand(RuleId)));
+
+    private async Task ActivateAsync() => await RunAsync(() => Mediator.Send(new ActivateDiagnosticRuleCommand(RuleId)));
+
+    private async Task DisableAsync() => await RunAsync(() => Mediator.Send(new DisableDiagnosticRuleCommand(RuleId)));
+
+    private async Task CreateNewVersionAsync()
+    {
+        errorMessage = null;
+        isBusy = true;
+        try
+        {
+            var newId = await Mediator.Send(new CreateNewDiagnosticRuleVersionCommand(RuleId));
+            NavigationManager.NavigateTo($"admin/diagnostic-rules/{newId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        errorMessage = null;
+        isBusy = true;
+        try
+        {
+            await action();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private static string StatusBadgeClass(DiagnosticRuleStatus status) => status switch
+    {
+        DiagnosticRuleStatus.Draft => "bg-secondary",
+        DiagnosticRuleStatus.PendingValidation => "bg-warning text-dark",
+        DiagnosticRuleStatus.Validated => "bg-info text-dark",
+        DiagnosticRuleStatus.Active => "bg-success",
+        DiagnosticRuleStatus.Disabled => "bg-dark",
+        _ => "bg-secondary",
+    };
+
+    private sealed class EditModel
+    {
+        public DiagnosticDomain Domain { get; set; }
+
+        [Required(ErrorMessage = "Les conditions d'application sont obligatoires.")]
+        public string ConditionDescription { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Les sources nécessaires sont obligatoires.")]
+        public string RequiredSources { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "L'hypothèse est obligatoire.")]
+        public string Hypothesis { get; set; } = string.Empty;
+
+        public DiagnosticSeverity Severity { get; set; }
+
+        [Required(ErrorMessage = "La méthode de calcul du niveau de confiance est obligatoire.")]
+        public string ConfidenceCalculationMethod { get; set; } = string.Empty;
+
+        public string? AdditionalChecks { get; set; }
+
+        [Required(ErrorMessage = "La recommandation est obligatoire.")]
+        public string Recommendation { get; set; } = string.Empty;
+    }
+}
