@@ -12,8 +12,13 @@ public sealed record DashboardEnvironmentSummaryDto(
     int CriticalComponentCount,
     int ActiveOperationsCount);
 
+/// <summary>Anomalie de dossier partagé (E5.1) ou de synchronisation N4/Bridge/XPS/ActiveMQ (E5.3, FR-054).</summary>
+public sealed record SupervisionAlertDto(
+    Guid EnvironmentId, string EnvironmentName, string Kind, string Name, string? AnomalyDescription);
+
 public sealed record DashboardDto(
     IReadOnlyList<DashboardEnvironmentSummaryDto> Environments,
     IReadOnlyList<OperationRunSummaryDto> ActiveOperations,
     IReadOnlyList<OperationRunSummaryDto> FailedOperationsAlert,
+    IReadOnlyList<SupervisionAlertDto> SupervisionAlerts,
     int PendingApprovalsCount);

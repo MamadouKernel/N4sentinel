@@ -25,6 +25,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
+    public DbSet<SharedFolder> SharedFolders => Set<SharedFolder>();
+
+    public DbSet<SyncEndpoint> SyncEndpoints => Set<SyncEndpoint>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

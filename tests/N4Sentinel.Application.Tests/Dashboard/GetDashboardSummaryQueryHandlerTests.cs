@@ -11,8 +11,15 @@ public class GetDashboardSummaryQueryHandlerTests
 {
     private readonly IEnvironmentRepository environments = Substitute.For<IEnvironmentRepository>();
     private readonly IOperationRunRepository operationRuns = Substitute.For<IOperationRunRepository>();
+    private readonly ISharedFolderRepository sharedFolders = Substitute.For<ISharedFolderRepository>();
+    private readonly ISyncEndpointRepository syncEndpoints = Substitute.For<ISyncEndpointRepository>();
 
-    private GetDashboardSummaryQueryHandler CreateHandler() => new(environments, operationRuns);
+    private GetDashboardSummaryQueryHandler CreateHandler()
+    {
+        sharedFolders.ListAllAsync(Arg.Any<CancellationToken>()).Returns([]);
+        syncEndpoints.ListAllAsync(Arg.Any<CancellationToken>()).Returns([]);
+        return new(environments, operationRuns, sharedFolders, syncEndpoints);
+    }
 
     private static OperationRun CreateRunWithStatus(Guid environmentId, OperationRunStatus status)
     {
@@ -62,5 +69,30 @@ public class GetDashboardSummaryQueryHandlerTests
         result.FailedOperationsAlert.Should().ContainSingle().Which.Id.Should().Be(failed.Id);
         result.PendingApprovalsCount.Should().Be(1);
         result.Environments.Should().ContainSingle().Which.ActiveOperationsCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Handle_IncludesSharedFolderAndSyncEndpointAnomaliesInSupervisionAlerts()
+    {
+        var environment = new N4Environment("Production", "PROD", EnvironmentKind.Production, null);
+        environments.ListAllAsync(Arg.Any<CancellationToken>()).Returns([environment]);
+        operationRuns.ListAllAsync(Arg.Any<CancellationToken>()).Returns([]);
+
+        var healthyFolder = new SharedFolder(environment.Id, "Config", SharedFolderCategory.Configuration, @"C:\config");
+        var anomalousFolder = new SharedFolder(environment.Id, "AMQ Store", SharedFolderCategory.ActiveMqKahaDb, @"C:\amq");
+        anomalousFolder.RecordHealthCheck(false, 50, true, CorruptionStatus.None, "Inaccessible");
+        sharedFolders.ListAllAsync(Arg.Any<CancellationToken>()).Returns([healthyFolder, anomalousFolder]);
+
+        var anomalousEndpoint = new SyncEndpoint(environment.Id, "Bridge Queue");
+        anomalousEndpoint.RecordSyncCheck(2000, 1, DateTime.UtcNow, "File trop longue");
+        syncEndpoints.ListAllAsync(Arg.Any<CancellationToken>()).Returns([anomalousEndpoint]);
+
+        var handler = new GetDashboardSummaryQueryHandler(environments, operationRuns, sharedFolders, syncEndpoints);
+
+        var result = await handler.Handle(new GetDashboardSummaryQuery(), CancellationToken.None);
+
+        result.SupervisionAlerts.Should().HaveCount(2);
+        result.SupervisionAlerts.Should().Contain(a => a.Name == "AMQ Store" && a.Kind == "Dossier partagé");
+        result.SupervisionAlerts.Should().Contain(a => a.Name == "Bridge Queue" && a.Kind == "Synchronisation");
     }
 }

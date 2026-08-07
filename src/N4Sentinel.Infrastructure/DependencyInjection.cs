@@ -26,10 +26,13 @@ public static class DependencyInjection
         services.AddScoped<IOperationRunRepository, EfOperationRunRepository>();
         services.AddScoped<IDependentSystemRepository, EfDependentSystemRepository>();
         services.AddScoped<IAuditEntryRepository, EfAuditEntryRepository>();
+        services.AddScoped<ISharedFolderRepository, EfSharedFolderRepository>();
+        services.AddScoped<ISyncEndpointRepository, EfSyncEndpointRepository>();
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 
         // Seule implémentation disponible tant que les accès réseau réels aux serveurs N4 ne sont pas autorisés.
         services.AddScoped<IServerConnector, SimulationServerConnector>();
+        services.AddScoped<ISupervisionSignalProvider, SimulationSupervisionSignalProvider>();
 
         return services;
     }

@@ -1,0 +1,74 @@
+@page "/environments/{EnvironmentId:guid}/supervision/shared-folders/new"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject IMediator Mediator
+@inject NavigationManager NavigationManager
+
+<PageTitle>Nouveau dossier partagé - N4 Sentinel</PageTitle>
+
+<h1>Nouveau dossier partagé</h1>
+
+<EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="CreateSharedFolder">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <div class="mb-3">
+        <label class="form-label" for="name">Nom</label>
+        <InputText id="name" class="form-control" @bind-Value="model.Name" placeholder="ex. AMQ Store, Config N4, Échanges EDI..." />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="category">Catégorie</label>
+        <InputSelect id="category" class="form-select" @bind-Value="model.Category">
+            @foreach (var c in Enum.GetValues<SharedFolderCategory>())
+            {
+                <option value="@c">@c.ToLabel()</option>
+            }
+        </InputSelect>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="path">Chemin</label>
+        <InputText id="path" class="form-control" @bind-Value="model.Path" placeholder="ex. \\n4srv\shared\amq" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Créer</button>
+    <a class="btn btn-secondary" href="environments/@EnvironmentId/supervision">Annuler</a>
+</EditForm>
+
+@code {
+    [Parameter]
+    public Guid EnvironmentId { get; set; }
+
+    private readonly CreateSharedFolderModel model = new();
+    private string? errorMessage;
+
+    private async Task SubmitAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new CreateSharedFolderCommand(EnvironmentId, model.Name, model.Category, model.Path));
+            NavigationManager.NavigateTo($"environments/{EnvironmentId}/supervision");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private sealed class CreateSharedFolderModel
+    {
+        [Required(ErrorMessage = "Le nom est obligatoire.")]
+        public string Name { get; set; } = string.Empty;
+
+        public SharedFolderCategory Category { get; set; } = SharedFolderCategory.Configuration;
+
+        [Required(ErrorMessage = "Le chemin est obligatoire.")]
+        public string Path { get; set; } = string.Empty;
+    }
+}

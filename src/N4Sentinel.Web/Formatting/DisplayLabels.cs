@@ -109,6 +109,24 @@ public static class DisplayLabels
         _ => "bg-secondary",
     };
 
+    public static string ToLabel(this SharedFolderCategory category) => category switch
+    {
+        SharedFolderCategory.Configuration => "Configuration N4",
+        SharedFolderCategory.ActiveMqKahaDb => "ActiveMQ / KahaDB",
+        SharedFolderCategory.EdiExchange => "Échanges EDI",
+        SharedFolderCategory.Archive => "Archives",
+        SharedFolderCategory.ErrorFolder => "Dossier d'erreur",
+        _ => category.ToString(),
+    };
+
+    public static string ToLabel(this CorruptionStatus status) => status switch
+    {
+        CorruptionStatus.None => "Aucune",
+        CorruptionStatus.Suspected => "Suspectée",
+        CorruptionStatus.Confirmed => "Confirmée",
+        _ => status.ToString(),
+    };
+
     /// <summary>Vocabulaire exact du Cluster Services view N4 réel (docs/navis-reference.md §4).</summary>
     public static string ToLabel(this ComponentHealthStatus status) => status switch
     {

@@ -130,6 +130,40 @@ else
         </table>
         </div>
     }
+
+    <h2>Alertes — dossiers partagés & synchronisation</h2>
+    @if (summary.SupervisionAlerts.Count == 0)
+    {
+        <p>Aucune anomalie de dossier partagé ou de synchronisation détectée.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Environnement</th>
+                    <th>Type</th>
+                    <th>Nom</th>
+                    <th>Anomalie</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var alert in summary.SupervisionAlerts)
+                {
+                    <tr class="table-danger">
+                        <td>@alert.EnvironmentName</td>
+                        <td>@alert.Kind</td>
+                        <td>@alert.Name</td>
+                        <td>@alert.AnomalyDescription</td>
+                        <td><a class="btn btn-sm btn-outline-danger" href="environments/@alert.EnvironmentId/supervision">Détail</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
 }
 
 @code {

@@ -14,7 +14,9 @@ public sealed record GetDashboardSummaryQuery : IRequest<DashboardDto>;
 
 public sealed class GetDashboardSummaryQueryHandler(
     IEnvironmentRepository environments,
-    IOperationRunRepository operationRuns) : IRequestHandler<GetDashboardSummaryQuery, DashboardDto>
+    IOperationRunRepository operationRuns,
+    ISharedFolderRepository sharedFolders,
+    ISyncEndpointRepository syncEndpoints) : IRequestHandler<GetDashboardSummaryQuery, DashboardDto>
 {
     private static readonly OperationRunStatus[] ActiveStatuses =
         [OperationRunStatus.PendingApproval, OperationRunStatus.Approved, OperationRunStatus.Running];
@@ -23,6 +25,8 @@ public sealed class GetDashboardSummaryQueryHandler(
     {
         var allEnvironments = await environments.ListAllAsync(cancellationToken);
         var allRuns = await operationRuns.ListAllAsync(cancellationToken);
+        var allSharedFolders = await sharedFolders.ListAllAsync(cancellationToken);
+        var allSyncEndpoints = await syncEndpoints.ListAllAsync(cancellationToken);
         var environmentNames = allEnvironments.ToDictionary(e => e.Id, e => e.Name);
 
         var environmentSummaries = allEnvironments
@@ -46,8 +50,20 @@ public sealed class GetDashboardSummaryQueryHandler(
             .Select(r => ToSummary(r, environmentNames))
             .ToList();
 
+        var supervisionAlerts = allSharedFolders
+            .Where(f => f.HasAnomaly)
+            .Select(f => new SupervisionAlertDto(
+                f.EnvironmentId, environmentNames.GetValueOrDefault(f.EnvironmentId, "—"),
+                "Dossier partagé", f.Name, f.AnomalyDescription))
+            .Concat(allSyncEndpoints
+                .Where(e => e.HasAnomaly)
+                .Select(e => new SupervisionAlertDto(
+                    e.EnvironmentId, environmentNames.GetValueOrDefault(e.EnvironmentId, "—"),
+                    "Synchronisation", e.Name, e.AnomalyDescription)))
+            .ToList();
+
         return new DashboardDto(
-            environmentSummaries, activeOperations, failedOperations,
+            environmentSummaries, activeOperations, failedOperations, supervisionAlerts,
             allRuns.Count(r => r.Status == OperationRunStatus.PendingApproval));
     }
 
