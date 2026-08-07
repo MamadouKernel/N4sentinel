@@ -1,0 +1,108 @@
+@page "/environments/{EnvironmentId:guid}/diagnostic-cases/{CaseId:guid}/report"
+@attribute [Authorize]
+@inject ISender Mediator
+
+<PageTitle>Rapport d'incident - N4 Sentinel</PageTitle>
+
+@if (report is null)
+{
+    <div class="card p-8 text-center text-slate-500">Chargement du rapport...</div>
+}
+else
+{
+    <div class="space-y-6">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Rapport d'incident</h1>
+                <a href="@($"environments/{EnvironmentId}/diagnostic-cases/{CaseId}")" class="text-sm text-slate-500 hover:text-slate-700">← Retour au diagnostic</a>
+            </div>
+            <a href="@($"/reports/incidents/{CaseId}/export")" class="btn btn-primary">Télécharger en JSON</a>
+        </div>
+
+        <div class="card p-6 space-y-3">
+            <h2 class="text-lg font-bold text-slate-900">@report.Symptom</h2>
+            <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div><dt class="text-xs font-semibold uppercase text-slate-500">Détecté le</dt><dd class="text-sm text-slate-900">@report.DetectedAtUtc.ToLocalTime().ToString("g")</dd></div>
+                <div><dt class="text-xs font-semibold uppercase text-slate-500">Période analysée</dt><dd class="text-sm text-slate-900">@report.PeriodStartUtc.ToLocalTime().ToString("g") → @report.PeriodEndUtc.ToLocalTime().ToString("g")</dd></div>
+                @if (report.ConcludedAtUtc is not null)
+                {
+                    <div><dt class="text-xs font-semibold uppercase text-slate-500">Conclu le</dt><dd class="text-sm text-slate-900">@report.ConcludedAtUtc?.ToLocalTime().ToString("g")</dd></div>
+                }
+                @if (report.Duration is not null)
+                {
+                    <div><dt class="text-xs font-semibold uppercase text-slate-500">Durée</dt><dd class="text-sm text-slate-900">@report.Duration?.ToString(@"hh\:mm\:ss")</dd></div>
+                }
+                <div><dt class="text-xs font-semibold uppercase text-slate-500">Demandé par</dt><dd class="text-sm text-slate-900">@report.RequestedByUserId</dd></div>
+                @if (report.ConclusionLevel is not null)
+                {
+                    <div><dt class="text-xs font-semibold uppercase text-slate-500">Conclusion</dt><dd class="text-sm text-slate-900">@report.ConclusionLevel.Value.ToLabel()</dd></div>
+                }
+            </dl>
+            @if (!string.IsNullOrEmpty(report.ConclusionSummary))
+            {
+                <div>
+                    <dt class="text-xs font-semibold uppercase text-slate-500">Synthèse</dt>
+                    <p class="mt-1 text-sm text-slate-900 whitespace-pre-line">@report.ConclusionSummary</p>
+                </div>
+            }
+        </div>
+
+        <h2 class="text-lg font-bold text-slate-900">Hypothèses (@report.Hypotheses.Count)</h2>
+        @if (report.Hypotheses.Count == 0)
+        {
+            <div class="card p-6 text-center text-slate-500">Aucune hypothèse enregistrée.</div>
+        }
+        else
+        {
+            <div class="space-y-3">
+                @foreach (var h in report.Hypotheses)
+                {
+                    <div class="card p-4">
+                        <div class="flex items-center gap-2">
+                            <span class="badge bg-slate-100 text-slate-800">@h.Domain.ToLabel()</span>
+                            <span class="badge bg-amber-100 text-amber-800">Confiance : @h.ConfidenceLevel.ToLabel()</span>
+                        </div>
+                        <p class="mt-2 text-sm font-semibold text-slate-900">@h.CauseDescription</p>
+                        @if (!string.IsNullOrEmpty(h.SafeActionsOrEscalation))
+                        {
+                            <p class="mt-1 text-xs text-slate-600">@h.SafeActionsOrEscalation</p>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        <h2 class="text-lg font-bold text-slate-900">SOP associées (@report.AssociatedSops.Count)</h2>
+        @if (report.AssociatedSops.Count == 0)
+        {
+            <div class="card p-6 text-center text-slate-500">Aucune SOP rattachée à cet incident.</div>
+        }
+        else
+        {
+            <div class="space-y-3">
+                @foreach (var sop in report.AssociatedSops)
+                {
+                    <div class="card p-4">
+                        <a href="/sops/@sop.SopId" class="font-semibold text-brand-700 hover:underline">@sop.SopTitle (v@sop.SopVersionNumber)</a>
+                        @if (!string.IsNullOrEmpty(sop.Result))
+                        {
+                            <p class="mt-1 text-sm text-slate-700"><strong>Résultat :</strong> @sop.Result</p>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid EnvironmentId { get; set; }
+    [Parameter] public Guid CaseId { get; set; }
+
+    private IncidentReportDto? report;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        report = await Mediator.Send(new GetIncidentReportQuery(CaseId));
+    }
+}

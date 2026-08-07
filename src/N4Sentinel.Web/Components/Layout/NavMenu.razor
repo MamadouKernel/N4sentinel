@@ -29,6 +29,7 @@
             <AuthorizeView>
                 <Authorized>
                     <NavLink class="navbar-link" href="assistant">Assistant N4</NavLink>
+                    <NavLink class="navbar-link" href="sops">SOP</NavLink>
                 </Authorized>
             </AuthorizeView>
             <AuthorizeView Roles="@Roles.Administrateur">
@@ -94,6 +95,7 @@
                 <AuthorizeView>
                     <Authorized>
                         <NavLink class="navbar-link-mobile" href="assistant" @onclick="CloseMobileMenu">Assistant N4</NavLink>
+                        <NavLink class="navbar-link-mobile" href="sops" @onclick="CloseMobileMenu">SOP</NavLink>
                     </Authorized>
                 </AuthorizeView>
                 <AuthorizeView Roles="@Roles.Administrateur">

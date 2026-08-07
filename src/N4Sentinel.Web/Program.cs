@@ -1,8 +1,11 @@
+using System.Text.Json;
+using MediatR;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using N4Sentinel.Application;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Sops.Queries;
 using N4Sentinel.Infrastructure;
 using N4Sentinel.Web.Components;
 using N4Sentinel.Web.Components.Account;
@@ -92,5 +95,28 @@ app.MapRazorComponents<App>()
 
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
+
+// FR-093/E10.2 : export structuré des rapports d'opération/incident (vue rendue, aucune entité "Rapport" persistée).
+var reportJsonOptions = new JsonSerializerOptions { WriteIndented = true };
+
+app.MapGet("/reports/operations/{operationRunId:guid}/export", async (Guid operationRunId, ISender mediator) =>
+{
+    var report = await mediator.Send(new GetOperationReportQuery(operationRunId));
+    return report is null
+        ? Results.NotFound()
+        : Results.File(
+            JsonSerializer.SerializeToUtf8Bytes(report, reportJsonOptions), "application/json",
+            $"rapport-operation-{operationRunId}.json");
+}).RequireAuthorization();
+
+app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/export", async (Guid diagnosticCaseId, ISender mediator) =>
+{
+    var report = await mediator.Send(new GetIncidentReportQuery(diagnosticCaseId));
+    return report is null
+        ? Results.NotFound()
+        : Results.File(
+            JsonSerializer.SerializeToUtf8Bytes(report, reportJsonOptions), "application/json",
+            $"rapport-incident-{diagnosticCaseId}.json");
+}).RequireAuthorization();
 
 app.Run();

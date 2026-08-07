@@ -45,6 +45,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<AssistantFeedback> AssistantFeedbackEntries => Set<AssistantFeedback>();
 
+    public DbSet<Sop> Sops => Set<Sop>();
+
+    public DbSet<SopExecution> SopExecutions => Set<SopExecution>();
+
+    public DbSet<SopAssociation> SopAssociations => Set<SopAssociation>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

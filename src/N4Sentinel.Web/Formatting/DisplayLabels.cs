@@ -266,6 +266,24 @@ public static class DisplayLabels
         _ => status.ToString(),
     };
 
+    public static string ToLabel(this SopStatus status) => status switch
+    {
+        SopStatus.Draft => "Brouillon",
+        SopStatus.PendingValidation => "À valider",
+        SopStatus.Validated => "Validé",
+        SopStatus.Active => "Actif",
+        SopStatus.Disabled => "Désactivé",
+        _ => status.ToString(),
+    };
+
+    public static string ToLabel(this SopExecutionStatus status) => status switch
+    {
+        SopExecutionStatus.InProgress => "En cours",
+        SopExecutionStatus.Completed => "Terminée",
+        SopExecutionStatus.Aborted => "Abandonnée",
+        _ => status.ToString(),
+    };
+
     /// <summary>Vocabulaire exact du Cluster Services view N4 réel (docs/navis-reference.md §4).</summary>
     public static string ToLabel(this ComponentHealthStatus status) => status switch
     {

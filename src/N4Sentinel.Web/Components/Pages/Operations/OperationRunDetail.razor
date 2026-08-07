@@ -14,7 +14,10 @@ else
         Opération
         <span class="badge @run.Status.ToBadgeClass()">@run.Status.ToLabel()</span>
     </h1>
-    <p><a href="environments/@EnvironmentId/operations">← Retour à l'historique</a></p>
+    <p>
+        <a href="environments/@EnvironmentId/operations">← Retour à l'historique</a>
+        · <a href="environments/@EnvironmentId/operations/@OperationRunId/report">Rapport d'opération →</a>
+    </p>
 
     @if (!string.IsNullOrEmpty(errorMessage))
     {

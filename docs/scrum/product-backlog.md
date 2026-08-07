@@ -82,14 +82,14 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 |---|---|---|---|---|
 | E9.1 | En tant qu'utilisateur, je veux interroger en langage naturel le guide Navis N4 et les procédures internes et obtenir une réponse sourcée. | 13 | Must | **Fait** (Sprint 14) |
 | E9.2 | En tant qu'utilisateur, je veux que l'assistant ne puisse jamais déclencher directement une action technique (garde-fou explicite testé). | 3 | Must | **Fait** (Sprint 14) |
-| E9.3 | En tant qu'Opérateur habilité, je veux créer, valider, versionner et rattacher une SOP à un incident ou une opération. | 8 | Should | À faire |
+| E9.3 | En tant qu'Opérateur habilité, je veux créer, valider, versionner et rattacher une SOP à un incident ou une opération. | 8 | Should | **Fait** (Sprint 15) |
 
 ## Epic 10 — Historique, rapports et audit
 
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
 | E10.1 | En tant qu'Administrateur, je veux consulter un journal d'audit complet (qui, quoi, quand, résultat) de toutes les opérations, validations et dérogations. | 8 | Must | **Fait, partiellement** (Sprint 9) — audite les validations d'opération et la gestion de rôles ; pas encore le référentiel (Environnements/Composants/Workflows), voir décision Sprint 9 |
-| E10.2 | En tant qu'utilisateur, je veux exporter un rapport d'opération ou d'incident. | 5 | Should | À faire |
+| E10.2 | En tant qu'utilisateur, je veux exporter un rapport d'opération ou d'incident. | 5 | Should | **Fait** (Sprint 15) |
 
 ## Epic 11 — Sécurité, utilisateurs et rôles (FR transverses)
 

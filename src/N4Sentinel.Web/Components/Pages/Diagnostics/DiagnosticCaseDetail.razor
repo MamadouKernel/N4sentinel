@@ -26,6 +26,8 @@ else
                 <a href="@($"environments/{EnvironmentId}/diagnostic-cases")" class="hover:text-slate-700">Diagnostics</a>
                 <span>/</span>
                 <span class="font-medium text-slate-900">@diagnosticCase.CorrelationReference</span>
+                <span>/</span>
+                <a href="@($"environments/{EnvironmentId}/diagnostic-cases/{CaseId}/report")" class="hover:text-slate-700">Rapport d'incident</a>
             </div>
             <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>

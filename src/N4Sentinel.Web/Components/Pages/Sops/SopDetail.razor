@@ -1,0 +1,400 @@
+@page "/sops/{SopId:guid}"
+@attribute [Authorize]
+@inject ISender Mediator
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>SOP - N4 Sentinel</PageTitle>
+
+@if (sop is null)
+{
+    <div class="card p-8 text-center text-slate-500">Chargement...</div>
+}
+else
+{
+    <div class="space-y-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">
+                @sop.SopKey
+                <span class="badge bg-slate-100 text-slate-800">v@(sop.VersionNumber)</span>
+                <span class="badge @StatusBadgeClass(sop.Status)">@sop.Status.ToLabel()</span>
+                @if (sop.IsGeneratedFromExecution)
+                {
+                    <span class="badge bg-indigo-100 text-indigo-800">Générée depuis une exécution</span>
+                }
+            </h1>
+            <a href="/sops" class="text-sm text-slate-500 hover:text-slate-700">← Retour aux SOP</a>
+        </div>
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="rounded-md bg-rose-50 p-4 text-sm font-medium text-rose-800 border border-rose-200">@errorMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(actionMessage))
+        {
+            <div class="rounded-md bg-emerald-50 p-4 text-sm font-medium text-emerald-800 border border-emerald-200">@actionMessage</div>
+        }
+
+        <AuthorizeView Roles="@($"{Roles.Operateur},{Roles.Administrateur}")" Context="editContext">
+            @if (sop.Status == SopStatus.Draft)
+            {
+                <EditForm Model="editModel" OnValidSubmit="SaveAsync" FormName="EditSop" class="card space-y-4 p-6">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger" />
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Titre</label>
+                        <InputText @bind-Value="editModel.Title" class="form-input mt-1 w-full" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Objectif</label>
+                        <textarea @bind="editModel.Objective" rows="2" class="form-input mt-1 w-full"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Prérequis</label>
+                        <textarea @bind="editModel.Prerequisites" rows="2" class="form-input mt-1 w-full"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Étapes (une par ligne)</label>
+                        <textarea @bind="editModel.StepsText" rows="6" class="form-input mt-1 w-full font-mono text-xs"></textarea>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Contrôles</label>
+                            <textarea @bind="editModel.Controls" rows="2" class="form-input mt-1 w-full"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Risques</label>
+                            <textarea @bind="editModel.Risks" rows="2" class="form-input mt-1 w-full"></textarea>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Plan de retour arrière</label>
+                            <textarea @bind="editModel.RollbackPlan" rows="2" class="form-input mt-1 w-full"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Version N4</label>
+                            <InputText @bind-Value="editModel.N4Version" class="form-input mt-1 w-full" />
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 pt-2 border-t border-slate-200">
+                        <button type="submit" class="btn btn-primary btn-sm">Enregistrer</button>
+                        <button type="button" class="btn btn-success btn-sm" @onclick="SubmitForValidationAsync">Soumettre pour validation</button>
+                    </div>
+                </EditForm>
+            }
+            else
+            {
+                <div class="card p-6 space-y-3">
+                    <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div><dt class="text-xs font-semibold uppercase text-slate-500">Titre</dt><dd class="text-sm text-slate-900">@sop.Title</dd></div>
+                        <div><dt class="text-xs font-semibold uppercase text-slate-500">Version N4</dt><dd class="text-sm text-slate-900">@(sop.N4Version ?? "—")</dd></div>
+                        <div class="sm:col-span-2"><dt class="text-xs font-semibold uppercase text-slate-500">Objectif</dt><dd class="text-sm text-slate-900">@sop.Objective</dd></div>
+                        @if (!string.IsNullOrEmpty(sop.Prerequisites))
+                        {
+                            <div class="sm:col-span-2"><dt class="text-xs font-semibold uppercase text-slate-500">Prérequis</dt><dd class="text-sm text-slate-900">@sop.Prerequisites</dd></div>
+                        }
+                    </dl>
+                    <div>
+                        <dt class="text-xs font-semibold uppercase text-slate-500">Étapes</dt>
+                        <ol class="mt-1 list-decimal list-inside text-sm text-slate-900 space-y-1">
+                            @foreach (var step in sop.Steps)
+                            {
+                                <li>@step</li>
+                            }
+                        </ol>
+                    </div>
+                    @if (!string.IsNullOrEmpty(sop.Controls))
+                    {
+                        <div><dt class="text-xs font-semibold uppercase text-slate-500">Contrôles</dt><dd class="text-sm text-slate-900">@sop.Controls</dd></div>
+                    }
+                    @if (!string.IsNullOrEmpty(sop.Risks))
+                    {
+                        <div><dt class="text-xs font-semibold uppercase text-slate-500">Risques</dt><dd class="text-sm text-slate-900">@sop.Risks</dd></div>
+                    }
+                    @if (!string.IsNullOrEmpty(sop.RollbackPlan))
+                    {
+                        <div><dt class="text-xs font-semibold uppercase text-slate-500">Retour arrière</dt><dd class="text-sm text-slate-900">@sop.RollbackPlan</dd></div>
+                    }
+
+                    <div class="flex flex-wrap gap-2 pt-2 border-t border-slate-200">
+                        @if (sop.Status == SopStatus.PendingValidation)
+                        {
+                            <button class="btn btn-success btn-sm" @onclick="ValidateAsync">Valider</button>
+                        }
+                        @if (sop.Status == SopStatus.Validated)
+                        {
+                            <button class="btn btn-success btn-sm" @onclick="ActivateAsync">Publier (Actif)</button>
+                        }
+                        @if (sop.Status is SopStatus.Active or SopStatus.Validated)
+                        {
+                            <button class="btn btn-outline-danger btn-sm" @onclick="DisableAsync">Désactiver</button>
+                        }
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="CreateNewVersionAsync">Nouvelle version</button>
+                        @if (sop.Status == SopStatus.Active)
+                        {
+                            <button class="btn btn-primary btn-sm" @onclick="StartExecutionAsync">Démarrer une exécution guidée</button>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (sop.Status is SopStatus.Active or SopStatus.Validated)
+            {
+                <div class="card p-6 space-y-4">
+                    <h2 class="text-lg font-bold text-slate-900">Rattacher à un incident ou une opération (FR-089C)</h2>
+                    <EditForm Model="attachModel" OnValidSubmit="AttachAsync" FormName="AttachSop" class="space-y-3">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700">Identifiant du diagnostic/incident (optionnel)</label>
+                                <InputText @bind-Value="attachModel.DiagnosticCaseId" class="form-input mt-1 w-full" placeholder="GUID du DiagnosticCase" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700">Identifiant de l'opération (optionnel)</label>
+                                <InputText @bind-Value="attachModel.OperationRunId" class="form-input mt-1 w-full" placeholder="GUID de l'OperationRun" />
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700">Composant</label>
+                                <InputText @bind-Value="attachModel.ComponentName" class="form-input mt-1 w-full" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700">Message d'erreur</label>
+                                <InputText @bind-Value="attachModel.ErrorMessage" class="form-input mt-1 w-full" />
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Résultat</label>
+                            <InputText @bind-Value="attachModel.Result" class="form-input mt-1 w-full" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Preuve</label>
+                            <InputText @bind-Value="attachModel.Evidence" class="form-input mt-1 w-full" />
+                        </div>
+                        <div class="flex justify-end pt-2">
+                            <button type="submit" class="btn btn-primary btn-sm">Rattacher</button>
+                        </div>
+                    </EditForm>
+                </div>
+            }
+        </AuthorizeView>
+
+        @if (sop.Status is not (SopStatus.Draft or SopStatus.Active or SopStatus.Validated))
+        {
+            <div class="card p-6 space-y-3">
+                <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div class="sm:col-span-2"><dt class="text-xs font-semibold uppercase text-slate-500">Objectif</dt><dd class="text-sm text-slate-900">@sop.Objective</dd></div>
+                </dl>
+                <ol class="list-decimal list-inside text-sm text-slate-900 space-y-1">
+                    @foreach (var step in sop.Steps)
+                    {
+                        <li>@step</li>
+                    }
+                </ol>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="CreateNewVersionAsync">Nouvelle version</button>
+            </div>
+        }
+
+        <h2 class="text-lg font-bold text-slate-900">Historique des versions</h2>
+        @if (versions is null)
+        {
+            <div class="card p-6 text-center text-slate-500">Chargement...</div>
+        }
+        else
+        {
+            <div class="card overflow-hidden">
+                <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                    <thead class="bg-slate-50 font-semibold text-slate-700">
+                        <tr>
+                            <th class="px-4 py-3">Version</th>
+                            <th class="px-4 py-3">Statut</th>
+                            <th class="px-4 py-3">Créée le</th>
+                            <th class="px-4 py-3 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200">
+                        @foreach (var v in versions)
+                        {
+                            <tr class="@(v.Id == sop.Id ? "bg-brand-50/60" : "")">
+                                <td class="px-4 py-3">v@(v.VersionNumber)</td>
+                                <td class="px-4 py-3">@v.Status.ToLabel()</td>
+                                <td class="px-4 py-3">@v.CreatedAtUtc.ToLocalTime().ToString("g")</td>
+                                <td class="px-4 py-3 text-right"><a href="/sops/@v.Id" class="btn btn-outline-secondary btn-sm">Détail</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid SopId { get; set; }
+
+    private SopDto? sop;
+    private IReadOnlyList<SopDto>? versions;
+    private EditModel editModel = new();
+    private AttachModel attachModel = new();
+    private string? errorMessage;
+    private string? actionMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        sop = await Mediator.Send(new GetSopByIdQuery(SopId));
+        if (sop is null)
+        {
+            return;
+        }
+
+        versions = await Mediator.Send(new ListSopVersionsQuery(sop.SopKey));
+        editModel = new EditModel
+        {
+            Title = sop.Title,
+            Objective = sop.Objective,
+            Prerequisites = sop.Prerequisites,
+            StepsText = sop.StepsText,
+            Controls = sop.Controls,
+            Risks = sop.Risks,
+            RollbackPlan = sop.RollbackPlan,
+            N4Version = sop.N4Version,
+        };
+        attachModel = new AttachModel();
+    }
+
+    private async Task<string> GetCurrentUserNameAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        return authState.User.Identity?.Name ?? "Opérateur";
+    }
+
+    private async Task SaveAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new UpdateSopCommand(
+                SopId, editModel.Title, editModel.Objective, editModel.Prerequisites, editModel.StepsText,
+                editModel.Controls, editModel.Risks, editModel.RollbackPlan, editModel.N4Version));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private Task SubmitForValidationAsync() => RunAsync(() => Mediator.Send(new SubmitSopForValidationCommand(SopId)));
+
+    private Task ValidateAsync() => RunAsync(() => Mediator.Send(new ValidateSopCommand(SopId)));
+
+    private Task ActivateAsync() => RunAsync(() => Mediator.Send(new ActivateSopCommand(SopId)));
+
+    private Task DisableAsync() => RunAsync(() => Mediator.Send(new DisableSopCommand(SopId)));
+
+    private async Task CreateNewVersionAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            var newId = await Mediator.Send(new CreateNewSopVersionCommand(SopId));
+            NavigationManager.NavigateTo($"/sops/{newId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task StartExecutionAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            var userName = await GetCurrentUserNameAsync();
+            var executionId = await Mediator.Send(new StartSopExecutionCommand(SopId, userName));
+            NavigationManager.NavigateTo($"/sops/executions/{executionId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task AttachAsync()
+    {
+        errorMessage = null;
+        actionMessage = null;
+        try
+        {
+            Guid? diagnosticCaseId = Guid.TryParse(attachModel.DiagnosticCaseId, out var dcId) ? dcId : null;
+            Guid? operationRunId = Guid.TryParse(attachModel.OperationRunId, out var opId) ? opId : null;
+            var userName = await GetCurrentUserNameAsync();
+
+            await Mediator.Send(new AttachSopCommand(
+                SopId, diagnosticCaseId, operationRunId, attachModel.ComponentName, attachModel.ErrorMessage,
+                attachModel.Result, attachModel.Evidence, userName));
+
+            actionMessage = "SOP rattachée avec succès.";
+            attachModel = new AttachModel();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        errorMessage = null;
+        try
+        {
+            await action();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private static string StatusBadgeClass(SopStatus status) => status switch
+    {
+        SopStatus.Draft => "bg-slate-100 text-slate-800",
+        SopStatus.PendingValidation => "bg-amber-100 text-amber-800",
+        SopStatus.Validated => "bg-blue-100 text-blue-800",
+        SopStatus.Active => "bg-emerald-100 text-emerald-800",
+        SopStatus.Disabled => "bg-slate-800 text-white",
+        _ => "bg-slate-100 text-slate-800",
+    };
+
+    private sealed class EditModel
+    {
+        [Required] public string Title { get; set; } = string.Empty;
+        public string Objective { get; set; } = string.Empty;
+        public string? Prerequisites { get; set; }
+        public string StepsText { get; set; } = string.Empty;
+        public string? Controls { get; set; }
+        public string? Risks { get; set; }
+        public string? RollbackPlan { get; set; }
+        public string? N4Version { get; set; }
+    }
+
+    private sealed class AttachModel
+    {
+        public string? DiagnosticCaseId { get; set; }
+        public string? OperationRunId { get; set; }
+        public string? ComponentName { get; set; }
+        public string? ErrorMessage { get; set; }
+        public string? Result { get; set; }
+        public string? Evidence { get; set; }
+    }
+}

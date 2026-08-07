@@ -36,6 +36,9 @@ public static class DependencyInjection
         services.AddScoped<IImportedLogFileRepository, EfImportedLogFileRepository>();
         services.AddScoped<IDocumentRepository, EfDocumentRepository>();
         services.AddScoped<IAssistantFeedbackRepository, EfAssistantFeedbackRepository>();
+        services.AddScoped<ISopRepository, EfSopRepository>();
+        services.AddScoped<ISopExecutionRepository, EfSopExecutionRepository>();
+        services.AddScoped<ISopAssociationRepository, EfSopAssociationRepository>();
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 
         // Seule implémentation disponible tant que les accès réseau réels aux serveurs N4 ne sont pas autorisés.
