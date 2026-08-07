@@ -34,7 +34,7 @@ else
                 <tr>
                     <td>@run.RequestedAtUtc.ToLocalTime().ToString("g")</td>
                     <td>@run.RequestedByUserId</td>
-                    <td><span class="badge @BadgeClass(run.Status)">@Label(run.Status)</span></td>
+                    <td><span class="badge @run.Status.ToBadgeClass()">@run.Status.ToLabel()</span></td>
                     <td><a class="btn btn-sm btn-outline-secondary" href="environments/@EnvironmentId/operations/@run.Id">Détail</a></td>
                 </tr>
             }
@@ -53,26 +53,4 @@ else
     {
         runs = await Mediator.Send(new ListOperationRunsByEnvironmentQuery(EnvironmentId));
     }
-
-    private static string Label(OperationRunStatus status) => status switch
-    {
-        OperationRunStatus.PendingApproval => "En attente d'approbation",
-        OperationRunStatus.Approved => "Approuvée",
-        OperationRunStatus.Rejected => "Rejetée",
-        OperationRunStatus.Running => "En cours",
-        OperationRunStatus.Completed => "Terminée",
-        OperationRunStatus.Failed => "Échouée",
-        _ => "",
-    };
-
-    private static string BadgeClass(OperationRunStatus status) => status switch
-    {
-        OperationRunStatus.PendingApproval => "bg-warning text-dark",
-        OperationRunStatus.Approved => "bg-info text-dark",
-        OperationRunStatus.Rejected => "bg-secondary",
-        OperationRunStatus.Running => "bg-primary",
-        OperationRunStatus.Completed => "bg-success",
-        OperationRunStatus.Failed => "bg-danger",
-        _ => "bg-secondary",
-    };
 }

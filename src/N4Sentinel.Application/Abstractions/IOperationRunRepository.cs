@@ -8,5 +8,7 @@ public interface IOperationRunRepository
 
     Task<IReadOnlyList<OperationRun>> ListByEnvironmentAsync(Guid environmentId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<OperationRun>> ListAllAsync(CancellationToken cancellationToken);
+
     void Add(OperationRun operationRun);
 }

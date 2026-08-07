@@ -12,7 +12,7 @@ else
 {
     <h1>
         Opération
-        <span class="badge @StatusBadgeClass">@StatusLabel</span>
+        <span class="badge @run.Status.ToBadgeClass()">@run.Status.ToLabel()</span>
     </h1>
     <p><a href="environments/@EnvironmentId/operations">← Retour à l'historique</a></p>
 
@@ -153,28 +153,6 @@ else
     private bool isExecuting;
     private bool showRejectForm;
     private string rejectionReason = string.Empty;
-
-    private string StatusLabel => run?.Status switch
-    {
-        OperationRunStatus.PendingApproval => "En attente d'approbation",
-        OperationRunStatus.Approved => "Approuvée",
-        OperationRunStatus.Rejected => "Rejetée",
-        OperationRunStatus.Running => "En cours",
-        OperationRunStatus.Completed => "Terminée",
-        OperationRunStatus.Failed => "Échouée",
-        _ => "",
-    };
-
-    private string StatusBadgeClass => run?.Status switch
-    {
-        OperationRunStatus.PendingApproval => "bg-warning text-dark",
-        OperationRunStatus.Approved => "bg-info text-dark",
-        OperationRunStatus.Rejected => "bg-secondary",
-        OperationRunStatus.Running => "bg-primary",
-        OperationRunStatus.Completed => "bg-success",
-        OperationRunStatus.Failed => "bg-danger",
-        _ => "bg-secondary",
-    };
 
     protected override async Task OnParametersSetAsync()
     {

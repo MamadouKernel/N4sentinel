@@ -1,0 +1,176 @@
+@page "/dashboard"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@inject IMediator Mediator
+
+<PageTitle>Tableau de bord - N4 Sentinel</PageTitle>
+
+<h1>Tableau de bord</h1>
+<p class="text-muted">Rafraîchi automatiquement toutes les 10 secondes.</p>
+
+@if (summary is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <div class="rounded-md border border-slate-200 bg-white p-4">
+                <p class="text-muted mb-1">Environnements</p>
+                <p class="text-2xl font-semibold text-brand-900">@summary.Environments.Count</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="rounded-md border border-slate-200 bg-white p-4">
+                <p class="text-muted mb-1">Opérations en cours</p>
+                <p class="text-2xl font-semibold text-brand-900">@summary.ActiveOperations.Count</p>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="rounded-md border border-slate-200 bg-white p-4">
+                <p class="text-muted mb-1">En attente d'approbation</p>
+                <p class="text-2xl font-semibold text-brand-900">@summary.PendingApprovalsCount</p>
+            </div>
+        </div>
+    </div>
+
+    <h2>Environnements</h2>
+    <div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Type</th>
+                <th>Statut</th>
+                <th>Composants</th>
+                <th>Composants critiques</th>
+                <th>Opérations en cours</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var env in summary.Environments)
+            {
+                <tr class="@(env.Kind == EnvironmentKind.Production ? "table-danger" : "")">
+                    <td><a href="environments/@env.Id">@env.Name</a></td>
+                    <td>@env.Kind.ToLabel()</td>
+                    <td>@env.Status.ToLabel()</td>
+                    <td>@env.ComponentCount</td>
+                    <td>@env.CriticalComponentCount</td>
+                    <td>@env.ActiveOperationsCount</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    </div>
+
+    <h2>Opérations en cours</h2>
+    <p><a href="operations">Historique complet des opérations →</a></p>
+    @if (summary.ActiveOperations.Count == 0)
+    {
+        <p>Aucune opération en cours actuellement.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Environnement</th>
+                    <th>Demandeur</th>
+                    <th>Demandée le</th>
+                    <th>Statut</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var run in summary.ActiveOperations)
+                {
+                    <tr>
+                        <td>@run.EnvironmentName</td>
+                        <td>@run.RequestedByUserId</td>
+                        <td>@run.RequestedAtUtc.ToLocalTime().ToString("g")</td>
+                        <td><span class="badge @run.Status.ToBadgeClass()">@run.Status.ToLabel()</span></td>
+                        <td><a class="btn btn-sm btn-outline-secondary" href="environments/@run.EnvironmentId/operations/@run.Id">Détail</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
+
+    <h2>Alertes — opérations échouées</h2>
+    @if (summary.FailedOperationsAlert.Count == 0)
+    {
+        <p>Aucune opération en échec.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Environnement</th>
+                    <th>Demandeur</th>
+                    <th>Échouée le</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var run in summary.FailedOperationsAlert)
+                {
+                    <tr class="table-danger">
+                        <td>@run.EnvironmentName</td>
+                        <td>@run.RequestedByUserId</td>
+                        <td>@(run.CompletedAtUtc?.ToLocalTime().ToString("g"))</td>
+                        <td><a class="btn btn-sm btn-outline-danger" href="environments/@run.EnvironmentId/operations/@run.Id">Détail</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        </div>
+    }
+}
+
+@code {
+    private DashboardDto? summary;
+    private PeriodicTimer? timer;
+    private CancellationTokenSource? refreshLoopCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+
+        refreshLoopCts = new CancellationTokenSource();
+        timer = new PeriodicTimer(TimeSpan.FromSeconds(10));
+        _ = RunRefreshLoopAsync(refreshLoopCts.Token);
+    }
+
+    private async Task RunRefreshLoopAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (timer is not null && await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await RefreshAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        summary = await Mediator.Send(new GetDashboardSummaryQuery());
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        refreshLoopCts?.Cancel();
+        timer?.Dispose();
+        refreshLoopCts?.Dispose();
+        await ValueTask.CompletedTask;
+    }
+}

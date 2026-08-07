@@ -13,6 +13,11 @@
 
         <nav class="hidden items-center gap-1 md:flex">
             <NavLink class="navbar-link" href="" Match="NavLinkMatch.All">Accueil</NavLink>
+            <AuthorizeView>
+                <Authorized>
+                    <NavLink class="navbar-link" href="dashboard">Tableau de bord</NavLink>
+                </Authorized>
+            </AuthorizeView>
             @if (FeatureOptions.Value.Environments)
             {
                 <AuthorizeView>
@@ -21,6 +26,11 @@
                     </Authorized>
                 </AuthorizeView>
             }
+            <AuthorizeView Roles="@Roles.Administrateur">
+                <Authorized>
+                    <NavLink class="navbar-link" href="admin/users">Comptes</NavLink>
+                </Authorized>
+            </AuthorizeView>
         </nav>
 
         <div class="hidden items-center gap-3 md:flex">
@@ -60,6 +70,11 @@
         <div class="border-t border-slate-200 px-4 pb-4 md:hidden">
             <nav class="flex flex-col gap-1 pt-2">
                 <NavLink class="navbar-link-mobile" href="" Match="NavLinkMatch.All" @onclick="CloseMobileMenu">Accueil</NavLink>
+                <AuthorizeView>
+                    <Authorized>
+                        <NavLink class="navbar-link-mobile" href="dashboard" @onclick="CloseMobileMenu">Tableau de bord</NavLink>
+                    </Authorized>
+                </AuthorizeView>
                 @if (FeatureOptions.Value.Environments)
                 {
                     <AuthorizeView>
@@ -68,6 +83,11 @@
                         </Authorized>
                     </AuthorizeView>
                 }
+                <AuthorizeView Roles="@Roles.Administrateur">
+                    <Authorized>
+                        <NavLink class="navbar-link-mobile" href="admin/users" @onclick="CloseMobileMenu">Comptes</NavLink>
+                    </Authorized>
+                </AuthorizeView>
                 <AuthorizeView>
                     <Authorized>
                         <NavLink class="navbar-link-mobile" href="Account/Manage" @onclick="CloseMobileMenu">@context.User.Identity?.Name</NavLink>

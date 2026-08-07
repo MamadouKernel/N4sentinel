@@ -19,5 +19,11 @@ public class EfOperationRunRepository(AppDbContext dbContext) : IOperationRunRep
             .Where(r => r.EnvironmentId == environmentId)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<OperationRun>> ListAllAsync(CancellationToken cancellationToken) =>
+        await dbContext.OperationRuns
+            .Include(r => r.StepExecutions)
+            .AsSplitQuery()
+            .ToListAsync(cancellationToken);
+
     public void Add(OperationRun operationRun) => dbContext.OperationRuns.Add(operationRun);
 }

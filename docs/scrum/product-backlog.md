@@ -45,8 +45,8 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
-| E4.1 | En tant qu'utilisateur authentifié, je veux voir en temps réel l'état des environnements, composants critiques, alertes et opérations en cours. | 8 | Must | À faire |
-| E4.2 | En tant qu'utilisateur, je veux consulter l'historique des opérations passées depuis le tableau de bord. | 5 | Should | À faire |
+| E4.1 | En tant qu'utilisateur authentifié, je veux voir en temps réel l'état des environnements, composants critiques, alertes et opérations en cours. | 8 | Must | **Fait** (Sprint 8) |
+| E4.2 | En tant qu'utilisateur, je veux consulter l'historique des opérations passées depuis le tableau de bord. | 5 | Should | **Fait** (Sprint 8) |
 
 ## Epic 5 — Supervision des dossiers partagés et ActiveMQ/KahaDB
 
@@ -95,7 +95,8 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
-| E11.1 | En tant qu'Administrateur, je veux gérer les comptes et l'attribution des 4 rôles (Lecteur, Opérateur, Approbateur, Administrateur), différenciés par environnement. | 8 | Must | En cours (rôles créés Sprint 0, gestion UI à faire) |
+| E11.1 | En tant qu'Administrateur, je veux gérer les comptes et l'attribution des 4 rôles (Lecteur, Opérateur, Approbateur, Administrateur), différenciés par environnement. | 8 | Must | **Fait, partiellement** (Sprint 8) — rôles globaux, pas encore différenciés par environnement ; voir décision Sprint 8 |
+| E11.1b | En tant qu'Administrateur, je veux que les rôles attribués à un utilisateur puissent différer d'un environnement à l'autre (ex. Opérateur sur UAT, Lecteur sur Production). | 8 | Could | À faire — nécessite une refonte du modèle d'autorisation (actuellement global, cf. décision Sprint 8) |
 | E11.2 | En tant que système, je dois empêcher un Administrateur d'approuver seul son propre contournement (séparation des responsabilités). | 5 | Must | À faire |
 | E11.3 | En tant qu'Administrateur, je veux que toute attribution/modification/révocation de rôle soit auditée. | 3 | Must | À faire |
 

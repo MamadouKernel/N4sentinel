@@ -18,7 +18,7 @@ toutes celles à venir — autant l'exécuter avant de construire de nouvelles p
 | 5 | Pilotage — arrêt complet | E3.2 Scénario d'arrêt complet (13) · E3.5 Arrêt sur échec / reprise (8) | 21 | **Fait** |
 | 6 | Modernisation UI — Tailwind, navbar, configurabilité (demande DSI directe) | Migration Bootstrap→Tailwind (8) · Layout navbar responsive (5) · Configurabilité branding/modules (5) · Vérification desktop/mobile (3) | 21 | **Fait** |
 | 7 | Pilotage — démarrage complet | E3.3 Scénario de démarrage complet (13) · E1.6 Cartographie systèmes dépendants (5) | 18 | **Fait** |
-| 8 | Tableau de bord & comptes | E4.1 Dashboard temps réel (8) · E4.2 Historique des opérations (5) · E11.1 Gestion des comptes (UI) (8) | 21 | À faire |
+| 8 | Tableau de bord & comptes | E4.1 Dashboard temps réel (8) · E4.2 Historique des opérations (5) · E11.1 Gestion des comptes (UI) (8) | 21 | **Fait** |
 | 9 | Sécurité & audit transverse | E11.2 Séparation des responsabilités (5) · E11.3 Audit des rôles (3) · E10.1 Journal d'audit complet (8) | 16 | À faire |
 | 10 | Supervision dossiers partagés / ActiveMQ | E5.1 Anomalies dossiers partagés (8) · E5.3 Synchro N4/Bridge/XPS, ActiveMQ (8) | 16 | À faire |
 | 11 | Reconstitution & EDI | E5.2 Reconstitution sécurisée (8) · E6.1 Suivi intégrations EDI (8) | 16 | À faire |
@@ -27,7 +27,7 @@ toutes celles à venir — autant l'exécuter avant de construire de nouvelles p
 | 14 | Assistant documentaire N4 | E9.1 Assistant N4 (RAG, réponses sourcées) (13) · E9.2 Garde-fou "jamais d'action déclenchée" (3) | 16 | À faire |
 | 15 | Clôture V1 | E9.3 SOP versionnées (8) · E10.2 Export de rapports (5) | 13 | À faire |
 
-**Total V1 : 278 points sur 16 sprints** (8 faits, 8 à faire), soit environ **7-8 mois** au
+**Total V1 : 278 points sur 16 sprints** (9 faits, 7 à faire), soit environ **7-8 mois** au
 rythme de 2 semaines/sprint si la vélocité réelle confirme l'hypothèse de 15-25 pts/sprint. Le Sprint 6
 (modernisation UI) est une insertion hors périmètre initial du cahier des charges, demandée directement par
 la DSI ; il décale d'un cran tous les sprints fonctionnels suivants (l'ancien Sprint 6 "démarrage complet"
@@ -39,9 +39,9 @@ devient le Sprint 7, etc.) sans changer leur contenu.
   chaque Sprint Review, le contenu du sprint suivant sera reconfirmé avec le Product Owner (DSI) en fonction
   de la vélocité observée et des priorités qui évoluent.
 - Les Sprints 2-5 et 7 (moteur de workflows → pilotage complet) sont le chemin critique : sans eux, aucune
-  fonctionnalité "métier" visible pour un opérateur n'existe encore, seulement le référentiel. À signaler à
-  la DSI si une démo intermédiaire est attendue plus tôt — on peut réordonner (ex. avancer le Sprint 8
-  Dashboard) si une visibilité rapide est préférée à la profondeur fonctionnelle.
+  fonctionnalité "métier" visible pour un opérateur n'existe encore, seulement le référentiel.
+- **E11.1b** (rôles différenciés par environnement) a été identifié comme écart lors du Sprint 8 — ajouté au
+  backlog (Epic 11, priorité Could) mais pas encore planifié dans un sprint ; à confirmer avec la DSI.
 - Les Sprints 10-15 (supervision dossiers/EDI, diagnostic, assistant documentaire) sont largement
   parallélisables entre eux s'il y a plusieurs développeurs — ici planifiés en séquence car cette session
   travaille avec une seule "équipe" de développement.

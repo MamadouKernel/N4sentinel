@@ -87,6 +87,28 @@ public static class DisplayLabels
         _ => policy.ToString(),
     };
 
+    public static string ToLabel(this OperationRunStatus status) => status switch
+    {
+        OperationRunStatus.PendingApproval => "En attente d'approbation",
+        OperationRunStatus.Approved => "Approuvée",
+        OperationRunStatus.Rejected => "Rejetée",
+        OperationRunStatus.Running => "En cours",
+        OperationRunStatus.Completed => "Terminée",
+        OperationRunStatus.Failed => "Échouée",
+        _ => status.ToString(),
+    };
+
+    public static string ToBadgeClass(this OperationRunStatus status) => status switch
+    {
+        OperationRunStatus.PendingApproval => "bg-warning text-dark",
+        OperationRunStatus.Approved => "bg-info text-dark",
+        OperationRunStatus.Rejected => "bg-secondary",
+        OperationRunStatus.Running => "bg-primary",
+        OperationRunStatus.Completed => "bg-success",
+        OperationRunStatus.Failed => "bg-danger",
+        _ => "bg-secondary",
+    };
+
     /// <summary>Vocabulaire exact du Cluster Services view N4 réel (docs/navis-reference.md §4).</summary>
     public static string ToLabel(this ComponentHealthStatus status) => status switch
     {

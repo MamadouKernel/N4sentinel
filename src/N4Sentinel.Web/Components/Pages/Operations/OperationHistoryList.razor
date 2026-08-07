@@ -1,0 +1,57 @@
+@page "/operations"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>Historique des opérations - N4 Sentinel</PageTitle>
+
+<h1>Historique des opérations</h1>
+<p><a href="dashboard">← Retour au tableau de bord</a></p>
+<p class="text-muted">Toutes les opérations, tous environnements confondus (E4.2).</p>
+
+@if (runs is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else if (runs.Count == 0)
+{
+    <p>Aucune opération n'a encore été lancée.</p>
+}
+else
+{
+    <div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Environnement</th>
+                <th>Demandeur</th>
+                <th>Demandée le</th>
+                <th>Statut</th>
+                <th>Terminée le</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var run in runs)
+            {
+                <tr>
+                    <td>@run.EnvironmentName</td>
+                    <td>@run.RequestedByUserId</td>
+                    <td>@run.RequestedAtUtc.ToLocalTime().ToString("g")</td>
+                    <td><span class="badge @run.Status.ToBadgeClass()">@run.Status.ToLabel()</span></td>
+                    <td>@(run.CompletedAtUtc?.ToLocalTime().ToString("g"))</td>
+                    <td><a class="btn btn-sm btn-outline-secondary" href="environments/@run.EnvironmentId/operations/@run.Id">Détail</a></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<OperationRunSummaryDto>? runs;
+
+    protected override async Task OnInitializedAsync()
+    {
+        runs = await Mediator.Send(new ListAllOperationRunsQuery());
+    }
+}
