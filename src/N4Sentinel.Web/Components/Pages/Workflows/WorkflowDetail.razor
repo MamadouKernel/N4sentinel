@@ -16,6 +16,7 @@ else
         <span class="badge bg-secondary">@detail.Scope.ToLabel()</span>
     </p>
     <p><a href="environments/@EnvironmentId/workflows">← Retour aux workflows</a></p>
+    <p><a href="environments/@EnvironmentId/workflows/@WorkflowId/simulations">Historique des simulations →</a></p>
 
     @if (!string.IsNullOrEmpty(errorMessage))
     {

@@ -86,4 +86,18 @@ public static class DisplayLabels
         WorkflowStepFailurePolicy.RequireManualDecision => "Nécessite une décision manuelle",
         _ => policy.ToString(),
     };
+
+    /// <summary>Vocabulaire exact du Cluster Services view N4 réel (docs/navis-reference.md §4).</summary>
+    public static string ToLabel(this ComponentHealthStatus status) => status switch
+    {
+        ComponentHealthStatus.Loading => "LOADING",
+        ComponentHealthStatus.Waiting => "WAITING",
+        ComponentHealthStatus.Active => "ACTIVE",
+        ComponentHealthStatus.Recovering => "RECOVERING",
+        ComponentHealthStatus.Initializing => "INITIALIZING",
+        ComponentHealthStatus.Shutdown => "SHUTDOWN",
+        ComponentHealthStatus.Inactive => "INACTIVE",
+        ComponentHealthStatus.Disconnected => "DISCONNECTED",
+        _ => status.ToString(),
+    };
 }

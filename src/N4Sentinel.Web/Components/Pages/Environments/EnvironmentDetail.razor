@@ -22,6 +22,7 @@ else
     <p>@detail.Description</p>
     <p><strong>Code :</strong> @detail.Code</p>
     <p><a href="environments/@Id/workflows">Workflows de cet environnement →</a></p>
+    <p><a href="environments/@Id/operations/new">Nouvelle opération (sélection de scénario) →</a></p>
 
     @if (!string.IsNullOrEmpty(errorMessage))
     {
@@ -32,6 +33,9 @@ else
         <Authorized>
             <div class="mb-3 d-flex gap-2">
                 <a class="btn btn-outline-secondary btn-sm" href="environments/@Id/edit">Modifier</a>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="TestConnectivityAsync" disabled="@isTestingConnectivity">
+                    @(isTestingConnectivity ? "Test en cours..." : "Tester la connectivité")
+                </button>
                 @if (detail.Status == EnvironmentStatus.Draft)
                 {
                     <button class="btn btn-outline-primary btn-sm" @onclick="() => ChangeStatusAsync(EnvironmentStatusAction.SubmitForValidation)">Soumettre pour validation</button>
@@ -51,6 +55,40 @@ else
             </div>
         </Authorized>
     </AuthorizeView>
+
+    @if (connectivityResults is not null)
+    {
+        <h2>Résultat du test de connectivité</h2>
+        <p class="text-muted">Aucune action mutative n'a été exécutée — contrôle de santé en lecture seule uniquement (FR-007).</p>
+        @if (connectivityResults.Count == 0)
+        {
+            <p>Aucun composant à tester dans cet environnement.</p>
+        }
+        else
+        {
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Composant</th>
+                        <th>Rôle</th>
+                        <th>Gouvernance</th>
+                        <th>État observé</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var result in connectivityResults)
+                    {
+                        <tr>
+                            <td>@result.Name</td>
+                            <td>@result.Role</td>
+                            <td>@result.Governance.ToLabel()</td>
+                            <td>@result.Health.ToLabel()</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
 
     <h2>Composants</h2>
 
@@ -106,6 +144,8 @@ else
 
     private EnvironmentDetailDto? detail;
     private string? errorMessage;
+    private IReadOnlyList<ComponentConnectivityResultDto>? connectivityResults;
+    private bool isTestingConnectivity;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -115,6 +155,24 @@ else
     private async Task LoadAsync()
     {
         detail = await Mediator.Send(new GetEnvironmentByIdQuery(Id));
+    }
+
+    private async Task TestConnectivityAsync()
+    {
+        errorMessage = null;
+        isTestingConnectivity = true;
+        try
+        {
+            connectivityResults = await Mediator.Send(new TestEnvironmentConnectivityQuery(Id));
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isTestingConnectivity = false;
+        }
     }
 
     private async Task ChangeStatusAsync(EnvironmentStatusAction action)

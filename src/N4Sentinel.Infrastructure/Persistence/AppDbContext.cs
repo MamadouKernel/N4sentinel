@@ -17,6 +17,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<Workflow> Workflows => Set<Workflow>();
 
+    public DbSet<WorkflowSimulation> WorkflowSimulations => Set<WorkflowSimulation>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

@@ -1,0 +1,66 @@
+@page "/environments/{EnvironmentId:guid}/operations/new"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>Nouvelle opération - N4 Sentinel</PageTitle>
+
+<h1>Sélection du scénario</h1>
+<p><a href="environments/@EnvironmentId">← Retour à l'environnement</a></p>
+
+<p class="text-muted">
+    Seuls les workflows disposant d'une version <strong>Active</strong> sont proposés (FR-010) — un scénario
+    ni validé ni activé ne peut pas être sélectionné pour une opération.
+</p>
+
+@if (workflows is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else if (activeWorkflows.Count == 0)
+{
+    <p>Aucun scénario actif pour cet environnement. Validez et activez une version de workflow avant de pouvoir la sélectionner ici.</p>
+}
+else
+{
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Type</th>
+                <th>Périmètre</th>
+                <th>Version active</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var workflow in activeWorkflows)
+            {
+                <tr>
+                    <td>@workflow.Name</td>
+                    <td>@workflow.Type.ToLabel()</td>
+                    <td>@workflow.Scope.ToLabel()</td>
+                    <td>v@(workflow.ActiveVersionNumber)</td>
+                    <td>
+                        <a class="btn btn-sm btn-primary" href="environments/@EnvironmentId/workflows/@workflow.Id/simulations">
+                            Simuler ce scénario
+                        </a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter]
+    public Guid EnvironmentId { get; set; }
+
+    private IReadOnlyList<WorkflowDto>? workflows;
+    private List<WorkflowDto> activeWorkflows = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        workflows = await Mediator.Send(new ListWorkflowsByEnvironmentQuery(EnvironmentId));
+        activeWorkflows = workflows.Where(w => w.ActiveVersionNumber.HasValue).ToList();
+    }
+}

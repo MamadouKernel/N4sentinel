@@ -20,21 +20,21 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 | E1.2 | En tant qu'Administrateur, je veux enregistrer les composants d'un environnement avec leurs attributs minimaux (rôle, serveur, IP/DNS, OS, criticité, gouvernance, dépendances) afin de construire la cartographie. (FR-002) | 8 | Must | **Fait** (Sprint 1) |
 | E1.3 | En tant qu'Administrateur, je veux que le cycle de validation (Brouillon → À valider → Validé → Actif → Désactivé) soit appliqué à chaque environnement afin d'empêcher l'usage d'une configuration non validée en Production. (FR-006) | 5 | Must | **Fait** (Sprint 1) |
 | E1.4 | En tant qu'Administrateur, je veux définir des workflows versionnés (étapes, dépendances, critères de réussite, délais, politiques d'échec) sans toucher au code afin de faire évoluer les procédures sans déploiement. (FR-003, FR-004) | 13 | Must | **Fait** (Sprint 2) |
-| E1.5 | En tant qu'Administrateur, je veux tester la connectivité et les contrôles d'un environnement sans action mutative avant son activation. (FR-007) | 5 | Must | À faire (Sprint 2) |
+| E1.5 | En tant qu'Administrateur, je veux tester la connectivité et les contrôles d'un environnement sans action mutative avant son activation. (FR-007) | 5 | Must | **Fait** (Sprint 3) |
 | E1.6 | En tant qu'Administrateur, je veux cartographier les systèmes dépendants (CAMCO/GOS, DGPS, RMS/Reefer Runner, IPAKI, Scangate, EDI) et leur caractère pilotable ou non. | 5 | Should | À faire |
 
 ## Epic 2 — Préparation d'une opération (FR-010, FR-011)
 
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
-| E2.1 | En tant qu'Opérateur, je veux sélectionner un scénario compatible avec mes habilitations et l'environnement choisi. (FR-010) | 5 | Must | À faire |
+| E2.1 | En tant qu'Opérateur, je veux sélectionner un scénario compatible avec mes habilitations et l'environnement choisi. (FR-010) | 5 | Must | **Fait** (Sprint 3) |
 | E2.2 | En tant qu'Opérateur, je veux être obligé de saisir motif, fenêtre d'intervention, périmètre, impact et référence d'incident/changement avant toute opération mutative en Production. (FR-011) | 5 | Must | À faire |
 
 ## Epic 3 — Pilotage de l'exécution et mode simulation (FR-005 et suite)
 
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
-| E3.1 | En tant qu'Opérateur, je veux lancer une simulation d'un workflow (étapes, dépendances, risques, prérequis non satisfaits) sans exécuter aucune commande. (FR-005) | 8 | Must | À faire |
+| E3.1 | En tant qu'Opérateur, je veux lancer une simulation d'un workflow (étapes, dépendances, risques, prérequis non satisfaits) sans exécuter aucune commande. (FR-005) | 8 | Must | **Fait** (Sprint 3) |
 | E3.2 | En tant qu'Opérateur habilité, je veux exécuter un scénario d'arrêt complet de l'écosystème N4 dans l'ordre requis, avec confirmation à chaque étape sensible. | 13 | Must | À faire |
 | E3.3 | En tant qu'Opérateur habilité, je veux exécuter un scénario de démarrage complet respectant l'ordre Cluster Nodes → Center/Standby Node → Bridge → XPS → ECN4/ECN4Web. | 13 | Must | À faire |
 | E3.4 | En tant qu'Opérateur habilité, je veux exécuter une opération partielle ou unitaire sur un composant ou groupe de composants autorisé. | 8 | Must | À faire |

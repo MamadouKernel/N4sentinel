@@ -1,0 +1,146 @@
+@page "/environments/{EnvironmentId:guid}/workflows/{WorkflowId:guid}/simulations"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+<PageTitle>Simulations - N4 Sentinel</PageTitle>
+
+@if (workflow is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <h1>Simulations — @workflow.Name</h1>
+    <p><a href="environments/@EnvironmentId/workflows/@WorkflowId">← Retour au workflow</a></p>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (ActiveVersion is null)
+    {
+        <p class="text-muted">
+            Ce workflow n'a pas de version Active — seule une version Validée ou Active peut être simulée.
+        </p>
+    }
+    else
+    {
+        <button class="btn btn-primary mb-3" @onclick="RunSimulationAsync" disabled="@isRunning">
+            @(isRunning ? "Simulation en cours..." : $"Lancer une simulation (v{ActiveVersion.VersionNumber})")
+        </button>
+    }
+
+    @if (simulations is null)
+    {
+        <p><em>Chargement de l'historique...</em></p>
+    }
+    else if (simulations.Count == 0)
+    {
+        <p>Aucune simulation n'a encore été lancée pour ce workflow.</p>
+    }
+    else
+    {
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Version simulée</th>
+                    <th>Demandeur</th>
+                    <th>Résultat</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var simulation in simulations)
+                {
+                    <tr>
+                        <td>@simulation.RequestedAtUtc.ToLocalTime().ToString("g")</td>
+                        <td>v@(simulation.WorkflowVersionNumber)</td>
+                        <td>@simulation.RequestedByUserId</td>
+                        <td>
+                            @if (simulation.HasBlockingIssues)
+                            {
+                                <span class="badge bg-danger">Bloquant</span>
+                            }
+                            else if (simulation.RequiresHumanValidation)
+                            {
+                                <span class="badge bg-warning text-dark">Validation requise</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">Prêt</span>
+                            }
+                        </td>
+                        <td>
+                            <a class="btn btn-sm btn-outline-secondary" href="environments/@EnvironmentId/workflows/@WorkflowId/simulations/@simulation.Id">
+                                Détail
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid EnvironmentId { get; set; }
+
+    [Parameter]
+    public Guid WorkflowId { get; set; }
+
+    [CascadingParameter]
+    private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    private WorkflowDetailDto? workflow;
+    private IReadOnlyList<WorkflowSimulationDto>? simulations;
+    private string? errorMessage;
+    private bool isRunning;
+
+    private WorkflowVersionDto? ActiveVersion =>
+        workflow?.Versions.FirstOrDefault(v => v.Status == WorkflowVersionStatus.Active);
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        workflow = await Mediator.Send(new GetWorkflowByIdQuery(WorkflowId));
+        simulations = await Mediator.Send(new ListWorkflowSimulationsByWorkflowQuery(WorkflowId));
+    }
+
+    private async Task RunSimulationAsync()
+    {
+        if (ActiveVersion is not { } activeVersion)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        isRunning = true;
+        try
+        {
+            var userId = AuthStateTask is not null
+                ? (await AuthStateTask).User.Identity?.Name ?? "inconnu"
+                : "inconnu";
+
+            var simulationId = await Mediator.Send(new SimulateWorkflowCommand(WorkflowId, activeVersion.Id, userId));
+            NavigationManager.NavigateTo($"environments/{EnvironmentId}/workflows/{WorkflowId}/simulations/{simulationId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isRunning = false;
+        }
+    }
+
+    public void Dispose()
+    {
+    }
+}
