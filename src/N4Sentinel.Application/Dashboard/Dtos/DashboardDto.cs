@@ -12,7 +12,10 @@ public sealed record DashboardEnvironmentSummaryDto(
     int CriticalComponentCount,
     int ActiveOperationsCount);
 
-/// <summary>Anomalie de dossier partagé (E5.1) ou de synchronisation N4/Bridge/XPS/ActiveMQ (E5.3, FR-054).</summary>
+/// <summary>
+/// Anomalie de dossier partagé (E5.1), de synchronisation N4/Bridge/XPS/ActiveMQ (E5.3) ou de fichier EDI
+/// (E6.1, FR-059I) — FR-054 définit une alerte unique couvrant tous ces domaines.
+/// </summary>
 public sealed record SupervisionAlertDto(
     Guid EnvironmentId, string EnvironmentName, string Kind, string Name, string? AnomalyDescription);
 

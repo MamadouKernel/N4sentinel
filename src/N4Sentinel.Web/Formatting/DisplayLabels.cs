@@ -127,6 +127,35 @@ public static class DisplayLabels
         _ => status.ToString(),
     };
 
+    public static string ToLabel(this ReconstitutionStepKind step) => step switch
+    {
+        ReconstitutionStepKind.StopComponents => "Arrêt des composants requis",
+        ReconstitutionStepKind.Backup => "Sauvegarde préalable",
+        ReconstitutionStepKind.VerifyBackupIntegrity => "Vérification de l'intégrité de la sauvegarde",
+        ReconstitutionStepKind.Reconstruct => "Reconstitution",
+        ReconstitutionStepKind.ControlledRestart => "Redémarrage contrôlé",
+        ReconstitutionStepKind.FinalTests => "Tests finaux",
+        _ => step.ToString(),
+    };
+
+    public static string ToLabel(this ReconstitutionStatus status) => status switch
+    {
+        ReconstitutionStatus.InProgress => "En cours",
+        ReconstitutionStatus.Completed => "Terminée",
+        ReconstitutionStatus.Aborted => "Abandonnée",
+        _ => status.ToString(),
+    };
+
+    public static string ToLabel(this EdiFileStatus status) => status switch
+    {
+        EdiFileStatus.Received => "Reçu",
+        EdiFileStatus.Pending => "En attente",
+        EdiFileStatus.Consumed => "Consommé",
+        EdiFileStatus.Rejected => "Rejeté",
+        EdiFileStatus.Error => "En erreur",
+        _ => status.ToString(),
+    };
+
     /// <summary>Vocabulaire exact du Cluster Services view N4 réel (docs/navis-reference.md §4).</summary>
     public static string ToLabel(this ComponentHealthStatus status) => status switch
     {

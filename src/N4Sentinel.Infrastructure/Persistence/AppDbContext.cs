@@ -29,6 +29,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<SyncEndpoint> SyncEndpoints => Set<SyncEndpoint>();
 
+    public DbSet<FolderReconstitution> FolderReconstitutions => Set<FolderReconstitution>();
+
+    public DbSet<EdiFile> EdiFiles => Set<EdiFile>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

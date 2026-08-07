@@ -13,12 +13,14 @@ public class GetDashboardSummaryQueryHandlerTests
     private readonly IOperationRunRepository operationRuns = Substitute.For<IOperationRunRepository>();
     private readonly ISharedFolderRepository sharedFolders = Substitute.For<ISharedFolderRepository>();
     private readonly ISyncEndpointRepository syncEndpoints = Substitute.For<ISyncEndpointRepository>();
+    private readonly IEdiFileRepository ediFiles = Substitute.For<IEdiFileRepository>();
 
     private GetDashboardSummaryQueryHandler CreateHandler()
     {
         sharedFolders.ListAllAsync(Arg.Any<CancellationToken>()).Returns([]);
         syncEndpoints.ListAllAsync(Arg.Any<CancellationToken>()).Returns([]);
-        return new(environments, operationRuns, sharedFolders, syncEndpoints);
+        ediFiles.ListAllAsync(Arg.Any<CancellationToken>()).Returns([]);
+        return new(environments, operationRuns, sharedFolders, syncEndpoints, ediFiles);
     }
 
     private static OperationRun CreateRunWithStatus(Guid environmentId, OperationRunStatus status)
@@ -87,12 +89,17 @@ public class GetDashboardSummaryQueryHandlerTests
         anomalousEndpoint.RecordSyncCheck(2000, 1, DateTime.UtcNow, "File trop longue");
         syncEndpoints.ListAllAsync(Arg.Any<CancellationToken>()).Returns([anomalousEndpoint]);
 
-        var handler = new GetDashboardSummaryQueryHandler(environments, operationRuns, sharedFolders, syncEndpoints);
+        var rejectedEdiFile = new EdiFile(environment.Id, "BAPLIE", "Armateur X");
+        rejectedEdiFile.MarkRejected("Format non conforme");
+        ediFiles.ListAllAsync(Arg.Any<CancellationToken>()).Returns([rejectedEdiFile]);
+
+        var handler = new GetDashboardSummaryQueryHandler(environments, operationRuns, sharedFolders, syncEndpoints, ediFiles);
 
         var result = await handler.Handle(new GetDashboardSummaryQuery(), CancellationToken.None);
 
-        result.SupervisionAlerts.Should().HaveCount(2);
+        result.SupervisionAlerts.Should().HaveCount(3);
         result.SupervisionAlerts.Should().Contain(a => a.Name == "AMQ Store" && a.Kind == "Dossier partagé");
         result.SupervisionAlerts.Should().Contain(a => a.Name == "Bridge Queue" && a.Kind == "Synchronisation");
+        result.SupervisionAlerts.Should().Contain(a => a.Kind == "EDI" && a.Name == "BAPLIE — Armateur X");
     }
 }

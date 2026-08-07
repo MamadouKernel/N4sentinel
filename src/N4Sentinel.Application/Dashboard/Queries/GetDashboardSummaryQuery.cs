@@ -16,7 +16,8 @@ public sealed class GetDashboardSummaryQueryHandler(
     IEnvironmentRepository environments,
     IOperationRunRepository operationRuns,
     ISharedFolderRepository sharedFolders,
-    ISyncEndpointRepository syncEndpoints) : IRequestHandler<GetDashboardSummaryQuery, DashboardDto>
+    ISyncEndpointRepository syncEndpoints,
+    IEdiFileRepository ediFiles) : IRequestHandler<GetDashboardSummaryQuery, DashboardDto>
 {
     private static readonly OperationRunStatus[] ActiveStatuses =
         [OperationRunStatus.PendingApproval, OperationRunStatus.Approved, OperationRunStatus.Running];
@@ -27,6 +28,7 @@ public sealed class GetDashboardSummaryQueryHandler(
         var allRuns = await operationRuns.ListAllAsync(cancellationToken);
         var allSharedFolders = await sharedFolders.ListAllAsync(cancellationToken);
         var allSyncEndpoints = await syncEndpoints.ListAllAsync(cancellationToken);
+        var allEdiFiles = await ediFiles.ListAllAsync(cancellationToken);
         var environmentNames = allEnvironments.ToDictionary(e => e.Id, e => e.Name);
 
         var environmentSummaries = allEnvironments
@@ -60,6 +62,11 @@ public sealed class GetDashboardSummaryQueryHandler(
                 .Select(e => new SupervisionAlertDto(
                     e.EnvironmentId, environmentNames.GetValueOrDefault(e.EnvironmentId, "—"),
                     "Synchronisation", e.Name, e.AnomalyDescription)))
+            .Concat(allEdiFiles
+                .Where(f => f.HasAnomaly)
+                .Select(f => new SupervisionAlertDto(
+                    f.EnvironmentId, environmentNames.GetValueOrDefault(f.EnvironmentId, "—"),
+                    "EDI", $"{f.MessageType} — {f.PartnerName}", f.LastErrorMessage)))
             .ToList();
 
         return new DashboardDto(

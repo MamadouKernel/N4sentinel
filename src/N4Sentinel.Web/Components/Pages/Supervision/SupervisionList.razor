@@ -57,6 +57,9 @@ else
                         <button class="btn btn-sm btn-outline-secondary" @onclick="() => CheckSharedFolderAsync(folder.Id)" disabled="@isChecking">
                             Vérifier
                         </button>
+                        <a class="btn btn-sm btn-outline-warning" href="environments/@EnvironmentId/supervision/shared-folders/@folder.Id/reconstitution">
+                            Reconstitution
+                        </a>
                     </td>
                 </tr>
             }

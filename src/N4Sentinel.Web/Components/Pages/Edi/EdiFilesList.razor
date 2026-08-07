@@ -1,0 +1,130 @@
+@page "/environments/{EnvironmentId:guid}/edi"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>Suivi EDI - N4 Sentinel</PageTitle>
+
+<h1>Suivi des intégrations EDI</h1>
+<p><a href="environments/@EnvironmentId">← Retour à l'environnement</a></p>
+<p class="text-muted">
+    Fichiers d'interface reçus, consommés, en attente, rejetés ou en erreur, par type de message et partenaire
+    (FR-059H). Alerte si un fichier dépasse le délai attendu, échoue plusieurs fois ou reste non consommé
+    (FR-059I) — N4 Sentinel ne dispose d'aucun connecteur EDI réel, le suivi est déclaratif.
+</p>
+
+<AuthorizeView Roles="@Roles.Administrateur">
+    <Authorized>
+        <a class="btn btn-primary btn-sm mb-3" href="environments/@EnvironmentId/edi/new">Enregistrer un fichier reçu</a>
+    </Authorized>
+</AuthorizeView>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (files is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else if (files.Count == 0)
+{
+    <p>Aucun fichier EDI enregistré pour cet environnement.</p>
+}
+else
+{
+    <div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Type de message</th>
+                <th>Partenaire</th>
+                <th>Statut</th>
+                <th>Reçu le</th>
+                <th>Consommé le</th>
+                <th>Tentatives</th>
+                <th>Dernière erreur</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var file in files)
+            {
+                <tr class="@(file.HasAnomaly ? "table-danger" : "")">
+                    <td>@file.MessageType</td>
+                    <td>@file.PartnerName</td>
+                    <td>@file.Status.ToLabel()</td>
+                    <td>@file.ReceivedAtUtc.ToLocalTime().ToString("g")</td>
+                    <td>@(file.ConsumedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
+                    <td>@file.AttemptCount</td>
+                    <td>@(file.LastErrorMessage ?? "—")</td>
+                    <td>
+                        @if (file.Status is EdiFileStatus.Received or EdiFileStatus.Pending)
+                        {
+                            <button class="btn btn-sm btn-outline-success" @onclick="() => MarkConsumedAsync(file.Id)" disabled="@isBusy">Consommé</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => RecordFailureAsync(file.Id)" disabled="@isBusy">Échec</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid EnvironmentId { get; set; }
+
+    private IReadOnlyList<EdiFileDto>? files;
+    private bool isBusy;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        files = await Mediator.Send(new ListEdiFilesByEnvironmentQuery(EnvironmentId));
+    }
+
+    private async Task MarkConsumedAsync(Guid fileId)
+    {
+        errorMessage = null;
+        isBusy = true;
+        try
+        {
+            await Mediator.Send(new RecordEdiConsumptionCommand(fileId));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task RecordFailureAsync(Guid fileId)
+    {
+        errorMessage = null;
+        isBusy = true;
+        try
+        {
+            await Mediator.Send(new RecordEdiFailedAttemptCommand(fileId, "Échec d'intégration signalé manuellement"));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+}

@@ -53,14 +53,14 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
 | E5.1 | En tant qu'Opérateur, je veux être alerté d'une anomalie sur un dossier partagé (état, capacité, structure, accessibilité). | 8 | Must | **Fait** (Sprint 10) |
-| E5.2 | En tant qu'Opérateur habilité, je veux déclencher une procédure de reconstitution sécurisée d'un dossier partagé après validation, ou suivre une SOP guidée selon le niveau de risque. | 8 | Should | À faire |
+| E5.2 | En tant qu'Opérateur habilité, je veux déclencher une procédure de reconstitution sécurisée d'un dossier partagé après validation, ou suivre une SOP guidée selon le niveau de risque. | 8 | Should | **Fait** (Sprint 11) |
 | E5.3 | En tant qu'utilisateur, je veux superviser la synchronisation N4/Bridge/XPS et détecter les accumulations de messages ActiveMQ/KahaDB. | 8 | Must | **Fait** (Sprint 10) |
 
 ## Epic 6 — Suivi des intégrations EDI
 
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
-| E6.1 | En tant qu'utilisateur, je veux suivre les fichiers EDI reçus, consommés, en attente, rejetés ou en erreur. | 8 | Should | À faire |
+| E6.1 | En tant qu'utilisateur, je veux suivre les fichiers EDI reçus, consommés, en attente, rejetés ou en erreur. | 8 | Should | **Fait** (Sprint 11) |
 
 ## Epic 7 — Diagnostic et analyse des incidents
 
