@@ -3,6 +3,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using N4Sentinel.Application.Common.Behaviors;
+using N4Sentinel.Application.Operations;
 
 namespace N4Sentinel.Application;
 
@@ -15,6 +16,7 @@ public static class DependencyInjection
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(assembly));
         services.AddValidatorsFromAssembly(assembly);
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+        services.AddScoped<OperationStepExecutionService>();
 
         return services;
     }

@@ -82,10 +82,26 @@ else
 
     <AuthorizeView Roles="@($"{Roles.Administrateur},{Roles.Operateur}")" Context="executionContext">
         <Authorized>
-            @if (run.Status == OperationRunStatus.Approved)
+            @if (AwaitingConfirmationStep is { } gatedStep)
             {
-                <button class="btn btn-primary mb-3" @onclick="ExecuteAsync" disabled="@isExecuting">
-                    @(isExecuting ? "Exécution en cours..." : "Exécuter l'opération")
+                <div class="alert alert-warning">
+                    L'étape <strong>@gatedStep.Name</strong> est sensible (confirmation ou approbation
+                    requise) : elle ne s'exécutera qu'après un geste explicite.
+                </div>
+                <button class="btn btn-warning mb-3" @onclick="ConfirmStepAsync" disabled="@isExecuting">
+                    @(isExecuting ? "Exécution en cours..." : $"Confirmer et exécuter : {gatedStep.Name}")
+                </button>
+            }
+            else if (run.Status is OperationRunStatus.Approved or OperationRunStatus.Running)
+            {
+                <button class="btn btn-primary mb-3" @onclick="ExecuteNextStepAsync" disabled="@isExecuting">
+                    @(isExecuting ? "Exécution en cours..." : "Exécuter l'étape suivante")
+                </button>
+            }
+            @if (run.Status == OperationRunStatus.Failed)
+            {
+                <button class="btn btn-outline-primary mb-3" @onclick="ResumeAsync" disabled="@isExecuting">
+                    Reprendre depuis le dernier point de contrôle valide
                 </button>
             }
         </Authorized>
@@ -202,13 +218,59 @@ else
         }
     }
 
-    private async Task ExecuteAsync()
+    private OperationStepExecutionDto? AwaitingConfirmationStep =>
+        run?.StepExecutions.FirstOrDefault(s => s.Status == OperationStepExecutionStatus.AwaitingConfirmation);
+
+    private async Task ExecuteNextStepAsync()
     {
         errorMessage = null;
         isExecuting = true;
         try
         {
-            await Mediator.Send(new ExecuteOperationRunCommand(OperationRunId));
+            await Mediator.Send(new ExecuteNextOperationStepCommand(OperationRunId));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isExecuting = false;
+        }
+    }
+
+    private async Task ConfirmStepAsync()
+    {
+        if (AwaitingConfirmationStep is not { } step)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        isExecuting = true;
+        try
+        {
+            await Mediator.Send(new ConfirmOperationStepCommand(OperationRunId, step.StepId, currentUserId ?? "inconnu"));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isExecuting = false;
+        }
+    }
+
+    private async Task ResumeAsync()
+    {
+        errorMessage = null;
+        isExecuting = true;
+        try
+        {
+            await Mediator.Send(new ResumeOperationRunCommand(OperationRunId));
             await LoadAsync();
         }
         catch (Exception ex)
@@ -227,12 +289,14 @@ else
         OperationStepExecutionStatus.Failed => "table-danger",
         OperationStepExecutionStatus.Running => "table-info",
         OperationStepExecutionStatus.Skipped => "table-warning",
+        OperationStepExecutionStatus.AwaitingConfirmation => "table-warning",
         _ => "",
     };
 
     private static string StepStatusLabel(OperationStepExecutionStatus status) => status switch
     {
         OperationStepExecutionStatus.Pending => "En attente",
+        OperationStepExecutionStatus.AwaitingConfirmation => "Confirmation requise",
         OperationStepExecutionStatus.Running => "En cours",
         OperationStepExecutionStatus.Succeeded => "Réussie",
         OperationStepExecutionStatus.Failed => "Échouée",

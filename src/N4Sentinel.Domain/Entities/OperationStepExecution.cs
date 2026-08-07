@@ -54,9 +54,20 @@ public class OperationStepExecution
 
     public string? ResultMessage { get; private set; }
 
-    internal void MarkRunning()
+    internal void MarkAwaitingConfirmation()
     {
         EnsureStatus(OperationStepExecutionStatus.Pending);
+        Status = OperationStepExecutionStatus.AwaitingConfirmation;
+    }
+
+    internal void MarkRunning()
+    {
+        if (Status is not (OperationStepExecutionStatus.Pending or OperationStepExecutionStatus.AwaitingConfirmation))
+        {
+            throw new DomainRuleException(
+                $"Transition invalide : une étape au statut '{Status}' ne peut pas démarrer son exécution.");
+        }
+
         Status = OperationStepExecutionStatus.Running;
         StartedAtUtc = DateTime.UtcNow;
     }
@@ -83,6 +94,16 @@ public class OperationStepExecution
         Status = OperationStepExecutionStatus.Skipped;
         ResultMessage = reason?.Trim();
         CompletedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>Remet une étape échouée à Pending pour permettre une reprise (E3.5).</summary>
+    internal void ResetToPending()
+    {
+        EnsureStatus(OperationStepExecutionStatus.Failed);
+        Status = OperationStepExecutionStatus.Pending;
+        StartedAtUtc = null;
+        CompletedAtUtc = null;
+        ResultMessage = null;
     }
 
     private void EnsureStatus(OperationStepExecutionStatus expected)

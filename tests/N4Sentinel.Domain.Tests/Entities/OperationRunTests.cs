@@ -116,4 +116,54 @@ public class OperationRunTests
 
         act.Should().Throw<DomainRuleException>();
     }
+
+    [Fact]
+    public void AwaitingConfirmation_ThenStarted_Succeeds()
+    {
+        var run = CreateNonProductionRun();
+        run.StartExecution();
+        var stepId = run.StepExecutions[0].StepId;
+
+        run.RecordStepAwaitingConfirmation(stepId);
+        run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.AwaitingConfirmation);
+
+        run.RecordStepStarted(stepId);
+        run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.Running);
+    }
+
+    [Fact]
+    public void NextPendingStep_ReturnsFirstStepStillPending()
+    {
+        var run = CreateNonProductionRun();
+        run.StartExecution();
+
+        run.NextPendingStep!.StepId.Should().Be(run.StepExecutions[0].StepId);
+    }
+
+    [Fact]
+    public void Resume_WhenNotFailed_Throws()
+    {
+        var run = CreateNonProductionRun();
+
+        var act = run.Resume;
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void Resume_AfterFailedStep_ResetsStepToPendingAndRunResumesRunning()
+    {
+        var run = CreateNonProductionRun();
+        run.StartExecution();
+        var stepId = run.StepExecutions[0].StepId;
+        run.RecordStepStarted(stepId);
+        run.RecordStepFailed(stepId, "Connexion refusée");
+        run.Fail();
+
+        run.Resume();
+
+        run.Status.Should().Be(OperationRunStatus.Running);
+        run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.Pending);
+        run.CompletedAtUtc.Should().BeNull();
+    }
 }

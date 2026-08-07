@@ -160,6 +160,13 @@ public class OperationRun
         GetStep(stepId).MarkRunning();
     }
 
+    /// <summary>Marque une étape sensible comme en attente d'une confirmation humaine explicite (E3.2) — le connecteur n'est pas appelé.</summary>
+    public void RecordStepAwaitingConfirmation(Guid stepId)
+    {
+        EnsureStatus(OperationRunStatus.Running);
+        GetStep(stepId).MarkAwaitingConfirmation();
+    }
+
     public void RecordStepSucceeded(Guid stepId, string? message)
     {
         EnsureStatus(OperationRunStatus.Running);
@@ -191,6 +198,29 @@ public class OperationRun
         Status = OperationRunStatus.Failed;
         CompletedAtUtc = DateTime.UtcNow;
     }
+
+    /// <summary>
+    /// Reprend une opération échouée depuis le dernier point de contrôle valide (E3.5) : la dernière étape en
+    /// échec repasse à Pending pour être retentée ; les étapes déjà réussies ne sont jamais ré-exécutées.
+    /// </summary>
+    public void Resume()
+    {
+        EnsureStatus(OperationRunStatus.Failed);
+
+        var failedStep = _stepExecutions.FirstOrDefault(s => s.Status == OperationStepExecutionStatus.Failed);
+        if (failedStep is null)
+        {
+            throw new DomainRuleException("Aucune étape en échec à reprendre pour cette opération.");
+        }
+
+        failedStep.ResetToPending();
+        Status = OperationRunStatus.Running;
+        CompletedAtUtc = null;
+    }
+
+    /// <summary>Prochaine étape à traiter dans l'ordre (Pending), ou null si toutes les étapes sont terminées.</summary>
+    public OperationStepExecution? NextPendingStep =>
+        StepExecutions.FirstOrDefault(s => s.Status == OperationStepExecutionStatus.Pending);
 
     private OperationStepExecution GetStep(Guid stepId) =>
         _stepExecutions.FirstOrDefault(s => s.StepId == stepId)
