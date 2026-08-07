@@ -1,0 +1,124 @@
+@page "/environments/{EnvironmentId:guid}/reference-periods"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject ISender Mediator
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Périodes de référence - N4 Sentinel</PageTitle>
+
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">Périodes de référence saines</h1>
+        <p class="text-sm text-slate-600">
+            Périodes validées comme saines, utilisables comme référence de comparaison lors d'un diagnostic (FR-066).
+        </p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="rounded-md bg-rose-50 p-4 text-sm font-medium text-rose-800 border border-rose-200">@errorMessage</div>
+    }
+
+    <EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="CreateReferencePeriod" class="card space-y-4 p-6">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700">Libellé</label>
+            <InputText @bind-Value="model.Label" class="form-input mt-1 w-full" placeholder="ex. Semaine calme avant l'incident" />
+        </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Début</label>
+                <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="model.PeriodStart" class="form-input mt-1 w-full" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Fin</label>
+                <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="model.PeriodEnd" class="form-input mt-1 w-full" />
+            </div>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-slate-700">Notes</label>
+            <textarea @bind="model.Notes" rows="2" class="form-input mt-1 w-full"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Valider cette période comme référence</button>
+    </EditForm>
+
+    <h2 class="text-lg font-bold text-slate-900">Périodes enregistrées</h2>
+    @if (periods is null)
+    {
+        <div class="card p-6 text-center text-slate-500">Chargement...</div>
+    }
+    else if (periods.Count == 0)
+    {
+        <div class="card p-6 text-center text-slate-500">Aucune période de référence enregistrée.</div>
+    }
+    else
+    {
+        <div class="card overflow-hidden">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <thead class="bg-slate-50 font-semibold text-slate-700">
+                    <tr>
+                        <th class="px-4 py-3">Libellé</th>
+                        <th class="px-4 py-3">Période</th>
+                        <th class="px-4 py-3">Validée par</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                    @foreach (var period in periods)
+                    {
+                        <tr>
+                            <td class="px-4 py-3 font-semibold text-brand-900">@period.Label</td>
+                            <td class="px-4 py-3">@period.PeriodStartUtc.ToLocalTime().ToString("g") → @period.PeriodEndUtc.ToLocalTime().ToString("g")</td>
+                            <td class="px-4 py-3">@period.ValidatedByUserId</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid EnvironmentId { get; set; }
+
+    private IReadOnlyList<HealthyReferencePeriodDto>? periods;
+    private readonly CreatePeriodModel model = new();
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        periods = await Mediator.Send(new ListHealthyReferencePeriodsByEnvironmentQuery(EnvironmentId));
+    }
+
+    private async Task SubmitAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
+
+            await Mediator.Send(new CreateHealthyReferencePeriodCommand(
+                EnvironmentId, model.Label, model.PeriodStart.ToUniversalTime(), model.PeriodEnd.ToUniversalTime(),
+                model.Notes, userName));
+
+            model.Label = string.Empty;
+            model.Notes = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private sealed class CreatePeriodModel
+    {
+        [Required] public string Label { get; set; } = string.Empty;
+        public DateTime PeriodStart { get; set; } = DateTime.Today.AddDays(-14);
+        public DateTime PeriodEnd { get; set; } = DateTime.Today.AddDays(-7);
+        public string? Notes { get; set; }
+    }
+}

@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 using N4Sentinel.Domain.Entities;
 
 namespace N4Sentinel.Application.Components.Commands;
@@ -19,7 +20,12 @@ public sealed record CreateComponentCommand(
     ComponentGovernance Governance,
     string? TechnicalOwner,
     string? FunctionalOwner,
-    IReadOnlyCollection<Guid> DependsOnComponentIds) : IRequest<Guid>;
+    IReadOnlyCollection<Guid> DependsOnComponentIds,
+    string ActorUserId) : IRequest<Guid>, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Création de composant";
+    string IAuditableRequest.Summary => $"Composant '{Name}' créé sur l'environnement '{EnvironmentId}'.";
+}
 
 public sealed class CreateComponentCommandValidator : AbstractValidator<CreateComponentCommand>
 {
@@ -33,6 +39,7 @@ public sealed class CreateComponentCommandValidator : AbstractValidator<CreateCo
         RuleFor(x => x.HostName).MaximumLength(255);
         RuleFor(x => x.IpAddress).MaximumLength(45);
         RuleFor(x => x.DnsName).MaximumLength(255);
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 

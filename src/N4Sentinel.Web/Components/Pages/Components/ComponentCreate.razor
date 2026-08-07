@@ -1,13 +1,23 @@
 @page "/environments/{EnvironmentId:guid}/components/new"
-@attribute [Authorize(Roles = Roles.Administrateur)]
+@attribute [Authorize]
 @inject IMediator Mediator
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IEnvironmentAccessChecker AccessChecker
 
 <PageTitle>Nouveau composant - N4 Sentinel</PageTitle>
 
 <h1>Nouveau composant</h1>
 
-@if (existingComponents is null)
+@if (accessGranted is null)
+{
+    <p><em>Vérification des droits...</em></p>
+}
+else if (accessGranted == false)
+{
+    <div class="alert alert-danger">Accès refusé : le rôle Administrateur est requis sur cet environnement (E11.1b).</div>
+}
+else if (existingComponents is null)
 {
     <p><em>Chargement...</em></p>
 }
@@ -124,9 +134,17 @@ else
     private readonly HashSet<Guid> selectedDependencyIds = [];
     private IReadOnlyList<ComponentDto>? existingComponents;
     private string? errorMessage;
+    private bool? accessGranted;
 
     protected override async Task OnParametersSetAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        accessGranted = await AccessChecker.HasAnyRoleAsync(authState.User, EnvironmentId, Roles.Administrateur);
+        if (accessGranted == false)
+        {
+            return;
+        }
+
         existingComponents = await Mediator.Send(new ListComponentsByEnvironmentQuery(EnvironmentId));
     }
 
@@ -147,11 +165,14 @@ else
         errorMessage = null;
         try
         {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
+
             var id = await Mediator.Send(new CreateComponentCommand(
                 EnvironmentId, model.Name, model.Role, model.HostName, model.IpAddress, model.DnsName,
                 model.OperatingSystem, model.ServiceOrProcessName, model.HealthCheckDescription,
                 model.Criticality, model.Governance, model.TechnicalOwner, model.FunctionalOwner,
-                selectedDependencyIds));
+                selectedDependencyIds, userName));
             NavigationManager.NavigateTo($"environments/{EnvironmentId}");
         }
         catch (Exception ex)

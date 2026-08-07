@@ -1,13 +1,19 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 
 namespace N4Sentinel.Application.Environments.Commands;
 
 public sealed record UpdateEnvironmentCommand(
     Guid Id,
     string Name,
-    string? Description) : IRequest;
+    string? Description,
+    string ActorUserId) : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Modification d'environnement";
+    string IAuditableRequest.Summary => $"Environnement '{Id}' modifié.";
+}
 
 public sealed class UpdateEnvironmentCommandValidator : AbstractValidator<UpdateEnvironmentCommand>
 {
@@ -16,6 +22,7 @@ public sealed class UpdateEnvironmentCommandValidator : AbstractValidator<Update
         RuleFor(x => x.Id).NotEmpty();
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(2000);
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 

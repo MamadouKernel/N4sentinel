@@ -149,7 +149,7 @@ else
         errorMessage = null;
         try
         {
-            await Mediator.Send(new UnlockUserAccountCommand(userId));
+            await Mediator.Send(new UnlockUserAccountCommand(userId, currentUserId ?? "inconnu"));
             await LoadAsync();
         }
         catch (Exception ex)

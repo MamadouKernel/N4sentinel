@@ -5,13 +5,21 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using N4Sentinel.Application;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Diagnostics.Queries;
 using N4Sentinel.Application.Sops.Queries;
 using N4Sentinel.Infrastructure;
 using N4Sentinel.Web.Components;
 using N4Sentinel.Web.Components.Account;
 using N4Sentinel.Web.Configuration;
 using N4Sentinel.Web.Data;
+using N4Sentinel.Web.Reports;
+using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
 using Serilog;
+
+// FR-090 : export PDF réel. Licence Community QuestPDF — gratuite pour une entité dont le chiffre d'affaires
+// annuel brut est inférieur à 1M$ US (cas d'un outil interne CIT non commercialisé).
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -61,6 +69,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 builder.Services.AddScoped<IUserRoleService, UserRoleService>();
+builder.Services.AddScoped<IEnvironmentAccessChecker, EnvironmentAccessChecker>();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -109,6 +118,16 @@ app.MapGet("/reports/operations/{operationRunId:guid}/export", async (Guid opera
             $"rapport-operation-{operationRunId}.json");
 }).RequireAuthorization();
 
+app.MapGet("/reports/operations/{operationRunId:guid}/export.pdf", async (Guid operationRunId, ISender mediator) =>
+{
+    var report = await mediator.Send(new GetOperationReportQuery(operationRunId));
+    return report is null
+        ? Results.NotFound()
+        : Results.File(
+            new OperationReportPdfDocument(report).GeneratePdf(), "application/pdf",
+            $"rapport-operation-{operationRunId}.pdf");
+}).RequireAuthorization();
+
 app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/export", async (Guid diagnosticCaseId, ISender mediator) =>
 {
     var report = await mediator.Send(new GetIncidentReportQuery(diagnosticCaseId));
@@ -117,6 +136,28 @@ app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/export", async (Guid diag
         : Results.File(
             JsonSerializer.SerializeToUtf8Bytes(report, reportJsonOptions), "application/json",
             $"rapport-incident-{diagnosticCaseId}.json");
+}).RequireAuthorization();
+
+app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/export.pdf", async (Guid diagnosticCaseId, ISender mediator) =>
+{
+    var report = await mediator.Send(new GetIncidentReportQuery(diagnosticCaseId));
+    return report is null
+        ? Results.NotFound()
+        : Results.File(
+            new IncidentReportPdfDocument(report).GeneratePdf(), "application/pdf",
+            $"rapport-incident-{diagnosticCaseId}.pdf");
+}).RequireAuthorization();
+
+// FR-067 : export structuré du paquet d'escalade (journaux déjà expurgés à l'import, empreintes SHA-256 déjà calculées).
+app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/escalation-package/export", async (Guid diagnosticCaseId, ISender mediator, HttpContext context) =>
+{
+    var userName = context.User.Identity?.Name ?? "inconnu";
+    var package = await mediator.Send(new GetEscalationPackageQuery(diagnosticCaseId, userName));
+    return package is null
+        ? Results.NotFound()
+        : Results.File(
+            JsonSerializer.SerializeToUtf8Bytes(package, reportJsonOptions), "application/json",
+            $"paquet-escalade-{diagnosticCaseId}.json");
 }).RequireAuthorization();
 
 app.Run();

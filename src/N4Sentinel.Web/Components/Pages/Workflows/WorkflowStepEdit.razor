@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = Roles.Administrateur)]
 @inject IMediator Mediator
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Modifier l'étape - N4 Sentinel</PageTitle>
 
@@ -215,13 +216,15 @@ else
         try
         {
             Guid? componentId = string.IsNullOrEmpty(model.ComponentId) ? null : Guid.Parse(model.ComponentId);
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
 
             await Mediator.Send(new UpdateWorkflowStepCommand(
                 WorkflowId, VersionId, StepId, model.Name, componentId, model.Action, selectedPrerequisiteIds,
                 model.SuccessCriteria, model.ExpectedDurationSeconds, model.WarningThresholdSeconds,
                 model.TimeoutSeconds, model.MaxRetryAttempts, model.RetryIsAutomatic,
                 model.AutomaticRetryExplicitlyAuthorized, model.RetryDelaySeconds, model.OnFailurePolicy,
-                model.RequiresConfirmation, model.RequiresApproval, model.IsCriticalOrDestructive));
+                model.RequiresConfirmation, model.RequiresApproval, model.IsCriticalOrDestructive, userName));
 
             NavigationManager.NavigateTo($"environments/{EnvironmentId}/workflows/{WorkflowId}/versions/{VersionId}/steps");
         }

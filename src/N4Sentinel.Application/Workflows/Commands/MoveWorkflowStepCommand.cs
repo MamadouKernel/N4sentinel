@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 
 namespace N4Sentinel.Application.Workflows.Commands;
 
@@ -11,7 +12,12 @@ public enum WorkflowStepMoveDirection
 }
 
 public sealed record MoveWorkflowStepCommand(
-    Guid WorkflowId, Guid VersionId, Guid StepId, WorkflowStepMoveDirection Direction) : IRequest;
+    Guid WorkflowId, Guid VersionId, Guid StepId, WorkflowStepMoveDirection Direction, string ActorUserId)
+    : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Déplacement d'étape de workflow";
+    string IAuditableRequest.Summary => $"Étape '{StepId}' déplacée ({Direction}) dans la version '{VersionId}' du workflow '{WorkflowId}'.";
+}
 
 public sealed class MoveWorkflowStepCommandValidator : AbstractValidator<MoveWorkflowStepCommand>
 {
@@ -21,6 +27,7 @@ public sealed class MoveWorkflowStepCommandValidator : AbstractValidator<MoveWor
         RuleFor(x => x.VersionId).NotEmpty();
         RuleFor(x => x.StepId).NotEmpty();
         RuleFor(x => x.Direction).IsInEnum();
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 

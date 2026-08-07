@@ -1,11 +1,20 @@
 @page "/environments/{EnvironmentId:guid}/workflows/{WorkflowId:guid}/operations/new"
-@attribute [Authorize(Roles = Roles.Operateur + "," + Roles.Administrateur)]
+@attribute [Authorize]
 @inject IMediator Mediator
 @inject NavigationManager NavigationManager
+@inject IEnvironmentAccessChecker AccessChecker
 
 <PageTitle>Nouvelle opération - N4 Sentinel</PageTitle>
 
-@if (workflow is null || environment is null)
+@if (accessGranted is null)
+{
+    <p><em>Vérification des droits...</em></p>
+}
+else if (accessGranted == false)
+{
+    <div class="alert alert-danger">Accès refusé : le rôle Opérateur ou Administrateur est requis sur cet environnement (E11.1b).</div>
+}
+else if (workflow is null || environment is null)
 {
     <p><em>Chargement...</em></p>
 }
@@ -75,9 +84,17 @@ else
     private WorkflowDetailDto? workflow;
     private EnvironmentDetailDto? environment;
     private string? errorMessage;
+    private bool? accessGranted;
 
     protected override async Task OnParametersSetAsync()
     {
+        var principal = AuthStateTask is not null ? (await AuthStateTask).User : new System.Security.Claims.ClaimsPrincipal();
+        accessGranted = await AccessChecker.HasAnyRoleAsync(principal, EnvironmentId, Roles.Operateur, Roles.Administrateur);
+        if (accessGranted == false)
+        {
+            return;
+        }
+
         workflow = await Mediator.Send(new GetWorkflowByIdQuery(WorkflowId));
         environment = await Mediator.Send(new GetEnvironmentByIdQuery(EnvironmentId));
     }

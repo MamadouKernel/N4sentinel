@@ -1,6 +1,7 @@
 @page "/environments/{EnvironmentId:guid}/workflows/{WorkflowId:guid}/versions/{VersionId:guid}/steps"
 @attribute [Authorize]
 @inject IMediator Mediator
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Étapes - N4 Sentinel</PageTitle>
 
@@ -132,12 +133,19 @@ else
         }
     }
 
+    private async Task<string> GetCurrentUserNameAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        return authState.User.Identity?.Name ?? "Administrateur";
+    }
+
     private async Task MoveAsync(Guid stepId, WorkflowStepMoveDirection direction)
     {
         errorMessage = null;
         try
         {
-            await Mediator.Send(new MoveWorkflowStepCommand(WorkflowId, VersionId, stepId, direction));
+            var userName = await GetCurrentUserNameAsync();
+            await Mediator.Send(new MoveWorkflowStepCommand(WorkflowId, VersionId, stepId, direction, userName));
             await LoadAsync();
         }
         catch (Exception ex)
@@ -151,7 +159,8 @@ else
         errorMessage = null;
         try
         {
-            await Mediator.Send(new RemoveWorkflowStepCommand(WorkflowId, VersionId, stepId));
+            var userName = await GetCurrentUserNameAsync();
+            await Mediator.Send(new RemoveWorkflowStepCommand(WorkflowId, VersionId, stepId, userName));
             await LoadAsync();
         }
         catch (Exception ex)
@@ -165,8 +174,9 @@ else
         errorMessage = null;
         try
         {
+            var userName = await GetCurrentUserNameAsync();
             await Mediator.Send(new UpdateRollbackPlanCommand(
-                WorkflowId, VersionId, rollbackModel.AllowsRollback, rollbackModel.RollbackNotes));
+                WorkflowId, VersionId, rollbackModel.AllowsRollback, rollbackModel.RollbackNotes, userName));
             await LoadAsync();
         }
         catch (Exception ex)

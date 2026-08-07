@@ -1,0 +1,137 @@
+@page "/environments/{EnvironmentId:guid}/roles"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject ISender Mediator
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Rôles par environnement - N4 Sentinel</PageTitle>
+
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">Rôles par environnement (E11.1b)</h1>
+        <p class="text-sm text-slate-600">
+            Attribue un rôle à un utilisateur pour cet environnement précis (ex. Opérateur sur UAT, Lecteur sur
+            Production), en complément — jamais en remplacement — de son rôle global. Un Administrateur global
+            garde un accès total à tous les environnements.
+        </p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="rounded-md bg-rose-50 p-4 text-sm font-medium text-rose-800 border border-rose-200">@errorMessage</div>
+    }
+
+    <EditForm Model="model" OnValidSubmit="GrantAsync" FormName="GrantEnvironmentRole" class="card space-y-4 p-6">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Identifiant utilisateur (email)</label>
+                <InputText @bind-Value="model.UserId" class="form-input mt-1 w-full" placeholder="ex. operateur@n4sentinel.local" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Rôle</label>
+                <InputSelect @bind-Value="model.Role" class="form-select mt-1 w-full">
+                    @foreach (var role in Roles.All)
+                    {
+                        <option value="@role">@role</option>
+                    }
+                </InputSelect>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Attribuer</button>
+    </EditForm>
+
+    <h2 class="text-lg font-bold text-slate-900">Attributions actuelles</h2>
+    @if (roles is null)
+    {
+        <div class="card p-6 text-center text-slate-500">Chargement...</div>
+    }
+    else if (roles.Count == 0)
+    {
+        <div class="card p-6 text-center text-slate-500">Aucune attribution spécifique à cet environnement.</div>
+    }
+    else
+    {
+        <div class="card overflow-hidden">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <thead class="bg-slate-50 font-semibold text-slate-700">
+                    <tr>
+                        <th class="px-4 py-3">Utilisateur</th>
+                        <th class="px-4 py-3">Rôle</th>
+                        <th class="px-4 py-3">Attribué par</th>
+                        <th class="px-4 py-3">Le</th>
+                        <th class="px-4 py-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                    @foreach (var role in roles)
+                    {
+                        <tr>
+                            <td class="px-4 py-3 font-semibold text-brand-900">@role.UserId</td>
+                            <td class="px-4 py-3">@role.Role</td>
+                            <td class="px-4 py-3">@role.GrantedByUserId</td>
+                            <td class="px-4 py-3">@role.GrantedAtUtc.ToLocalTime().ToString("g")</td>
+                            <td class="px-4 py-3 text-right">
+                                <button class="btn btn-outline-danger btn-sm" @onclick="() => RevokeAsync(role.Id)">Révoquer</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid EnvironmentId { get; set; }
+
+    private IReadOnlyList<UserEnvironmentRoleDto>? roles;
+    private readonly GrantModel model = new();
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        roles = await Mediator.Send(new ListEnvironmentRolesByEnvironmentQuery(EnvironmentId));
+    }
+
+    private async Task GrantAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
+
+            await Mediator.Send(new GrantEnvironmentRoleCommand(model.UserId, EnvironmentId, model.Role, userName));
+            model.UserId = string.Empty;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task RevokeAsync(Guid userEnvironmentRoleId)
+    {
+        errorMessage = null;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
+
+            await Mediator.Send(new RevokeEnvironmentRoleCommand(userEnvironmentRoleId, userName));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private sealed class GrantModel
+    {
+        [Required] public string UserId { get; set; } = string.Empty;
+        public string Role { get; set; } = Roles.Operateur;
+    }
+}

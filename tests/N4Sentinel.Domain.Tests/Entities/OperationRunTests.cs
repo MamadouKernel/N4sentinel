@@ -166,4 +166,114 @@ public class OperationRunTests
         run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.Pending);
         run.CompletedAtUtc.Should().BeNull();
     }
+
+    private static OperationRun CreateFailedNonProductionRun()
+    {
+        var run = CreateNonProductionRun();
+        run.StartExecution();
+        var stepId = run.StepExecutions[0].StepId;
+        run.RecordStepStarted(stepId);
+        run.RecordStepFailed(stepId, "Connexion refusée");
+        run.Fail();
+        return run;
+    }
+
+    private static OperationRun CreateFailedProductionRun()
+    {
+        var run = CreateProductionRun();
+        run.Approve("approbateur@n4sentinel.local");
+        run.StartExecution();
+        var stepId = run.StepExecutions[0].StepId;
+        run.RecordStepStarted(stepId);
+        run.RecordStepFailed(stepId, "Connexion refusée");
+        run.Fail();
+        return run;
+    }
+
+    [Fact]
+    public void OverrideFailedStep_WhenNotFailed_Throws()
+    {
+        var run = CreateNonProductionRun();
+
+        var act = () => run.OverrideFailedStep(true, "Motif", "Risque accepté", "operateur@n4sentinel.local", null);
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void OverrideFailedStep_ControlNotDeclaredBypassable_Throws()
+    {
+        var run = CreateFailedNonProductionRun();
+
+        var act = () => run.OverrideFailedStep(false, "Motif", "Risque accepté", "operateur@n4sentinel.local", null);
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void OverrideFailedStep_MissingReason_Throws()
+    {
+        var run = CreateFailedNonProductionRun();
+
+        var act = () => run.OverrideFailedStep(true, "", "Risque accepté", "operateur@n4sentinel.local", null);
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void OverrideFailedStep_MissingAcceptedRisk_Throws()
+    {
+        var run = CreateFailedNonProductionRun();
+
+        var act = () => run.OverrideFailedStep(true, "Motif", "", "operateur@n4sentinel.local", null);
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void OverrideFailedStep_NonProduction_SucceedsWithoutApproval()
+    {
+        var run = CreateFailedNonProductionRun();
+
+        run.OverrideFailedStep(true, "Contrôle non bloquant en pratique", "Risque connu et accepté", "operateur@n4sentinel.local", null);
+
+        run.Status.Should().Be(OperationRunStatus.Running);
+        run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.Overridden);
+        run.StepExecutions[0].OverrideReason.Should().Be("Contrôle non bloquant en pratique");
+        run.StepExecutions[0].OverriddenByUserId.Should().Be("operateur@n4sentinel.local");
+        run.CompletedAtUtc.Should().BeNull();
+    }
+
+    [Fact]
+    public void OverrideFailedStep_ProductionWithoutApproval_Throws()
+    {
+        var run = CreateFailedProductionRun();
+
+        var act = () => run.OverrideFailedStep(true, "Motif", "Risque accepté", "operateur@n4sentinel.local", null);
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void OverrideFailedStep_ProductionSameApprover_Throws()
+    {
+        var run = CreateFailedProductionRun();
+
+        var act = () => run.OverrideFailedStep(
+            true, "Motif", "Risque accepté", "operateur@n4sentinel.local", "operateur@n4sentinel.local");
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void OverrideFailedStep_ProductionWithDistinctApprover_Succeeds()
+    {
+        var run = CreateFailedProductionRun();
+
+        run.OverrideFailedStep(
+            true, "Motif", "Risque accepté", "operateur@n4sentinel.local", "approbateur@n4sentinel.local");
+
+        run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.Overridden);
+        run.StepExecutions[0].OverrideApprovedByUserId.Should().Be("approbateur@n4sentinel.local");
+    }
 }

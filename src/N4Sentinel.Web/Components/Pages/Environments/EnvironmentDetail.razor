@@ -1,6 +1,7 @@
 @page "/environments/{Id:guid}"
 @attribute [Authorize]
 @inject IMediator Mediator
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>@(detail?.Name ?? "Environnement") - N4 Sentinel</PageTitle>
 
@@ -30,6 +31,10 @@ else
     <p><a href="environments/@Id/diagnostics">Collecte de signaux de diagnostic →</a></p>
     <p><a href="environments/@Id/diagnostic-cases">Cas de diagnostic →</a></p>
     <p><a href="environments/@Id/logs">Journaux techniques →</a></p>
+    <p><a href="environments/@Id/reference-periods">Périodes de référence saines →</a></p>
+    <AuthorizeView Roles="@Roles.Administrateur" Context="rolesLinkCtx">
+        <Authorized><p><a href="environments/@Id/roles">Rôles par environnement (E11.1b) →</a></p></Authorized>
+    </AuthorizeView>
 
     @if (!string.IsNullOrEmpty(errorMessage))
     {
@@ -191,7 +196,10 @@ else
         errorMessage = null;
         try
         {
-            await Mediator.Send(new ChangeEnvironmentStatusCommand(Id, action));
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
+
+            await Mediator.Send(new ChangeEnvironmentStatusCommand(Id, action, userName));
             await LoadAsync();
         }
         catch (Exception ex)

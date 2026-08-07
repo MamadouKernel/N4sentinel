@@ -36,4 +36,8 @@ internal static class DiagnosticsMapper
         file.Id, file.EnvironmentId, file.FileName, file.Source, file.CorrelationReference, file.Content, file.ContentHash, file.RetentionDays,
         file.AnalysisStatus, file.ImportedAtUtc, file.AnalyzedAtUtc, file.TotalLineCount, file.ErrorLineCount,
         file.WarningLineCount, file.DetectedSignatures, file.Verdict);
+
+    public static HealthyReferencePeriodDto ToDto(HealthyReferencePeriod period) => new(
+        period.Id, period.EnvironmentId, period.Label, period.PeriodStartUtc, period.PeriodEndUtc, period.Notes,
+        period.ValidatedByUserId, period.ValidatedAtUtc);
 }

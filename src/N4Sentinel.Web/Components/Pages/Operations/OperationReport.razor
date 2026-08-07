@@ -16,7 +16,10 @@ else
                 <h1 class="text-2xl font-bold text-slate-900">Rapport d'opération</h1>
                 <a href="@($"environments/{EnvironmentId}/operations/{OperationRunId}")" class="text-sm text-slate-500 hover:text-slate-700">← Retour à l'opération</a>
             </div>
-            <a href="@($"/reports/operations/{OperationRunId}/export")" class="btn btn-primary">Télécharger en JSON</a>
+            <div class="flex gap-2">
+                <a href="@($"/reports/operations/{OperationRunId}/export")" class="btn btn-outline-primary">JSON</a>
+                <a href="@($"/reports/operations/{OperationRunId}/export.pdf")" class="btn btn-primary">PDF</a>
+            </div>
         </div>
 
         <div class="card p-6 space-y-3">
@@ -79,7 +82,21 @@ else
                             <td class="px-4 py-3">@step.Status</td>
                             <td class="px-4 py-3">@(step.StartedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
                             <td class="px-4 py-3">@(step.CompletedAtUtc?.ToLocalTime().ToString("g") ?? "—")</td>
-                            <td class="px-4 py-3">@(step.ResultMessage ?? "—")</td>
+                            <td class="px-4 py-3">
+                                @(step.ResultMessage ?? "—")
+                                @if (step.OverrideReason is not null)
+                                {
+                                    <div class="mt-1 rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                                        <strong>Contournement (FR-027)</strong> par @step.OverriddenByUserId
+                                        @if (step.OverrideApprovedByUserId is not null)
+                                        {
+                                            <text> — approuvé par @step.OverrideApprovedByUserId</text>
+                                        }
+                                        <br />Motif : @step.OverrideReason
+                                        <br />Risque accepté : @step.OverrideAcceptedRisk
+                                    </div>
+                                }
+                            </td>
                         </tr>
                     }
                 </tbody>

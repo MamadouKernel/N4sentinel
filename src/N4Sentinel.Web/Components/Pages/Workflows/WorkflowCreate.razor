@@ -1,13 +1,23 @@
 @page "/environments/{EnvironmentId:guid}/workflows/new"
-@attribute [Authorize(Roles = Roles.Administrateur)]
+@attribute [Authorize]
 @inject IMediator Mediator
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IEnvironmentAccessChecker AccessChecker
 
 <PageTitle>Nouveau workflow - N4 Sentinel</PageTitle>
 
 <h1>Nouveau workflow</h1>
 
-@if (components is null)
+@if (accessGranted is null)
+{
+    <p><em>Vérification des droits...</em></p>
+}
+else if (accessGranted == false)
+{
+    <div class="alert alert-danger">Accès refusé : le rôle Administrateur est requis sur cet environnement (E11.1b).</div>
+}
+else if (components is null)
 {
     <p><em>Chargement...</em></p>
 }
@@ -81,9 +91,17 @@ else
     private readonly HashSet<Guid> selectedTargetIds = [];
     private IReadOnlyList<ComponentDto>? components;
     private string? errorMessage;
+    private bool? accessGranted;
 
     protected override async Task OnParametersSetAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        accessGranted = await AccessChecker.HasAnyRoleAsync(authState.User, EnvironmentId, Roles.Administrateur);
+        if (accessGranted == false)
+        {
+            return;
+        }
+
         components = await Mediator.Send(new ListComponentsByEnvironmentQuery(EnvironmentId));
     }
 
@@ -104,8 +122,11 @@ else
         errorMessage = null;
         try
         {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
+
             var id = await Mediator.Send(new CreateWorkflowCommand(
-                EnvironmentId, model.Name, model.Type, model.Scope, selectedTargetIds));
+                EnvironmentId, model.Name, model.Type, model.Scope, selectedTargetIds, userName));
             NavigationManager.NavigateTo($"environments/{EnvironmentId}/workflows/{id}");
         }
         catch (Exception ex)

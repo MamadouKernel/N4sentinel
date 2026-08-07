@@ -1,6 +1,7 @@
 @page "/environments/{EnvironmentId:guid}/workflows/{WorkflowId:guid}"
 @attribute [Authorize]
 @inject IMediator Mediator
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>@(detail?.Name ?? "Workflow") - N4 Sentinel</PageTitle>
 
@@ -103,12 +104,19 @@ else
         detail = await Mediator.Send(new GetWorkflowByIdQuery(WorkflowId));
     }
 
+    private async Task<string> GetCurrentUserNameAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        return authState.User.Identity?.Name ?? "Administrateur";
+    }
+
     private async Task ChangeStatusAsync(Guid versionId, WorkflowVersionStatusAction action)
     {
         errorMessage = null;
         try
         {
-            await Mediator.Send(new ChangeWorkflowVersionStatusCommand(WorkflowId, versionId, action));
+            var userName = await GetCurrentUserNameAsync();
+            await Mediator.Send(new ChangeWorkflowVersionStatusCommand(WorkflowId, versionId, action, userName));
             await LoadAsync();
         }
         catch (Exception ex)
@@ -122,7 +130,8 @@ else
         errorMessage = null;
         try
         {
-            await Mediator.Send(new CreateNewDraftVersionCommand(WorkflowId));
+            var userName = await GetCurrentUserNameAsync();
+            await Mediator.Send(new CreateNewDraftVersionCommand(WorkflowId, userName));
             await LoadAsync();
         }
         catch (Exception ex)

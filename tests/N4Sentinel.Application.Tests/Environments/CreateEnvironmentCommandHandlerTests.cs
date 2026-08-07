@@ -22,7 +22,7 @@ public class CreateEnvironmentCommandHandlerTests
         var handler = CreateHandler();
 
         var id = await handler.Handle(
-            new CreateEnvironmentCommand("Production", "PROD", EnvironmentKind.Production, "Environnement prod"),
+            new CreateEnvironmentCommand("Production", "PROD", EnvironmentKind.Production, "Environnement prod", "admin1"),
             CancellationToken.None);
 
         id.Should().NotBeEmpty();
@@ -37,7 +37,7 @@ public class CreateEnvironmentCommandHandlerTests
         var handler = CreateHandler();
 
         var act = () => handler.Handle(
-            new CreateEnvironmentCommand("Production", "PROD", EnvironmentKind.Production, null),
+            new CreateEnvironmentCommand("Production", "PROD", EnvironmentKind.Production, null, "admin1"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<ValidationException>();

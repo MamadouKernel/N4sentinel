@@ -30,7 +30,8 @@ public sealed class GetOperationReportQueryHandler(IOperationRunRepository opera
 
         var steps = operationRun.StepExecutions
             .Select(s => new OperationReportStepDto(
-                s.Position, s.Name, s.Action, s.ComponentName, s.Status, s.StartedAtUtc, s.CompletedAtUtc, s.ResultMessage))
+                s.Position, s.Name, s.Action, s.ComponentName, s.Status, s.StartedAtUtc, s.CompletedAtUtc, s.ResultMessage,
+                s.OverrideReason, s.OverrideAcceptedRisk, s.OverriddenByUserId, s.OverrideApprovedByUserId))
             .ToList();
 
         var duration = operationRun.CompletedAtUtc.HasValue ? operationRun.CompletedAtUtc - operationRun.RequestedAtUtc : null;

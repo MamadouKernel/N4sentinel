@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 using N4Sentinel.Domain.Entities;
 
 namespace N4Sentinel.Application.Environments.Commands;
@@ -9,7 +10,12 @@ public sealed record CreateEnvironmentCommand(
     string Name,
     string Code,
     EnvironmentKind Kind,
-    string? Description) : IRequest<Guid>;
+    string? Description,
+    string ActorUserId) : IRequest<Guid>, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Création d'environnement";
+    string IAuditableRequest.Summary => $"Environnement '{Name}' ({Code}) créé.";
+}
 
 public sealed class CreateEnvironmentCommandValidator : AbstractValidator<CreateEnvironmentCommand>
 {
@@ -19,6 +25,7 @@ public sealed class CreateEnvironmentCommandValidator : AbstractValidator<Create
         RuleFor(x => x.Code).NotEmpty().MaximumLength(20);
         RuleFor(x => x.Kind).IsInEnum();
         RuleFor(x => x.Description).MaximumLength(2000);
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 

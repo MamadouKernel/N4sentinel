@@ -39,6 +39,8 @@ public static class DependencyInjection
         services.AddScoped<ISopRepository, EfSopRepository>();
         services.AddScoped<ISopExecutionRepository, EfSopExecutionRepository>();
         services.AddScoped<ISopAssociationRepository, EfSopAssociationRepository>();
+        services.AddScoped<IHealthyReferencePeriodRepository, EfHealthyReferencePeriodRepository>();
+        services.AddScoped<IUserEnvironmentRoleRepository, EfUserEnvironmentRoleRepository>();
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 
         // Seule implémentation disponible tant que les accès réseau réels aux serveurs N4 ne sont pas autorisés.

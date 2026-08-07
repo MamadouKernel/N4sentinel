@@ -23,7 +23,7 @@ public class ChangeEnvironmentStatusCommandHandlerTests
         var handler = CreateHandler();
 
         var act = () => handler.Handle(
-            new ChangeEnvironmentStatusCommand(Guid.NewGuid(), EnvironmentStatusAction.SubmitForValidation),
+            new ChangeEnvironmentStatusCommand(Guid.NewGuid(), EnvironmentStatusAction.SubmitForValidation, "admin1"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<KeyNotFoundException>();
@@ -37,7 +37,7 @@ public class ChangeEnvironmentStatusCommandHandlerTests
         var handler = CreateHandler();
 
         await handler.Handle(
-            new ChangeEnvironmentStatusCommand(environment.Id, EnvironmentStatusAction.SubmitForValidation),
+            new ChangeEnvironmentStatusCommand(environment.Id, EnvironmentStatusAction.SubmitForValidation, "admin1"),
             CancellationToken.None);
 
         environment.Status.Should().Be(EnvironmentStatus.PendingValidation);
@@ -52,7 +52,7 @@ public class ChangeEnvironmentStatusCommandHandlerTests
         var handler = CreateHandler();
 
         var act = () => handler.Handle(
-            new ChangeEnvironmentStatusCommand(environment.Id, EnvironmentStatusAction.Activate),
+            new ChangeEnvironmentStatusCommand(environment.Id, EnvironmentStatusAction.Activate, "admin1"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<DomainRuleException>();

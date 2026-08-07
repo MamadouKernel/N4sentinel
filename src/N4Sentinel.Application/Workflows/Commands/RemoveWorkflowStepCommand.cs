@@ -1,10 +1,16 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 
 namespace N4Sentinel.Application.Workflows.Commands;
 
-public sealed record RemoveWorkflowStepCommand(Guid WorkflowId, Guid VersionId, Guid StepId) : IRequest;
+public sealed record RemoveWorkflowStepCommand(Guid WorkflowId, Guid VersionId, Guid StepId, string ActorUserId)
+    : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Suppression d'étape de workflow";
+    string IAuditableRequest.Summary => $"Étape '{StepId}' supprimée de la version '{VersionId}' du workflow '{WorkflowId}'.";
+}
 
 public sealed class RemoveWorkflowStepCommandValidator : AbstractValidator<RemoveWorkflowStepCommand>
 {
@@ -13,6 +19,7 @@ public sealed class RemoveWorkflowStepCommandValidator : AbstractValidator<Remov
         RuleFor(x => x.WorkflowId).NotEmpty();
         RuleFor(x => x.VersionId).NotEmpty();
         RuleFor(x => x.StepId).NotEmpty();
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 

@@ -26,7 +26,7 @@ public class AddWorkflowStepCommandHandlerTests
         var act = () => handler.Handle(
             new AddWorkflowStepCommand(
                 Guid.NewGuid(), Guid.NewGuid(), "Étape", null, WorkflowStepAction.Start, [], null, null, null,
-                null, 0, false, false, null, WorkflowStepFailurePolicy.StopWorkflow, false, false, false),
+                null, 0, false, false, null, WorkflowStepFailurePolicy.StopWorkflow, false, false, false, "admin1"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<KeyNotFoundException>();
@@ -43,7 +43,7 @@ public class AddWorkflowStepCommandHandlerTests
         var stepId = await handler.Handle(
             new AddWorkflowStepCommand(
                 workflow.Id, draftVersionId, "Démarrer le Bridge", null, WorkflowStepAction.Start, [], null, 30,
-                60, 120, 0, false, false, null, WorkflowStepFailurePolicy.StopWorkflow, true, false, false),
+                60, 120, 0, false, false, null, WorkflowStepFailurePolicy.StopWorkflow, true, false, false, "admin1"),
             CancellationToken.None);
 
         stepId.Should().NotBeEmpty();

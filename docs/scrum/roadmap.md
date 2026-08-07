@@ -26,8 +26,14 @@ toutes celles à venir — autant l'exécuter avant de construire de nouvelles p
 | 13 | Diagnostic — moteur & logs | E7.2 Moteur de diagnostic (classification par domaine/confiance) (13) · E8.1 Analyse de logs (recherche/corrélation) (8) | 21 | **Fait** |
 | 14 | Assistant documentaire N4 | E9.1 Assistant N4 (RAG, réponses sourcées) (13) · E9.2 Garde-fou "jamais d'action déclenchée" (3) | 16 | **Fait** |
 | 15 | Clôture V1 | E9.3 SOP versionnées (8) · E10.2 Export de rapports (5) | 13 | **Fait** |
+| 16 | Clôture des écarts d'audit | E10.1 audit complet · E11.2 contournement (FR-027) · FR-066 · FR-067 · FR-090 PDF · E11.1/E11.1b rôles par environnement | — | **Fait, périmètre partiel sur E11.1b — voir sprint-16.md** |
 
-**Total V1 : 278 points sur 16 sprints** (16 faits, 0 à faire — V1 complète), soit environ **7-8 mois** au
+**Total V1 : 278 points sur 16 sprints planifiés + 1 sprint de clôture des écarts d'audit** (Sprint 16, hors
+estimation initiale). Tous les écarts fonctionnels connus depuis les Sprints 8-9 sont désormais comblés à
+l'exception de la validation contre un vrai environnement N4 réel (hors d'atteinte sans accès réseau CIT) et de
+l'application complète du contrôle d'accès par environnement à toutes les pages (mécanisme fait, appliqué au
+référentiel/pilotage, reste à étendre aux pages de supervision/diagnostic — voir `sprint-16.md`). Soit environ
+**7-8 mois** au
 rythme de 2 semaines/sprint si la vélocité réelle confirme l'hypothèse de 15-25 pts/sprint. Le Sprint 6
 (modernisation UI) est une insertion hors périmètre initial du cahier des charges, demandée directement par
 la DSI ; il décale d'un cran tous les sprints fonctionnels suivants (l'ancien Sprint 6 "démarrage complet"

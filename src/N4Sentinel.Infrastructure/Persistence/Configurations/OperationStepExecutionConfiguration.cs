@@ -18,5 +18,9 @@ public class OperationStepExecutionConfiguration : IEntityTypeConfiguration<Oper
         builder.Property(s => s.ResultMessage).HasMaxLength(2000);
         builder.Property(s => s.Action).HasConversion<string>().HasMaxLength(20);
         builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(20);
+        builder.Property(s => s.OverrideReason).HasMaxLength(2000);
+        builder.Property(s => s.OverrideAcceptedRisk).HasMaxLength(2000);
+        builder.Property(s => s.OverriddenByUserId).HasMaxLength(256);
+        builder.Property(s => s.OverrideApprovedByUserId).HasMaxLength(256);
     }
 }

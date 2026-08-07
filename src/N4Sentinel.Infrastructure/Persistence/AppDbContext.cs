@@ -51,6 +51,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<SopAssociation> SopAssociations => Set<SopAssociation>();
 
+    public DbSet<HealthyReferencePeriod> HealthyReferencePeriods => Set<HealthyReferencePeriod>();
+
+    public DbSet<UserEnvironmentRole> UserEnvironmentRoles => Set<UserEnvironmentRole>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

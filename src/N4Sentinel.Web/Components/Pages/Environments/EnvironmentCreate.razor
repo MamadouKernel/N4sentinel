@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = Roles.Administrateur)]
 @inject IMediator Mediator
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
 
 <PageTitle>Nouvel environnement - N4 Sentinel</PageTitle>
 
@@ -54,8 +55,11 @@
         errorMessage = null;
         try
         {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
+
             var id = await Mediator.Send(new CreateEnvironmentCommand(
-                model.Name, model.Code, model.Kind, model.Description));
+                model.Name, model.Code, model.Kind, model.Description, userName));
             NavigationManager.NavigateTo($"environments/{id}");
         }
         catch (Exception ex)

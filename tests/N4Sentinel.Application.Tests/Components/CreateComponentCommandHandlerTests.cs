@@ -25,7 +25,7 @@ public class CreateComponentCommandHandlerTests
         var act = () => handler.Handle(
             new CreateComponentCommand(
                 Guid.NewGuid(), "Bridge", "Bridge daemon", null, null, null, null, null, null,
-                ComponentCriticality.High, ComponentGovernance.Controllable, null, null, []),
+                ComponentCriticality.High, ComponentGovernance.Controllable, null, null, [], "admin1"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<KeyNotFoundException>();
@@ -43,7 +43,7 @@ public class CreateComponentCommandHandlerTests
             new CreateComponentCommand(
                 environment.Id, "Bridge", "Bridge daemon", "srv-bridge-01", "10.0.0.5", null, "Windows Server",
                 "N4BridgeService", "TCP heartbeat 5s", ComponentCriticality.Critical,
-                ComponentGovernance.Controllable, "J. Dupont", null, [dependencyId]),
+                ComponentGovernance.Controllable, "J. Dupont", null, [dependencyId], "admin1"),
             CancellationToken.None);
 
         id.Should().NotBeEmpty();

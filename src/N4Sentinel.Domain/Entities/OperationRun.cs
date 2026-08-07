@@ -53,6 +53,7 @@ public class OperationRun
         WorkflowId = workflowId;
         WorkflowVersionId = workflowVersionId;
         WorkflowVersionNumber = workflowVersionNumber;
+        IsProductionEnvironment = isProductionEnvironment;
         Motif = motif?.Trim();
         InterventionWindowDescription = interventionWindowDescription?.Trim();
         Impact = impact?.Trim();
@@ -82,6 +83,9 @@ public class OperationRun
     public Guid WorkflowVersionId { get; private set; }
 
     public int WorkflowVersionNumber { get; private set; }
+
+    /// <summary>Figé à la création : conditionne l'obligation d'une seconde approbation pour tout contournement (FR-027).</summary>
+    public bool IsProductionEnvironment { get; private set; }
 
     public string? Motif { get; private set; }
 
@@ -214,6 +218,66 @@ public class OperationRun
         }
 
         failedStep.ResetToPending();
+        Status = OperationRunStatus.Running;
+        CompletedAtUtc = null;
+    }
+
+    /// <summary>
+    /// Contourne l'étape en échec de cette opération (FR-027, "Contournement contrôlé") : nécessite un motif,
+    /// l'identification du risque accepté, et — en Production — l'approbation d'un second utilisateur habilité
+    /// distinct de celui qui contourne. Un contrôle dont la politique d'échec est "Arrêter le workflow" n'est
+    /// jamais déclaré contournable et ne peut donc jamais être ignoré (<paramref name="controlIsDeclaredBypassable"/>
+    /// doit être calculé par l'appelant à partir de <see cref="WorkflowStepFailurePolicy"/> de l'étape d'origine).
+    /// </summary>
+    public void OverrideFailedStep(
+        bool controlIsDeclaredBypassable, string reason, string acceptedRisk, string overriddenByUserId, string? approvedByUserId)
+    {
+        EnsureStatus(OperationRunStatus.Failed);
+
+        var failedStep = _stepExecutions.FirstOrDefault(s => s.Status == OperationStepExecutionStatus.Failed);
+        if (failedStep is null)
+        {
+            throw new DomainRuleException("Aucune étape en échec à contourner pour cette opération.");
+        }
+
+        if (!controlIsDeclaredBypassable)
+        {
+            throw new DomainRuleException(
+                "Ce contrôle n'est pas déclaré contournable (politique 'Arrêter le workflow') — il ne peut jamais être ignoré (FR-027).");
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new DomainRuleException("Le motif du contournement est obligatoire (FR-027).");
+        }
+
+        if (string.IsNullOrWhiteSpace(acceptedRisk))
+        {
+            throw new DomainRuleException("L'identification du risque accepté est obligatoire (FR-027).");
+        }
+
+        if (string.IsNullOrWhiteSpace(overriddenByUserId))
+        {
+            throw new DomainRuleException("L'utilisateur habilité effectuant le contournement est obligatoire.");
+        }
+
+        if (IsProductionEnvironment)
+        {
+            if (string.IsNullOrWhiteSpace(approvedByUserId))
+            {
+                throw new DomainRuleException(
+                    "En Production, le contournement doit être approuvé par un second utilisateur habilité, " +
+                    "conformément à la matrice de criticité (FR-027).");
+            }
+
+            if (string.Equals(approvedByUserId.Trim(), overriddenByUserId.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                throw new DomainRuleException(
+                    "Le contournement et son approbation doivent être réalisés par deux utilisateurs distincts.");
+            }
+        }
+
+        failedStep.MarkOverridden(reason.Trim(), acceptedRisk.Trim(), overriddenByUserId.Trim(), approvedByUserId?.Trim());
         Status = OperationRunStatus.Running;
         CompletedAtUtc = null;
     }

@@ -69,6 +69,8 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 | E7.1 | En tant qu'Opérateur, je veux que la collecte des journaux/événements/métriques utiles à un incident soit automatique, avec import manuel en complément. | 8 | Must | **Fait** (Sprint 12) |
 | E7.2 | En tant qu'Opérateur, je veux que le moteur de diagnostic classe les causes possibles par domaine (réseau, base de données, système/VM, services, composants N4, ActiveMQ/KahaDB, Bridge/XPS, dossiers partagés, EDI) et niveau de confiance. | 13 | Must | **Fait** (Sprint 13) |
 | E7.3 | En tant qu'Administrateur, je veux définir et versionner des règles de diagnostic validées (pattern → cause probable → SOP associée). | 8 | Must | **Fait** (Sprint 12) |
+| — | FR-066 : comparer un incident à une référence (période saine, exécution précédente, historique de composant). | — | Must | **Fait** (Sprint 16) |
+| — | FR-067 : générer un paquet d'escalade (contexte, journaux masqués, hypothèses, empreintes de fichiers) vers l'Infrastructure/le support Navis. | — | Must | **Fait** (Sprint 16) |
 
 ## Epic 8 — Analyse des fichiers de logs
 
@@ -88,16 +90,16 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
-| E10.1 | En tant qu'Administrateur, je veux consulter un journal d'audit complet (qui, quoi, quand, résultat) de toutes les opérations, validations et dérogations. | 8 | Must | **Fait, partiellement** (Sprint 9) — audite les validations d'opération et la gestion de rôles ; pas encore le référentiel (Environnements/Composants/Workflows), voir décision Sprint 9 |
-| E10.2 | En tant qu'utilisateur, je veux exporter un rapport d'opération ou d'incident. | 5 | Should | **Fait** (Sprint 15) |
+| E10.1 | En tant qu'Administrateur, je veux consulter un journal d'audit complet (qui, quoi, quand, résultat) de toutes les opérations, validations et dérogations. | 8 | Must | **Fait** (Sprint 9, complété Sprint 16) — audite désormais aussi le référentiel (Environnements/Composants/Workflows) et le verrouillage/déverrouillage de compte |
+| E10.2 | En tant qu'utilisateur, je veux exporter un rapport d'opération ou d'incident. | 5 | Should | **Fait** (Sprint 15 — export JSON, Sprint 16 — export PDF réel via QuestPDF) |
 
 ## Epic 11 — Sécurité, utilisateurs et rôles (FR transverses)
 
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
-| E11.1 | En tant qu'Administrateur, je veux gérer les comptes et l'attribution des 4 rôles (Lecteur, Opérateur, Approbateur, Administrateur), différenciés par environnement. | 8 | Must | **Fait, partiellement** (Sprint 8) — rôles globaux, pas encore différenciés par environnement ; voir décision Sprint 8 |
-| E11.1b | En tant qu'Administrateur, je veux que les rôles attribués à un utilisateur puissent différer d'un environnement à l'autre (ex. Opérateur sur UAT, Lecteur sur Production). | 8 | Could | À faire — nécessite une refonte du modèle d'autorisation (actuellement global, cf. décision Sprint 8) |
-| E11.2 | En tant que système, je dois empêcher un Administrateur d'approuver seul son propre contournement (séparation des responsabilités). | 5 | Must | **Fait, partiellement** (Sprint 9) — règle appliquée aux étapes RequiresApproval ; le concept complet de "contournement" (FR-027) reste à construire |
+| E11.1 | En tant qu'Administrateur, je veux gérer les comptes et l'attribution des 4 rôles (Lecteur, Opérateur, Approbateur, Administrateur), différenciés par environnement. | 8 | Must | **Fait, périmètre partiel** (Sprint 8, mécanisme complet Sprint 16) — `UserEnvironmentRole` + `IEnvironmentAccessChecker` construits et appliqués aux pages référentiel/pilotage (Environment/Component/Workflow/Operation) ; reste à étendre aux autres pages environnement-scopées, voir décision Sprint 16 |
+| E11.1b | En tant qu'Administrateur, je veux que les rôles attribués à un utilisateur puissent différer d'un environnement à l'autre (ex. Opérateur sur UAT, Lecteur sur Production). | 8 | Could | **Fait, périmètre partiel** (Sprint 16) — voir E11.1 |
+| E11.2 | En tant que système, je dois empêcher un Administrateur d'approuver seul son propre contournement (séparation des responsabilités). | 5 | Must | **Fait** (Sprint 9, complété Sprint 16) — le concept complet de "contournement" (FR-027) est construit : `OperationRun.OverrideFailedStep`, motif/risque/approbation Production |
 | E11.3 | En tant qu'Administrateur, je veux que toute attribution/modification/révocation de rôle soit auditée. | 3 | Must | **Fait** (Sprint 9) |
 
 ## Epic 12 — Infrastructure & plateforme (non-fonctionnel)

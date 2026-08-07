@@ -54,6 +54,19 @@ public class OperationStepExecution
 
     public string? ResultMessage { get; private set; }
 
+    /// <summary>Motif obligatoire du contournement (FR-027).</summary>
+    public string? OverrideReason { get; private set; }
+
+    /// <summary>Risque accepté identifié par l'utilisateur habilité (FR-027).</summary>
+    public string? OverrideAcceptedRisk { get; private set; }
+
+    public string? OverriddenByUserId { get; private set; }
+
+    /// <summary>Renseigné uniquement en Production, par un second utilisateur habilité (FR-027).</summary>
+    public string? OverrideApprovedByUserId { get; private set; }
+
+    public DateTime? OverriddenAtUtc { get; private set; }
+
     internal void MarkAwaitingConfirmation()
     {
         EnsureStatus(OperationStepExecutionStatus.Pending);
@@ -94,6 +107,18 @@ public class OperationStepExecution
         Status = OperationStepExecutionStatus.Skipped;
         ResultMessage = reason?.Trim();
         CompletedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>Contourne une étape en échec dont le contrôle est déclaré contournable (FR-027).</summary>
+    internal void MarkOverridden(string reason, string acceptedRisk, string overriddenByUserId, string? approvedByUserId)
+    {
+        EnsureStatus(OperationStepExecutionStatus.Failed);
+        Status = OperationStepExecutionStatus.Overridden;
+        OverrideReason = reason;
+        OverrideAcceptedRisk = acceptedRisk;
+        OverriddenByUserId = overriddenByUserId;
+        OverrideApprovedByUserId = approvedByUserId;
+        OverriddenAtUtc = DateTime.UtcNow;
     }
 
     /// <summary>Remet une étape échouée à Pending pour permettre une reprise (E3.5).</summary>

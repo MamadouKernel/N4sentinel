@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 using N4Sentinel.Domain.Entities;
 
 namespace N4Sentinel.Application.Workflows.Commands;
@@ -23,7 +24,12 @@ public sealed record AddWorkflowStepCommand(
     WorkflowStepFailurePolicy OnFailurePolicy,
     bool RequiresConfirmation,
     bool RequiresApproval,
-    bool IsCriticalOrDestructive) : IRequest<Guid>;
+    bool IsCriticalOrDestructive,
+    string ActorUserId) : IRequest<Guid>, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Ajout d'étape de workflow";
+    string IAuditableRequest.Summary => $"Étape '{Name}' ajoutée à la version '{VersionId}' du workflow '{WorkflowId}'.";
+}
 
 public sealed class AddWorkflowStepCommandValidator : AbstractValidator<AddWorkflowStepCommand>
 {
@@ -38,6 +44,7 @@ public sealed class AddWorkflowStepCommandValidator : AbstractValidator<AddWorkf
         RuleFor(x => x.RetryIsAutomatic)
             .Must((command, retryIsAutomatic) => !retryIsAutomatic || !command.IsCriticalOrDestructive || command.AutomaticRetryExplicitlyAuthorized)
             .WithMessage("Les nouvelles tentatives automatiques sont interdites pour une étape critique ou destructrice, sauf autorisation explicite.");
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 

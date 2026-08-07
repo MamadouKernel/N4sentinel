@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 using N4Sentinel.Domain.Exceptions;
 
 namespace N4Sentinel.Application.Workflows.Commands;
@@ -14,7 +15,12 @@ public enum WorkflowVersionStatusAction
 }
 
 public sealed record ChangeWorkflowVersionStatusCommand(
-    Guid WorkflowId, Guid VersionId, WorkflowVersionStatusAction Action) : IRequest;
+    Guid WorkflowId, Guid VersionId, WorkflowVersionStatusAction Action, string ActorUserId)
+    : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Changement de statut de version de workflow";
+    string IAuditableRequest.Summary => $"Workflow '{WorkflowId}' version '{VersionId}' : action '{Action}' appliquée.";
+}
 
 public sealed class ChangeWorkflowVersionStatusCommandValidator : AbstractValidator<ChangeWorkflowVersionStatusCommand>
 {
@@ -23,6 +29,7 @@ public sealed class ChangeWorkflowVersionStatusCommandValidator : AbstractValida
         RuleFor(x => x.WorkflowId).NotEmpty();
         RuleFor(x => x.VersionId).NotEmpty();
         RuleFor(x => x.Action).IsInEnum();
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 

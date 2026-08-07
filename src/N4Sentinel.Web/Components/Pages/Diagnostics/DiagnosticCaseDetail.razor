@@ -28,6 +28,8 @@ else
                 <span class="font-medium text-slate-900">@diagnosticCase.CorrelationReference</span>
                 <span>/</span>
                 <a href="@($"environments/{EnvironmentId}/diagnostic-cases/{CaseId}/report")" class="hover:text-slate-700">Rapport d'incident</a>
+                <span>/</span>
+                <a href="@($"environments/{EnvironmentId}/diagnostic-cases/{CaseId}/escalation-package")" class="hover:text-slate-700">Paquet d'escalade</a>
             </div>
             <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -242,6 +244,87 @@ else
                 <p class="text-xs text-slate-500 pt-2">Conclu le @diagnosticCase.ConcludedAtUtc?.ToString("dd/MM/yyyy HH:mm")</p>
             </div>
         }
+
+        <!-- Comparaison avec une référence (FR-066) -->
+        <div class="card p-6 space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-bold text-slate-900">Comparaison avec une référence (FR-066)</h2>
+                <a href="@($"environments/{EnvironmentId}/reference-periods")" class="text-xs text-brand-700 hover:underline">Gérer les périodes de référence →</a>
+            </div>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Type de référence</label>
+                    <select @bind="comparisonKind" class="form-select mt-1 w-full">
+                        <option value="@ComparisonReferenceKind.HealthyReferencePeriod">Période saine validée</option>
+                        <option value="@ComparisonReferenceKind.PreviousSuccessfulOperation">Exécution précédente réussie</option>
+                        <option value="@ComparisonReferenceKind.ComponentSignalHistory">Valeurs habituelles / autre nœud comparable</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Référence</label>
+                    <select @bind="selectedReferenceId" class="form-select mt-1 w-full">
+                        <option value="">— Choisir —</option>
+                        @if (comparisonKind == ComparisonReferenceKind.HealthyReferencePeriod && referencePeriods is not null)
+                        {
+                            @foreach (var p in referencePeriods)
+                            {
+                                <option value="@p.Id">@p.Label (@p.PeriodStartUtc.ToLocalTime().ToString("d") - @p.PeriodEndUtc.ToLocalTime().ToString("d"))</option>
+                            }
+                        }
+                        @if (comparisonKind == ComparisonReferenceKind.PreviousSuccessfulOperation && completedOperations is not null)
+                        {
+                            @foreach (var o in completedOperations)
+                            {
+                                <option value="@o.Id">Opération du @o.RequestedAtUtc.ToLocalTime().ToString("g")</option>
+                            }
+                        }
+                        @if (comparisonKind == ComparisonReferenceKind.ComponentSignalHistory && environmentComponents is not null)
+                        {
+                            @foreach (var c in environmentComponents)
+                            {
+                                <option value="@c.Id">@c.Name (@c.Role)</option>
+                            }
+                        }
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" @onclick="CompareAsync" disabled="@string.IsNullOrEmpty(selectedReferenceId)">Comparer</button>
+
+            @if (comparison is not null)
+            {
+                @if (comparison.Warning is not null)
+                {
+                    <div class="rounded-md bg-amber-50 p-3 text-sm text-amber-800 border border-amber-200">@comparison.Warning</div>
+                }
+                <p class="text-xs text-slate-500">
+                    Référence : <strong>@comparison.ReferenceLabel</strong>
+                    @if (comparison.ReferenceStartUtc is not null)
+                    {
+                        <text> (@comparison.ReferenceStartUtc?.ToLocalTime().ToString("g") → @comparison.ReferenceEndUtc?.ToLocalTime().ToString("g"))</text>
+                    }
+                </p>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <h3 class="text-sm font-semibold text-slate-700">Signaux du cas (@comparison.CaseSignals.Count)</h3>
+                        <ul class="mt-1 space-y-1 text-xs text-slate-700 max-h-64 overflow-y-auto">
+                            @foreach (var s in comparison.CaseSignals)
+                            {
+                                <li class="rounded border border-slate-200 p-1.5">@s.Source — @s.Domain.ToLabel() — @(s.Content ?? "(indisponible)")</li>
+                            }
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-semibold text-slate-700">Signaux de référence (@comparison.ReferenceSignals.Count)</h3>
+                        <ul class="mt-1 space-y-1 text-xs text-slate-700 max-h-64 overflow-y-auto">
+                            @foreach (var s in comparison.ReferenceSignals)
+                            {
+                                <li class="rounded border border-slate-200 p-1.5">@s.Source — @s.Domain.ToLabel() — @(s.Content ?? "(indisponible)")</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            }
+        </div>
     </div>
 }
 
@@ -272,9 +355,39 @@ else
     private ConclusionLevel conclusionLevel = ConclusionLevel.VeryLikelyCause;
     private string conclusionSummary = string.Empty;
 
+    // Comparaison FR-066
+    private ComparisonReferenceKind comparisonKind = ComparisonReferenceKind.HealthyReferencePeriod;
+    private string selectedReferenceId = string.Empty;
+    private IReadOnlyList<HealthyReferencePeriodDto>? referencePeriods;
+    private IReadOnlyList<OperationRunDto>? completedOperations;
+    private IReadOnlyList<ComponentDto>? environmentComponents;
+    private DiagnosticComparisonDto? comparison;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadDataAsync();
+        referencePeriods = await Mediator.Send(new ListHealthyReferencePeriodsByEnvironmentQuery(EnvironmentId));
+        var allOperations = await Mediator.Send(new ListOperationRunsByEnvironmentQuery(EnvironmentId));
+        completedOperations = allOperations.Where(o => o.Status == OperationRunStatus.Completed).ToList();
+        environmentComponents = await Mediator.Send(new ListComponentsByEnvironmentQuery(EnvironmentId));
+    }
+
+    private async Task CompareAsync()
+    {
+        if (!Guid.TryParse(selectedReferenceId, out var referenceId))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            comparison = await Mediator.Send(new CompareDiagnosticCaseToReferenceQuery(CaseId, comparisonKind, referenceId));
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
     }
 
     private async Task LoadDataAsync()

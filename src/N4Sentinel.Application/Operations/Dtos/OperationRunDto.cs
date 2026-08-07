@@ -13,7 +13,12 @@ public sealed record OperationStepExecutionDto(
     OperationStepExecutionStatus Status,
     DateTime? StartedAtUtc,
     DateTime? CompletedAtUtc,
-    string? ResultMessage);
+    string? ResultMessage,
+    string? OverrideReason,
+    string? OverrideAcceptedRisk,
+    string? OverriddenByUserId,
+    string? OverrideApprovedByUserId,
+    DateTime? OverriddenAtUtc);
 
 public sealed record OperationRunDto(
     Guid Id,
@@ -32,4 +37,5 @@ public sealed record OperationRunDto(
     DateTime? ApprovedAtUtc,
     string? RejectionReason,
     DateTime? CompletedAtUtc,
+    bool IsProductionEnvironment,
     IReadOnlyList<OperationStepExecutionDto> StepExecutions);

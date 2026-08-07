@@ -1,17 +1,24 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 
 namespace N4Sentinel.Application.Users.Commands;
 
-/// <summary>Non audité : hors périmètre littéral d'E11.3 (attribution/révocation de rôle). Cf. Sprint 9.</summary>
-public sealed record UnlockUserAccountCommand(string UserId) : IRequest;
+/// <summary>Audité depuis le Sprint 16 — voir <see cref="LockUserAccountCommand"/> pour le contexte du constat d'audit.</summary>
+public sealed record UnlockUserAccountCommand(string UserId, string UnlockedByUserId) : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.ActorUserId => UnlockedByUserId;
+    string IAuditableRequest.Action => "Déverrouillage de compte";
+    string IAuditableRequest.Summary => $"Compte utilisateur '{UserId}' déverrouillé.";
+}
 
 public sealed class UnlockUserAccountCommandValidator : AbstractValidator<UnlockUserAccountCommand>
 {
     public UnlockUserAccountCommandValidator()
     {
         RuleFor(x => x.UserId).NotEmpty();
+        RuleFor(x => x.UnlockedByUserId).NotEmpty();
     }
 }
 

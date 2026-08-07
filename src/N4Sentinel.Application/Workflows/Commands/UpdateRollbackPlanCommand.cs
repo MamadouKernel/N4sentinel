@@ -1,11 +1,17 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 
 namespace N4Sentinel.Application.Workflows.Commands;
 
 public sealed record UpdateRollbackPlanCommand(
-    Guid WorkflowId, Guid VersionId, bool AllowsRollback, string? RollbackNotes) : IRequest;
+    Guid WorkflowId, Guid VersionId, bool AllowsRollback, string? RollbackNotes, string ActorUserId)
+    : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Modification du plan de retour arrière";
+    string IAuditableRequest.Summary => $"Plan de retour arrière mis à jour pour la version '{VersionId}' du workflow '{WorkflowId}'.";
+}
 
 public sealed class UpdateRollbackPlanCommandValidator : AbstractValidator<UpdateRollbackPlanCommand>
 {
@@ -14,6 +20,7 @@ public sealed class UpdateRollbackPlanCommandValidator : AbstractValidator<Updat
         RuleFor(x => x.WorkflowId).NotEmpty();
         RuleFor(x => x.VersionId).NotEmpty();
         RuleFor(x => x.RollbackNotes).MaximumLength(2000);
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 

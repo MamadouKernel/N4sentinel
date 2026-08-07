@@ -23,7 +23,7 @@ public class CreateWorkflowCommandHandlerTests
         var handler = CreateHandler();
 
         var act = () => handler.Handle(
-            new CreateWorkflowCommand(Guid.NewGuid(), "Démarrage complet", WorkflowType.Start, WorkflowScope.Full, []),
+            new CreateWorkflowCommand(Guid.NewGuid(), "Démarrage complet", WorkflowType.Start, WorkflowScope.Full, [], "admin1"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<KeyNotFoundException>();
@@ -37,7 +37,7 @@ public class CreateWorkflowCommandHandlerTests
         var handler = CreateHandler();
 
         var id = await handler.Handle(
-            new CreateWorkflowCommand(environment.Id, "Démarrage complet", WorkflowType.Start, WorkflowScope.Full, []),
+            new CreateWorkflowCommand(environment.Id, "Démarrage complet", WorkflowType.Start, WorkflowScope.Full, [], "admin1"),
             CancellationToken.None);
 
         id.Should().NotBeEmpty();

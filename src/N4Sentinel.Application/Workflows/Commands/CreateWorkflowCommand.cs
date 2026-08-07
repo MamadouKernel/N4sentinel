@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 using N4Sentinel.Domain.Entities;
 
 namespace N4Sentinel.Application.Workflows.Commands;
@@ -10,7 +11,12 @@ public sealed record CreateWorkflowCommand(
     string Name,
     WorkflowType Type,
     WorkflowScope Scope,
-    IReadOnlyCollection<Guid> TargetComponentIds) : IRequest<Guid>;
+    IReadOnlyCollection<Guid> TargetComponentIds,
+    string ActorUserId) : IRequest<Guid>, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Création de workflow";
+    string IAuditableRequest.Summary => $"Workflow '{Name}' créé sur l'environnement '{EnvironmentId}'.";
+}
 
 public sealed class CreateWorkflowCommandValidator : AbstractValidator<CreateWorkflowCommand>
 {
@@ -24,6 +30,7 @@ public sealed class CreateWorkflowCommandValidator : AbstractValidator<CreateWor
             .NotEmpty()
             .When(x => x.Scope != WorkflowScope.Full)
             .WithMessage("Un workflow partiel ou unitaire doit désigner au moins un composant cible.");
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 

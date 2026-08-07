@@ -15,7 +15,12 @@ public sealed record OperationReportStepDto(
     OperationStepExecutionStatus Status,
     DateTime? StartedAtUtc,
     DateTime? CompletedAtUtc,
-    string? ResultMessage);
+    string? ResultMessage,
+    /// <summary>FR-027 : "Tout contournement doit être visible dans le rapport final" — motif, risque accepté, auteur(s).</summary>
+    string? OverrideReason,
+    string? OverrideAcceptedRisk,
+    string? OverriddenByUserId,
+    string? OverrideApprovedByUserId);
 
 public sealed record OperationReportDto(
     Guid OperationRunId,

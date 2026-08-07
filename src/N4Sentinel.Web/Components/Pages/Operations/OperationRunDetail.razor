@@ -106,6 +106,37 @@ else
                 <button class="btn btn-outline-primary mb-3" @onclick="ResumeAsync" disabled="@isExecuting">
                     Reprendre depuis le dernier point de contrôle valide
                 </button>
+                <button class="btn btn-outline-warning mb-3 ms-2" @onclick="() => showOverrideForm = !showOverrideForm">
+                    Contourner ce contrôle (FR-027)
+                </button>
+                @if (showOverrideForm)
+                {
+                    <div class="card p-3 mb-3">
+                        <p class="text-muted small">
+                            Le contournement n'est possible que pour un contrôle déclaré contournable (politique
+                            "Nécessite une décision manuelle"). Le motif et le risque accepté sont obligatoires et
+                            resteront visibles dans le rapport et le journal d'audit.
+                        </p>
+                        <div class="mb-2">
+                            <label class="form-label">Motif du contournement</label>
+                            <textarea class="form-control" @bind="overrideReason"></textarea>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Risque accepté</label>
+                            <textarea class="form-control" @bind="overrideAcceptedRisk"></textarea>
+                        </div>
+                        @if (run.IsProductionEnvironment)
+                        {
+                            <div class="mb-2">
+                                <label class="form-label">Approbateur (Production — doit être distinct de vous)</label>
+                                <input class="form-control" @bind="overrideApprovedByUserId" />
+                            </div>
+                        }
+                        <button class="btn btn-warning btn-sm" @onclick="OverrideFailedStepAsync" disabled="@isExecuting">
+                            Confirmer le contournement
+                        </button>
+                    </div>
+                }
             }
         </Authorized>
     </AuthorizeView>
@@ -132,7 +163,21 @@ else
                     <td>@step.Action.ToLabel()</td>
                     <td>@(step.ComponentName ?? "—")</td>
                     <td>@StepStatusLabel(step.Status)</td>
-                    <td>@step.ResultMessage</td>
+                    <td>
+                        @step.ResultMessage
+                        @if (step.Status == OperationStepExecutionStatus.Overridden)
+                        {
+                            <div class="small text-warning-emphasis mt-1">
+                                <strong>Contourné</strong> par @step.OverriddenByUserId
+                                @if (step.OverrideApprovedByUserId is not null)
+                                {
+                                    <text> — approuvé par @step.OverrideApprovedByUserId</text>
+                                }
+                                <br />Motif : @step.OverrideReason
+                                <br />Risque accepté : @step.OverrideAcceptedRisk
+                            </div>
+                        }
+                    </td>
                 </tr>
             }
         </tbody>
@@ -156,6 +201,10 @@ else
     private bool isExecuting;
     private bool showRejectForm;
     private string rejectionReason = string.Empty;
+    private bool showOverrideForm;
+    private string overrideReason = string.Empty;
+    private string overrideAcceptedRisk = string.Empty;
+    private string overrideApprovedByUserId = string.Empty;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -266,6 +315,32 @@ else
         }
     }
 
+    private async Task OverrideFailedStepAsync()
+    {
+        errorMessage = null;
+        isExecuting = true;
+        try
+        {
+            await Mediator.Send(new OverrideFailedOperationStepCommand(
+                OperationRunId, overrideReason, overrideAcceptedRisk, currentUserId ?? "inconnu",
+                string.IsNullOrWhiteSpace(overrideApprovedByUserId) ? null : overrideApprovedByUserId));
+
+            showOverrideForm = false;
+            overrideReason = string.Empty;
+            overrideAcceptedRisk = string.Empty;
+            overrideApprovedByUserId = string.Empty;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isExecuting = false;
+        }
+    }
+
     private static string StepRowClass(OperationStepExecutionStatus status) => status switch
     {
         OperationStepExecutionStatus.Succeeded => "table-success",
@@ -273,6 +348,7 @@ else
         OperationStepExecutionStatus.Running => "table-info",
         OperationStepExecutionStatus.Skipped => "table-warning",
         OperationStepExecutionStatus.AwaitingConfirmation => "table-warning",
+        OperationStepExecutionStatus.Overridden => "table-warning",
         _ => "",
     };
 
@@ -284,6 +360,7 @@ else
         OperationStepExecutionStatus.Succeeded => "Réussie",
         OperationStepExecutionStatus.Failed => "Échouée",
         OperationStepExecutionStatus.Skipped => "Ignorée",
+        OperationStepExecutionStatus.Overridden => "Contournée",
         _ => "",
     };
 }

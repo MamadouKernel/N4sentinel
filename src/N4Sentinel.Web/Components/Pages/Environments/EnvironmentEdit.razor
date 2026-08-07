@@ -1,11 +1,21 @@
 @page "/environments/{Id:guid}/edit"
-@attribute [Authorize(Roles = Roles.Administrateur)]
+@attribute [Authorize]
 @inject IMediator Mediator
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IEnvironmentAccessChecker AccessChecker
 
 <PageTitle>Modifier @(model?.Name) - N4 Sentinel</PageTitle>
 
-@if (model is null)
+@if (accessGranted is null)
+{
+    <p><em>Vérification des droits...</em></p>
+}
+else if (accessGranted == false)
+{
+    <div class="alert alert-danger">Accès refusé : le rôle Administrateur est requis sur cet environnement (E11.1b).</div>
+}
+else if (model is null)
 {
     <p><em>Chargement...</em></p>
 }
@@ -43,9 +53,17 @@ else
 
     private EditEnvironmentModel? model;
     private string? errorMessage;
+    private bool? accessGranted;
 
     protected override async Task OnParametersSetAsync()
     {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        accessGranted = await AccessChecker.HasAnyRoleAsync(authState.User, Id, Roles.Administrateur);
+        if (accessGranted == false)
+        {
+            return;
+        }
+
         var detail = await Mediator.Send(new GetEnvironmentByIdQuery(Id));
         if (detail is not null)
         {
@@ -63,7 +81,10 @@ else
         errorMessage = null;
         try
         {
-            await Mediator.Send(new UpdateEnvironmentCommand(Id, model.Name, model.Description));
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
+
+            await Mediator.Send(new UpdateEnvironmentCommand(Id, model.Name, model.Description, userName));
             NavigationManager.NavigateTo($"environments/{Id}");
         }
         catch (Exception ex)

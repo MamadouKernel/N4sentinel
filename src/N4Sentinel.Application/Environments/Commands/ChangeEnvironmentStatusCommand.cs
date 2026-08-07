@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 using N4Sentinel.Domain.Exceptions;
 
 namespace N4Sentinel.Application.Environments.Commands;
@@ -14,7 +15,12 @@ public enum EnvironmentStatusAction
     Disable,
 }
 
-public sealed record ChangeEnvironmentStatusCommand(Guid Id, EnvironmentStatusAction Action) : IRequest;
+public sealed record ChangeEnvironmentStatusCommand(Guid Id, EnvironmentStatusAction Action, string ActorUserId)
+    : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Changement de statut d'environnement";
+    string IAuditableRequest.Summary => $"Environnement '{Id}' : action '{Action}' appliquée.";
+}
 
 public sealed class ChangeEnvironmentStatusCommandValidator : AbstractValidator<ChangeEnvironmentStatusCommand>
 {
@@ -22,6 +28,7 @@ public sealed class ChangeEnvironmentStatusCommandValidator : AbstractValidator<
     {
         RuleFor(x => x.Id).NotEmpty();
         RuleFor(x => x.Action).IsInEnum();
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 

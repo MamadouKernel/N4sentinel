@@ -11,4 +11,7 @@ public enum OperationStepExecutionStatus
     Succeeded,
     Failed,
     Skipped,
+
+    /// <summary>Contrôle en échec contourné selon FR-027 (motif, risque accepté, confirmation, approbation si Production).</summary>
+    Overridden,
 }

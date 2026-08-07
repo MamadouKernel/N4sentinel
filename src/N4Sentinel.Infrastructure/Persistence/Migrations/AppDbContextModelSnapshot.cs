@@ -532,6 +532,44 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
                     b.ToTable("FolderReconstitutions", (string)null);
                 });
 
+            modelBuilder.Entity("N4Sentinel.Domain.Entities.HealthyReferencePeriod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EnvironmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<DateTime>("PeriodEndUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PeriodStartUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ValidatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ValidatedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnvironmentId");
+
+                    b.ToTable("HealthyReferencePeriods", (string)null);
+                });
+
             modelBuilder.Entity("N4Sentinel.Domain.Entities.ImportedLogFile", b =>
                 {
                     b.Property<Guid>("Id")
@@ -754,6 +792,9 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<bool>("IsProductionEnvironment")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Motif")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
@@ -818,6 +859,25 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("OperationRunId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("OverriddenAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OverriddenByUserId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("OverrideAcceptedRisk")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("OverrideApprovedByUserId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("OverrideReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<int>("Position")
                         .HasColumnType("int");
@@ -1161,6 +1221,41 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("SyncEndpoints", (string)null);
+                });
+
+            modelBuilder.Entity("N4Sentinel.Domain.Entities.UserEnvironmentRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EnvironmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("GrantedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("GrantedByUserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EnvironmentId");
+
+                    b.HasIndex("UserId", "EnvironmentId");
+
+                    b.ToTable("UserEnvironmentRoles", (string)null);
                 });
 
             modelBuilder.Entity("N4Sentinel.Domain.Entities.Workflow", b =>

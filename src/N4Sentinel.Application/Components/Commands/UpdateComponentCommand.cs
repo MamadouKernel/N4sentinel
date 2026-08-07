@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 using N4Sentinel.Domain.Entities;
 
 namespace N4Sentinel.Application.Components.Commands;
@@ -19,7 +20,12 @@ public sealed record UpdateComponentCommand(
     ComponentGovernance Governance,
     string? TechnicalOwner,
     string? FunctionalOwner,
-    IReadOnlyCollection<Guid> DependsOnComponentIds) : IRequest;
+    IReadOnlyCollection<Guid> DependsOnComponentIds,
+    string ActorUserId) : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.Action => "Modification de composant";
+    string IAuditableRequest.Summary => $"Composant '{Id}' modifié.";
+}
 
 public sealed class UpdateComponentCommandValidator : AbstractValidator<UpdateComponentCommand>
 {
@@ -32,6 +38,7 @@ public sealed class UpdateComponentCommandValidator : AbstractValidator<UpdateCo
         RuleFor(x => x.Governance).IsInEnum();
         RuleForEach(x => x.DependsOnComponentIds).NotEqual(x => x.Id)
             .WithMessage("Un composant ne peut pas dépendre de lui-même.");
+        RuleFor(x => x.ActorUserId).NotEmpty();
     }
 }
 
