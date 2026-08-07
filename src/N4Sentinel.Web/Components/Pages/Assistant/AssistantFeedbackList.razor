@@ -1,0 +1,143 @@
+@page "/admin/assistant-feedback"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject ISender Mediator
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Signalements assistant - N4 Sentinel</PageTitle>
+
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">Signalements de l'assistant N4</h1>
+        <p class="text-sm text-slate-600">
+            Réponses signalées comme incorrectes, avec correction proposée, en attente de validation (FR-087).
+            Valider un signalement ne modifie jamais automatiquement le document — la correction doit être
+            reportée séparément dans une nouvelle version du document concerné.
+        </p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="rounded-md bg-rose-50 p-4 text-sm font-medium text-rose-800 border border-rose-200">@errorMessage</div>
+    }
+
+    @if (entries is null)
+    {
+        <div class="card p-8 text-center text-slate-500">Chargement...</div>
+    }
+    else if (entries.Count == 0)
+    {
+        <div class="card p-8 text-center text-slate-500">Aucun signalement.</div>
+    }
+    else
+    {
+        <div class="space-y-4">
+            @foreach (var entry in entries)
+            {
+                <div class="card p-5 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="badge @StatusBadgeClass(entry.Status)">@entry.Status.ToLabel()</span>
+                        <span class="text-xs text-slate-500">@entry.SubmittedAtUtc.ToLocalTime().ToString("g") — @entry.SubmittedByUserId</span>
+                    </div>
+                    <p class="text-sm text-slate-900"><strong>Question :</strong> @entry.QuestionText</p>
+                    @if (!string.IsNullOrEmpty(entry.FlaggedExcerpt))
+                    {
+                        <p class="text-xs text-slate-600 bg-rose-50 p-2 rounded border border-rose-100"><strong>Extrait signalé :</strong> @entry.FlaggedExcerpt</p>
+                    }
+                    <p class="text-sm text-emerald-800 bg-emerald-50 p-2 rounded border border-emerald-100"><strong>Correction proposée :</strong> @entry.ProposedCorrection</p>
+                    <a href="/admin/documents/@entry.DocumentId" class="text-xs text-brand-700 hover:underline">Voir le document concerné →</a>
+
+                    @if (entry.Status == FeedbackStatus.Pending)
+                    {
+                        <div class="flex items-center gap-2 pt-2 border-t border-slate-200">
+                            <button class="btn btn-success btn-sm" @onclick="() => ValidateAsync(entry.Id)">Valider</button>
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => ToggleRejectForm(entry.Id)">Rejeter</button>
+                        </div>
+                        @if (rejectingId == entry.Id)
+                        {
+                            <div class="space-y-2">
+                                <textarea @bind="rejectReason" rows="2" class="form-input w-full" placeholder="Motif du rejet"></textarea>
+                                <button class="btn btn-danger btn-sm" @onclick="() => RejectAsync(entry.Id)">Confirmer le rejet</button>
+                            </div>
+                        }
+                    }
+                    else if (!string.IsNullOrEmpty(entry.ReviewNotes))
+                    {
+                        <p class="text-xs text-slate-500">Relu par @entry.ReviewedByUserId : @entry.ReviewNotes</p>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AssistantFeedbackDto>? entries;
+    private string? errorMessage;
+    private Guid? rejectingId;
+    private string rejectReason = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        entries = await Mediator.Send(new ListAssistantFeedbackQuery());
+    }
+
+    private async Task ValidateAsync(Guid feedbackId)
+    {
+        errorMessage = null;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
+
+            await Mediator.Send(new ValidateAssistantFeedbackCommand(feedbackId, userName, null));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private void ToggleRejectForm(Guid feedbackId)
+    {
+        rejectingId = rejectingId == feedbackId ? null : feedbackId;
+        rejectReason = string.Empty;
+    }
+
+    private async Task RejectAsync(Guid feedbackId)
+    {
+        if (string.IsNullOrWhiteSpace(rejectReason))
+        {
+            errorMessage = "Le motif de rejet est obligatoire.";
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Administrateur";
+
+            await Mediator.Send(new RejectAssistantFeedbackCommand(feedbackId, userName, rejectReason));
+            rejectingId = null;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private static string StatusBadgeClass(FeedbackStatus status) => status switch
+    {
+        FeedbackStatus.Pending => "bg-amber-100 text-amber-800",
+        FeedbackStatus.Validated => "bg-emerald-100 text-emerald-800",
+        FeedbackStatus.Rejected => "bg-slate-100 text-slate-700",
+        _ => "bg-slate-100 text-slate-700",
+    };
+}

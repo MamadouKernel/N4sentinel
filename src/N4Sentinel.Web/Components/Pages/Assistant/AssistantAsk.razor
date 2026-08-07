@@ -1,0 +1,143 @@
+@page "/assistant"
+@attribute [Authorize]
+@inject ISender Mediator
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Assistant N4 - N4 Sentinel</PageTitle>
+
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">Assistant N4</h1>
+        <p class="text-sm text-slate-600">
+            Interrogez en langage naturel le guide Navis N4 et les procédures internes (FR-082). Chaque réponse
+            cite son document source et l'emplacement exact (FR-083). L'assistant explique et recommande — il
+            ne déclenche jamais d'action technique ; toute action doit être lancée séparément dans le workflow
+            habituel, avec ses propres contrôles et validations (FR-084).
+        </p>
+    </div>
+
+    <div class="card p-5 space-y-3">
+        <textarea @bind="question" rows="2" class="form-input w-full" placeholder="Ex : Comment redémarrer le Bridge après un arrêt du Center Node ?"></textarea>
+        <button class="btn btn-primary" @onclick="AskAsync" disabled="@isAsking">
+            @(isAsking ? "Recherche en cours..." : "Interroger l'assistant")
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="rounded-md bg-rose-50 p-4 text-sm font-medium text-rose-800 border border-rose-200">@errorMessage</div>
+    }
+
+    @if (answer is not null)
+    {
+        @if (!answer.HasSufficientSource)
+        {
+            <div class="rounded-md bg-amber-50 p-4 text-sm font-medium text-amber-900 border border-amber-200">
+                <strong>Source insuffisante (FR-085).</strong>
+                <p class="mt-1">@answer.InsufficientSourceRecommendation</p>
+            </div>
+        }
+        else
+        {
+            <div class="space-y-3">
+                <h2 class="text-lg font-bold text-slate-900">Sources (@answer.Sources.Count)</h2>
+                @foreach (var source in answer.Sources)
+                {
+                    <div class="card p-4 space-y-2">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <span class="font-semibold text-brand-900">@source.Title</span>
+                                <span class="text-xs text-slate-500"> — v@(source.VersionNumber)@(source.N4Version is null ? "" : $" (N4 {source.N4Version})")</span>
+                            </div>
+                            <span class="text-xs font-mono text-slate-500">ligne @source.MatchedLineNumber</span>
+                        </div>
+                        <p class="text-sm text-slate-800 font-mono bg-slate-50 p-2 rounded border border-slate-200">@source.Excerpt</p>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => ToggleFeedbackForm(source.DocumentId)">
+                            Signaler une réponse incorrecte
+                        </button>
+                        @if (feedbackFormDocumentId == source.DocumentId)
+                        {
+                            <div class="space-y-2 border-t border-slate-200 pt-2">
+                                <textarea @bind="proposedCorrection" rows="2" class="form-input w-full" placeholder="Correction proposée (FR-087)"></textarea>
+                                <button class="btn btn-danger btn-sm" @onclick="() => SubmitFeedbackAsync(source.DocumentId, source.Excerpt)" disabled="@isSubmittingFeedback">
+                                    Envoyer le signalement
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    @if (!string.IsNullOrEmpty(feedbackMessage))
+    {
+        <div class="rounded-md bg-emerald-50 p-4 text-sm font-medium text-emerald-800 border border-emerald-200">@feedbackMessage</div>
+    }
+</div>
+
+@code {
+    private string question = string.Empty;
+    private AssistantAnswerDto? answer;
+    private bool isAsking;
+    private string? errorMessage;
+
+    private Guid? feedbackFormDocumentId;
+    private string proposedCorrection = string.Empty;
+    private bool isSubmittingFeedback;
+    private string? feedbackMessage;
+
+    private async Task AskAsync()
+    {
+        errorMessage = null;
+        feedbackMessage = null;
+        isAsking = true;
+        try
+        {
+            answer = await Mediator.Send(new AskAssistantQuery(question));
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isAsking = false;
+        }
+    }
+
+    private void ToggleFeedbackForm(Guid documentId)
+    {
+        feedbackFormDocumentId = feedbackFormDocumentId == documentId ? null : documentId;
+        proposedCorrection = string.Empty;
+    }
+
+    private async Task SubmitFeedbackAsync(Guid documentId, string flaggedExcerpt)
+    {
+        if (string.IsNullOrWhiteSpace(proposedCorrection))
+        {
+            errorMessage = "La correction proposée est obligatoire.";
+            return;
+        }
+
+        isSubmittingFeedback = true;
+        errorMessage = null;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Opérateur";
+
+            await Mediator.Send(new SubmitAssistantFeedbackCommand(documentId, question, flaggedExcerpt, proposedCorrection, userName));
+            feedbackMessage = "Signalement envoyé, soumis à validation (FR-087).";
+            feedbackFormDocumentId = null;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSubmittingFeedback = false;
+        }
+    }
+}

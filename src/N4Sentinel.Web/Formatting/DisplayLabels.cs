@@ -237,6 +237,35 @@ public static class DisplayLabels
         _ => status.ToString(),
     };
 
+    public static string ToLabel(this DocumentSourceCategory category) => category switch
+    {
+        DocumentSourceCategory.NavisGuide => "Guide Navis N4",
+        DocumentSourceCategory.InternalProcedure => "Procédure interne",
+        DocumentSourceCategory.PostMortem => "Post-mortem",
+        DocumentSourceCategory.AnalysisReport => "Rapport d'analyse",
+        DocumentSourceCategory.NavisReleaseNote => "Note de version Navis",
+        DocumentSourceCategory.FicheReflexe => "Fiche réflexe",
+        _ => category.ToString(),
+    };
+
+    public static string ToLabel(this DocumentStatus status) => status switch
+    {
+        DocumentStatus.Draft => "Brouillon",
+        DocumentStatus.PendingValidation => "À valider",
+        DocumentStatus.Validated => "Validé",
+        DocumentStatus.Active => "Actif",
+        DocumentStatus.Disabled => "Désactivé",
+        _ => status.ToString(),
+    };
+
+    public static string ToLabel(this FeedbackStatus status) => status switch
+    {
+        FeedbackStatus.Pending => "En attente",
+        FeedbackStatus.Validated => "Validé",
+        FeedbackStatus.Rejected => "Rejeté",
+        _ => status.ToString(),
+    };
+
     /// <summary>Vocabulaire exact du Cluster Services view N4 réel (docs/navis-reference.md §4).</summary>
     public static string ToLabel(this ComponentHealthStatus status) => status switch
     {

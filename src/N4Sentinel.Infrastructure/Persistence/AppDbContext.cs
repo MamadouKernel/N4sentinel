@@ -41,6 +41,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<ImportedLogFile> ImportedLogFiles => Set<ImportedLogFile>();
 
+    public DbSet<Document> Documents => Set<Document>();
+
+    public DbSet<AssistantFeedback> AssistantFeedbackEntries => Set<AssistantFeedback>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

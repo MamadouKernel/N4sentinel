@@ -1,0 +1,74 @@
+@page "/admin/documents"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject ISender Mediator
+
+<PageTitle>Base documentaire - N4 Sentinel</PageTitle>
+
+<div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-900">Base documentaire</h1>
+            <p class="text-sm text-slate-600">
+                Corpus indexable de l'assistant N4 (FR-080) : guide Navis N4, procédures internes, post-mortems,
+                rapports d'analyse, notes de version, fiches réflexes. Seul un document Actif est indexé et
+                interrogeable par l'assistant.
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="/admin/assistant-feedback" class="btn btn-outline-secondary">Signalements</a>
+            <a href="/admin/documents/new" class="btn btn-primary">Nouveau document</a>
+        </div>
+    </div>
+
+    @if (documents is null)
+    {
+        <div class="card p-8 text-center text-slate-500">Chargement...</div>
+    }
+    else if (documents.Count == 0)
+    {
+        <div class="card p-8 text-center text-slate-500">Aucun document dans le corpus.</div>
+    }
+    else
+    {
+        <div class="card overflow-hidden">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <thead class="bg-slate-50 font-semibold text-slate-700">
+                    <tr>
+                        <th class="px-4 py-3">Identifiant</th>
+                        <th class="px-4 py-3">Version</th>
+                        <th class="px-4 py-3">Titre</th>
+                        <th class="px-4 py-3">Catégorie</th>
+                        <th class="px-4 py-3">Version N4</th>
+                        <th class="px-4 py-3">Statut</th>
+                        <th class="px-4 py-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                    @foreach (var document in documents)
+                    {
+                        <tr class="@(document.Status == DocumentStatus.Active ? "bg-emerald-50/40" : "")">
+                            <td class="px-4 py-3 font-mono text-xs">@document.DocumentKey</td>
+                            <td class="px-4 py-3">v@(document.VersionNumber)</td>
+                            <td class="px-4 py-3 font-semibold text-brand-900">@document.Title</td>
+                            <td class="px-4 py-3">@document.Category.ToLabel()</td>
+                            <td class="px-4 py-3">@(document.N4Version ?? "—")</td>
+                            <td class="px-4 py-3">@document.Status.ToLabel()</td>
+                            <td class="px-4 py-3 text-right">
+                                <a href="/admin/documents/@document.Id" class="btn btn-outline-secondary btn-sm">Détail</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<DocumentDto>? documents;
+
+    protected override async Task OnInitializedAsync()
+    {
+        documents = await Mediator.Send(new ListDocumentsQuery());
+    }
+}

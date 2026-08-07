@@ -26,11 +26,17 @@
                     </Authorized>
                 </AuthorizeView>
             }
+            <AuthorizeView>
+                <Authorized>
+                    <NavLink class="navbar-link" href="assistant">Assistant N4</NavLink>
+                </Authorized>
+            </AuthorizeView>
             <AuthorizeView Roles="@Roles.Administrateur">
                 <Authorized>
                     <NavLink class="navbar-link" href="admin/users">Comptes</NavLink>
                     <NavLink class="navbar-link" href="admin/audit">Journal d'audit</NavLink>
                     <NavLink class="navbar-link" href="admin/diagnostic-rules">Règles de diagnostic</NavLink>
+                    <NavLink class="navbar-link" href="admin/documents">Base documentaire</NavLink>
                 </Authorized>
             </AuthorizeView>
         </nav>
@@ -85,11 +91,17 @@
                         </Authorized>
                     </AuthorizeView>
                 }
+                <AuthorizeView>
+                    <Authorized>
+                        <NavLink class="navbar-link-mobile" href="assistant" @onclick="CloseMobileMenu">Assistant N4</NavLink>
+                    </Authorized>
+                </AuthorizeView>
                 <AuthorizeView Roles="@Roles.Administrateur">
                     <Authorized>
                         <NavLink class="navbar-link-mobile" href="admin/users" @onclick="CloseMobileMenu">Comptes</NavLink>
                         <NavLink class="navbar-link-mobile" href="admin/audit" @onclick="CloseMobileMenu">Journal d'audit</NavLink>
                         <NavLink class="navbar-link-mobile" href="admin/diagnostic-rules" @onclick="CloseMobileMenu">Règles de diagnostic</NavLink>
+                        <NavLink class="navbar-link-mobile" href="admin/documents" @onclick="CloseMobileMenu">Base documentaire</NavLink>
                     </Authorized>
                 </AuthorizeView>
                 <AuthorizeView>

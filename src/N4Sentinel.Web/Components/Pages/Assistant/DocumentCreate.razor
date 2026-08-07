@@ -1,0 +1,92 @@
+@page "/admin/documents/new"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject ISender Mediator
+@inject NavigationManager NavigationManager
+
+<PageTitle>Nouveau document - N4 Sentinel</PageTitle>
+
+<div class="mx-auto max-w-3xl space-y-6">
+    <h1 class="text-2xl font-bold text-slate-900">Nouveau document</h1>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="rounded-md bg-rose-50 p-4 text-sm font-medium text-rose-800 border border-rose-200">@errorMessage</div>
+    }
+
+    <EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="CreateDocument" class="card space-y-4 p-6">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700">Identifiant</label>
+            <InputText @bind-Value="model.DocumentKey" class="form-input mt-1 w-full" placeholder="ex. DOC-NAVIS-GUIDE-BRIDGE" />
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700">Titre</label>
+            <InputText @bind-Value="model.Title" class="form-input mt-1 w-full" placeholder="ex. Guide Navis N4 3.8.25 — Bridge/XPS" />
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Catégorie</label>
+                <InputSelect @bind-Value="model.Category" class="form-select mt-1 w-full">
+                    @foreach (var c in Enum.GetValues<DocumentSourceCategory>())
+                    {
+                        <option value="@c">@c.ToLabel()</option>
+                    }
+                </InputSelect>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Version N4 (optionnel)</label>
+                <InputText @bind-Value="model.N4Version" class="form-input mt-1 w-full" placeholder="ex. 3.8.25" />
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700">Contenu</label>
+            <InputTextArea @bind-Value="model.Content" rows="10" class="form-input mt-1 w-full font-mono text-xs" placeholder="Collez le contenu du document ici..." />
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-200">
+            <a href="/admin/documents" class="btn btn-outline-secondary">Annuler</a>
+            <button type="submit" class="btn btn-primary">Créer (Brouillon)</button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    private readonly CreateDocumentModel model = new();
+    private string? errorMessage;
+
+    private async Task SubmitAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            var id = await Mediator.Send(new CreateDocumentCommand(
+                model.DocumentKey, model.Title, model.Category, model.N4Version, model.Content));
+            NavigationManager.NavigateTo($"/admin/documents/{id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private sealed class CreateDocumentModel
+    {
+        [Required(ErrorMessage = "L'identifiant est obligatoire.")]
+        public string DocumentKey { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Le titre est obligatoire.")]
+        public string Title { get; set; } = string.Empty;
+
+        public DocumentSourceCategory Category { get; set; } = DocumentSourceCategory.NavisGuide;
+
+        public string? N4Version { get; set; }
+
+        [Required(ErrorMessage = "Le contenu est obligatoire.")]
+        public string Content { get; set; } = string.Empty;
+    }
+}

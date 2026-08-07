@@ -24,10 +24,10 @@ toutes celles à venir — autant l'exécuter avant de construire de nouvelles p
 | 11 | Reconstitution & EDI | E5.2 Reconstitution sécurisée (8) · E6.1 Suivi intégrations EDI (8) | 16 | **Fait** |
 | 12 | Diagnostic — collecte & règles | E7.1 Collecte automatique de signaux (8) · E7.3 Règles de diagnostic versionnées (8) | 16 | **Fait** |
 | 13 | Diagnostic — moteur & logs | E7.2 Moteur de diagnostic (classification par domaine/confiance) (13) · E8.1 Analyse de logs (recherche/corrélation) (8) | 21 | **Fait** |
-| 14 | Assistant documentaire N4 | E9.1 Assistant N4 (RAG, réponses sourcées) (13) · E9.2 Garde-fou "jamais d'action déclenchée" (3) | 16 | À faire |
+| 14 | Assistant documentaire N4 | E9.1 Assistant N4 (RAG, réponses sourcées) (13) · E9.2 Garde-fou "jamais d'action déclenchée" (3) | 16 | **Fait** |
 | 15 | Clôture V1 | E9.3 SOP versionnées (8) · E10.2 Export de rapports (5) | 13 | À faire |
 
-**Total V1 : 278 points sur 16 sprints** (14 faits, 2 à faire), soit environ **7-8 mois** au
+**Total V1 : 278 points sur 16 sprints** (15 faits, 1 à faire), soit environ **7-8 mois** au
 rythme de 2 semaines/sprint si la vélocité réelle confirme l'hypothèse de 15-25 pts/sprint. Le Sprint 6
 (modernisation UI) est une insertion hors périmètre initial du cahier des charges, demandée directement par
 la DSI ; il décale d'un cran tous les sprints fonctionnels suivants (l'ancien Sprint 6 "démarrage complet"
