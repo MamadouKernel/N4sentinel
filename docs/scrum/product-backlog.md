@@ -21,7 +21,7 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 | E1.3 | En tant qu'Administrateur, je veux que le cycle de validation (Brouillon → À valider → Validé → Actif → Désactivé) soit appliqué à chaque environnement afin d'empêcher l'usage d'une configuration non validée en Production. (FR-006) | 5 | Must | **Fait** (Sprint 1) |
 | E1.4 | En tant qu'Administrateur, je veux définir des workflows versionnés (étapes, dépendances, critères de réussite, délais, politiques d'échec) sans toucher au code afin de faire évoluer les procédures sans déploiement. (FR-003, FR-004) | 13 | Must | **Fait** (Sprint 2) |
 | E1.5 | En tant qu'Administrateur, je veux tester la connectivité et les contrôles d'un environnement sans action mutative avant son activation. (FR-007) | 5 | Must | **Fait** (Sprint 3) |
-| E1.6 | En tant qu'Administrateur, je veux cartographier les systèmes dépendants (CAMCO/GOS, DGPS, RMS/Reefer Runner, IPAKI, Scangate, EDI) et leur caractère pilotable ou non. | 5 | Should | À faire |
+| E1.6 | En tant qu'Administrateur, je veux cartographier les systèmes dépendants (CAMCO/GOS, DGPS, RMS/Reefer Runner, IPAKI, Scangate, EDI) et leur caractère pilotable ou non. | 5 | Should | **Fait** (Sprint 7) |
 
 ## Epic 2 — Préparation d'une opération (FR-010, FR-011)
 
@@ -36,7 +36,7 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 |---|---|---|---|---|
 | E3.1 | En tant qu'Opérateur, je veux lancer une simulation d'un workflow (étapes, dépendances, risques, prérequis non satisfaits) sans exécuter aucune commande. (FR-005) | 8 | Must | **Fait** (Sprint 3) |
 | E3.2 | En tant qu'Opérateur habilité, je veux exécuter un scénario d'arrêt complet de l'écosystème N4 dans l'ordre requis, avec confirmation à chaque étape sensible. | 13 | Must | **Fait** (Sprint 5) |
-| E3.3 | En tant qu'Opérateur habilité, je veux exécuter un scénario de démarrage complet respectant l'ordre Cluster Nodes → Center/Standby Node → Bridge → XPS → ECN4/ECN4Web. | 13 | Must | À faire |
+| E3.3 | En tant qu'Opérateur habilité, je veux exécuter un scénario de démarrage complet respectant l'ordre Cluster Nodes → Center/Standby Node → Bridge → XPS → ECN4/ECN4Web. | 13 | Must | **Fait** (Sprint 7) |
 | E3.4 | En tant qu'Opérateur habilité, je veux exécuter une opération partielle ou unitaire sur un composant ou groupe de composants autorisé. | 8 | Must | **Fait** (Sprint 4) |
 | E3.5 | En tant qu'Opérateur, je veux que la progression s'arrête automatiquement si un prérequis ou critère de réussite n'est pas satisfait, avec reprise depuis le dernier point de contrôle valide. | 8 | Must | **Fait** (Sprint 5) |
 | E3.6 | En tant qu'Approbateur, je veux valider le lancement d'un workflow en Production et les contournements/arrêts forcés (double validation). | 5 | Must | **Fait** (Sprint 4) |

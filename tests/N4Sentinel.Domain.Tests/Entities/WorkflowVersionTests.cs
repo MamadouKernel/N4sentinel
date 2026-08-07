@@ -104,6 +104,79 @@ public class WorkflowVersionTests
     }
 
     [Fact]
+    public void UpdateStep_WithPrerequisitePositionedAfter_Throws()
+    {
+        var (_, draft) = CreateWorkflowWithDraft();
+        var firstId = AddSimpleStep(draft, "Bridge Daemon");
+        var secondId = AddSimpleStep(draft, "XPS");
+
+        // "Bridge Daemon" est positionnée après "XPS" ne peut jamais dépendre de sa propre étape suivante :
+        // on force l'ordre inverse pour tester la règle en réutilisant secondId comme prérequis de firstId.
+        var act = () => draft.UpdateStep(
+            firstId, "Bridge Daemon", null, WorkflowStepAction.Start, [secondId], null, null, null, null,
+            maxRetryAttempts: 0, retryIsAutomatic: false, automaticRetryExplicitlyAuthorized: false,
+            retryDelaySeconds: null, onFailurePolicy: WorkflowStepFailurePolicy.StopWorkflow,
+            requiresConfirmation: false, requiresApproval: false, isCriticalOrDestructive: false);
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void UpdateStep_WithPrerequisitePositionedBefore_Succeeds()
+    {
+        var (_, draft) = CreateWorkflowWithDraft();
+        var firstId = AddSimpleStep(draft, "Bridge Daemon");
+        var secondId = AddSimpleStep(draft, "XPS");
+
+        draft.UpdateStep(
+            secondId, "XPS", null, WorkflowStepAction.Start, [firstId], null, null, null, null,
+            maxRetryAttempts: 0, retryIsAutomatic: false, automaticRetryExplicitlyAuthorized: false,
+            retryDelaySeconds: null, onFailurePolicy: WorkflowStepFailurePolicy.StopWorkflow,
+            requiresConfirmation: false, requiresApproval: false, isCriticalOrDestructive: false);
+
+        draft.Steps.Single(s => s.Id == secondId).PrerequisiteStepIds.Should().Contain(firstId);
+    }
+
+    [Fact]
+    public void MoveStepUp_PastItsOwnPrerequisite_Throws()
+    {
+        var (_, draft) = CreateWorkflowWithDraft();
+        var firstId = AddSimpleStep(draft, "Bridge Daemon");
+        var secondId = AddSimpleStep(draft, "XPS", prerequisites: [firstId]);
+
+        var act = () => draft.MoveStepUp(secondId);
+
+        act.Should().Throw<DomainRuleException>();
+        draft.Steps.Select(s => s.Name).Should().ContainInOrder("Bridge Daemon", "XPS");
+    }
+
+    [Fact]
+    public void MoveStepDown_PastAStepThatDependsOnIt_Throws()
+    {
+        var (_, draft) = CreateWorkflowWithDraft();
+        var firstId = AddSimpleStep(draft, "Bridge Daemon");
+        AddSimpleStep(draft, "XPS", prerequisites: [firstId]);
+
+        var act = () => draft.MoveStepDown(firstId);
+
+        act.Should().Throw<DomainRuleException>();
+        draft.Steps.Select(s => s.Name).Should().ContainInOrder("Bridge Daemon", "XPS");
+    }
+
+    [Fact]
+    public void MoveStepUp_BetweenUnrelatedSteps_Succeeds()
+    {
+        var (_, draft) = CreateWorkflowWithDraft();
+        AddSimpleStep(draft, "Étape 1");
+        AddSimpleStep(draft, "Étape 2");
+        var thirdId = AddSimpleStep(draft, "Étape 3");
+
+        draft.MoveStepUp(thirdId);
+
+        draft.Steps.Select(s => s.Name).Should().ContainInOrder("Étape 1", "Étape 3", "Étape 2");
+    }
+
+    [Fact]
     public void AddStep_AfterVersionIsNoLongerDraft_Throws()
     {
         var (workflow, draft) = CreateWorkflowWithDraft();

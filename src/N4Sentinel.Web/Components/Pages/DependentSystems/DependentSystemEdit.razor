@@ -1,0 +1,102 @@
+@page "/environments/{EnvironmentId:guid}/dependent-systems/{Id:guid}/edit"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject IMediator Mediator
+@inject NavigationManager NavigationManager
+
+<PageTitle>Modifier @(model?.Name) - N4 Sentinel</PageTitle>
+
+@if (model is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <h1>Modifier le système dépendant</h1>
+
+    <EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="EditDependentSystem">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">@errorMessage</div>
+        }
+
+        <div class="mb-3">
+            <label class="form-label" for="name">Nom</label>
+            <InputText id="name" class="form-control" @bind-Value="model.Name" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="description">Description</label>
+            <InputTextArea id="description" class="form-control" @bind-Value="model.Description" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="governance">Caractère pilotable</label>
+            <InputSelect id="governance" class="form-select" @bind-Value="model.Governance">
+                @foreach (var g in Enum.GetValues<ComponentGovernance>())
+                {
+                    <option value="@g">@g.ToLabel()</option>
+                }
+            </InputSelect>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Enregistrer</button>
+        <a class="btn btn-secondary" href="environments/@EnvironmentId/dependent-systems">Annuler</a>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid EnvironmentId { get; set; }
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private EditDependentSystemModel? model;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var current = await Mediator.Send(new GetDependentSystemByIdQuery(Id));
+        if (current is not null)
+        {
+            model = new EditDependentSystemModel
+            {
+                Name = current.Name,
+                Description = current.Description,
+                Governance = current.Governance,
+            };
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (model is null)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new UpdateDependentSystemCommand(Id, model.Name, model.Description, model.Governance));
+            NavigationManager.NavigateTo($"environments/{EnvironmentId}/dependent-systems");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private sealed class EditDependentSystemModel
+    {
+        [Required(ErrorMessage = "Le nom est obligatoire.")]
+        public string Name { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        public ComponentGovernance Governance { get; set; }
+    }
+}

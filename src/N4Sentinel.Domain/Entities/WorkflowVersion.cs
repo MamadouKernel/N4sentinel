@@ -112,6 +112,7 @@ public class WorkflowVersion
         var step = GetStep(stepId);
         var prerequisites = prerequisiteStepIds.ToList();
         EnsurePrerequisitesExist(prerequisites, stepId);
+        EnsurePrerequisitesPrecedeStep(prerequisites, step);
 
         step.UpdateDetails(
             name, componentId, action, successCriteria, expectedDurationSeconds, warningThresholdSeconds,
@@ -169,6 +170,16 @@ public class WorkflowVersion
 
     private static void SwapPositions(WorkflowStep a, WorkflowStep b)
     {
+        // a et b sont toujours adjacentes dans l'ordre des positions : les échanger n'affecte que leur ordre
+        // relatif mutuel. Si l'une est le prérequis direct de l'autre, l'échange inverserait forcément un
+        // prérequis après l'étape qui en dépend (FR-003/FR-004, cf. E3.3) — refusé plutôt que silencieusement corrompu.
+        if (a.PrerequisiteStepIds.Contains(b.Id) || b.PrerequisiteStepIds.Contains(a.Id))
+        {
+            throw new DomainRuleException(
+                $"Impossible d'inverser l'ordre de '{a.Name}' et '{b.Name}' : l'une est le prérequis direct " +
+                "de l'autre.");
+        }
+
         (var positionA, var positionB) = (a.Position, b.Position);
         a.AssignPosition(positionB);
         b.AssignPosition(positionA);
@@ -268,6 +279,25 @@ public class WorkflowVersion
             if (!knownIds.Contains(id))
             {
                 throw new DomainRuleException($"L'étape prérequise '{id}' n'existe pas dans cette version du workflow.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Un prérequis doit toujours être positionné avant l'étape qui en dépend, puisque l'exécution avance
+    /// strictement dans l'ordre de <see cref="WorkflowStep.Position"/> (E3.3) — sans cette garantie, une étape
+    /// pourrait déclarer un prérequis qui ne s'est en réalité pas encore exécuté.
+    /// </summary>
+    private void EnsurePrerequisitesPrecedeStep(IEnumerable<Guid> prerequisiteStepIds, WorkflowStep step)
+    {
+        foreach (var id in prerequisiteStepIds)
+        {
+            var prerequisite = GetStep(id);
+            if (prerequisite.Position >= step.Position)
+            {
+                throw new DomainRuleException(
+                    $"L'étape prérequise '{prerequisite.Name}' doit être positionnée avant '{step.Name}' " +
+                    "dans la séquence.");
             }
         }
     }
