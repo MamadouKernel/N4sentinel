@@ -1,0 +1,242 @@
+@page "/environments/{EnvironmentId:guid}/operations/{OperationRunId:guid}"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>Opération - N4 Sentinel</PageTitle>
+
+@if (run is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <h1>
+        Opération
+        <span class="badge @StatusBadgeClass">@StatusLabel</span>
+    </h1>
+    <p><a href="environments/@EnvironmentId/operations">← Retour à l'historique</a></p>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <dl class="row">
+        <dt class="col-sm-3">Demandée par</dt>
+        <dd class="col-sm-9">@run.RequestedByUserId — @run.RequestedAtUtc.ToLocalTime().ToString("f")</dd>
+
+        @if (!string.IsNullOrEmpty(run.Motif))
+        {
+            <dt class="col-sm-3">Motif</dt>
+            <dd class="col-sm-9">@run.Motif</dd>
+        }
+        @if (!string.IsNullOrEmpty(run.InterventionWindowDescription))
+        {
+            <dt class="col-sm-3">Fenêtre d'intervention</dt>
+            <dd class="col-sm-9">@run.InterventionWindowDescription</dd>
+        }
+        @if (!string.IsNullOrEmpty(run.Impact))
+        {
+            <dt class="col-sm-3">Impact attendu</dt>
+            <dd class="col-sm-9">@run.Impact</dd>
+        }
+        @if (!string.IsNullOrEmpty(run.IncidentOrChangeReference))
+        {
+            <dt class="col-sm-3">Référence</dt>
+            <dd class="col-sm-9">@run.IncidentOrChangeReference</dd>
+        }
+        @if (run.ApprovedByUserId is not null)
+        {
+            <dt class="col-sm-3">Approuvée par</dt>
+            <dd class="col-sm-9">@run.ApprovedByUserId — @run.ApprovedAtUtc?.ToLocalTime().ToString("f")</dd>
+        }
+        @if (run.RejectionReason is not null)
+        {
+            <dt class="col-sm-3">Rejetée — motif</dt>
+            <dd class="col-sm-9">@run.RejectionReason</dd>
+        }
+    </dl>
+
+    <AuthorizeView Roles="@($"{Roles.Administrateur},{Roles.Approbateur}")" Context="approvalContext">
+        <Authorized>
+            @if (run.Status == OperationRunStatus.PendingApproval && !string.Equals(run.RequestedByUserId, currentUserId, StringComparison.OrdinalIgnoreCase))
+            {
+                <div class="d-flex gap-2 mb-3">
+                    <button class="btn btn-success btn-sm" @onclick="ApproveAsync">Approuver</button>
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => showRejectForm = true">Rejeter</button>
+                </div>
+                @if (showRejectForm)
+                {
+                    <div class="mb-3">
+                        <textarea class="form-control mb-2" @bind="rejectionReason" placeholder="Motif du rejet"></textarea>
+                        <button class="btn btn-danger btn-sm" @onclick="RejectAsync">Confirmer le rejet</button>
+                    </div>
+                }
+            }
+            @if (run.Status == OperationRunStatus.PendingApproval && string.Equals(run.RequestedByUserId, currentUserId, StringComparison.OrdinalIgnoreCase))
+            {
+                <p class="text-muted">Vous êtes le demandeur de cette opération : un autre utilisateur habilité doit l'approuver (E3.6).</p>
+            }
+        </Authorized>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="@($"{Roles.Administrateur},{Roles.Operateur}")" Context="executionContext">
+        <Authorized>
+            @if (run.Status == OperationRunStatus.Approved)
+            {
+                <button class="btn btn-primary mb-3" @onclick="ExecuteAsync" disabled="@isExecuting">
+                    @(isExecuting ? "Exécution en cours..." : "Exécuter l'opération")
+                </button>
+            }
+        </Authorized>
+    </AuthorizeView>
+
+    <h2>Étapes</h2>
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Étape</th>
+                <th>Action</th>
+                <th>Composant</th>
+                <th>Statut</th>
+                <th>Résultat</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var step in run.StepExecutions)
+            {
+                <tr class="@StepRowClass(step.Status)">
+                    <td>@(step.Position + 1)</td>
+                    <td>@step.Name</td>
+                    <td>@step.Action.ToLabel()</td>
+                    <td>@(step.ComponentName ?? "—")</td>
+                    <td>@StepStatusLabel(step.Status)</td>
+                    <td>@step.ResultMessage</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter]
+    public Guid EnvironmentId { get; set; }
+
+    [Parameter]
+    public Guid OperationRunId { get; set; }
+
+    [CascadingParameter]
+    private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    private OperationRunDto? run;
+    private string? errorMessage;
+    private string? currentUserId;
+    private bool isExecuting;
+    private bool showRejectForm;
+    private string rejectionReason = string.Empty;
+
+    private string StatusLabel => run?.Status switch
+    {
+        OperationRunStatus.PendingApproval => "En attente d'approbation",
+        OperationRunStatus.Approved => "Approuvée",
+        OperationRunStatus.Rejected => "Rejetée",
+        OperationRunStatus.Running => "En cours",
+        OperationRunStatus.Completed => "Terminée",
+        OperationRunStatus.Failed => "Échouée",
+        _ => "",
+    };
+
+    private string StatusBadgeClass => run?.Status switch
+    {
+        OperationRunStatus.PendingApproval => "bg-warning text-dark",
+        OperationRunStatus.Approved => "bg-info text-dark",
+        OperationRunStatus.Rejected => "bg-secondary",
+        OperationRunStatus.Running => "bg-primary",
+        OperationRunStatus.Completed => "bg-success",
+        OperationRunStatus.Failed => "bg-danger",
+        _ => "bg-secondary",
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AuthStateTask is not null)
+        {
+            currentUserId = (await AuthStateTask).User.Identity?.Name;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        run = await Mediator.Send(new GetOperationRunByIdQuery(OperationRunId));
+    }
+
+    private async Task ApproveAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new ApproveOperationRunCommand(OperationRunId, currentUserId ?? "inconnu"));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task RejectAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            await Mediator.Send(new RejectOperationRunCommand(OperationRunId, currentUserId ?? "inconnu", rejectionReason));
+            showRejectForm = false;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private async Task ExecuteAsync()
+    {
+        errorMessage = null;
+        isExecuting = true;
+        try
+        {
+            await Mediator.Send(new ExecuteOperationRunCommand(OperationRunId));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isExecuting = false;
+        }
+    }
+
+    private static string StepRowClass(OperationStepExecutionStatus status) => status switch
+    {
+        OperationStepExecutionStatus.Succeeded => "table-success",
+        OperationStepExecutionStatus.Failed => "table-danger",
+        OperationStepExecutionStatus.Running => "table-info",
+        OperationStepExecutionStatus.Skipped => "table-warning",
+        _ => "",
+    };
+
+    private static string StepStatusLabel(OperationStepExecutionStatus status) => status switch
+    {
+        OperationStepExecutionStatus.Pending => "En attente",
+        OperationStepExecutionStatus.Running => "En cours",
+        OperationStepExecutionStatus.Succeeded => "Réussie",
+        OperationStepExecutionStatus.Failed => "Échouée",
+        OperationStepExecutionStatus.Skipped => "Ignorée",
+        _ => "",
+    };
+}

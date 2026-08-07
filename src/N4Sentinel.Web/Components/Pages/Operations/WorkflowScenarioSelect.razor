@@ -40,10 +40,17 @@ else
                     <td>@workflow.Type.ToLabel()</td>
                     <td>@workflow.Scope.ToLabel()</td>
                     <td>v@(workflow.ActiveVersionNumber)</td>
-                    <td>
-                        <a class="btn btn-sm btn-primary" href="environments/@EnvironmentId/workflows/@workflow.Id/simulations">
+                    <td class="d-flex gap-1">
+                        <a class="btn btn-sm btn-outline-primary" href="environments/@EnvironmentId/workflows/@workflow.Id/simulations">
                             Simuler ce scénario
                         </a>
+                        <AuthorizeView Roles="@($"{Roles.Operateur},{Roles.Administrateur}")">
+                            <Authorized>
+                                <a class="btn btn-sm btn-primary" href="environments/@EnvironmentId/workflows/@workflow.Id/operations/new">
+                                    Lancer une opération
+                                </a>
+                            </Authorized>
+                        </AuthorizeView>
                     </td>
                 </tr>
             }

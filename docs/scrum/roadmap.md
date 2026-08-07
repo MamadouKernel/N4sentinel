@@ -12,7 +12,7 @@ réel (Sprints 4-6), qui doit exister avant que le tableau de bord ait quelque c
 | 1 | Référentiel — Environnements & Composants | E1.1 CRUD environnement (5) · E1.3 Cycle de validation (5) · E1.2 CRUD composant (8) · E12.5 Hébergement Service Windows (5) | 23 | **Fait** |
 | 2 | Connecteurs & moteur de workflows | E12.4 Connecteurs pluggables + Simulation (5) · E1.4 Workflows configurables/versionnés (13) | 18 | **Fait** |
 | 3 | Mode simulation & préparation | E1.5 Test connectivité sans action mutative (5) · E3.1 Mode simulation (8) · E2.1 Sélection de scénario (5) | 18 | **Fait** |
-| 4 | Premières opérations réelles (risque maîtrisé) | E2.2 Motif/référence obligatoires (5) · E3.4 Opération partielle/unitaire (8) · E3.6 Double validation (5) | 18 | À faire |
+| 4 | Premières opérations réelles (risque maîtrisé) | E2.2 Motif/référence obligatoires (5) · E3.4 Opération partielle/unitaire (8) · E3.6 Double validation (5) | 18 | **Fait** |
 | 5 | Pilotage — arrêt complet | E3.2 Scénario d'arrêt complet (13) · E3.5 Arrêt sur échec / reprise (8) | 21 | À faire |
 | 6 | Pilotage — démarrage complet | E3.3 Scénario de démarrage complet (13) · E1.6 Cartographie systèmes dépendants (5) | 18 | À faire |
 | 7 | Tableau de bord & comptes | E4.1 Dashboard temps réel (8) · E4.2 Historique des opérations (5) · E11.1 Gestion des comptes (UI) (8) | 21 | À faire |
@@ -24,7 +24,7 @@ réel (Sprints 4-6), qui doit exister avant que le tableau de bord ait quelque c
 | 13 | Assistant documentaire N4 | E9.1 Assistant N4 (RAG, réponses sourcées) (13) · E9.2 Garde-fou "jamais d'action déclenchée" (3) | 16 | À faire |
 | 14 | Clôture V1 | E9.3 SOP versionnées (8) · E10.2 Export de rapports (5) | 13 | À faire |
 
-**Total V1 : 257 points sur 15 sprints** (4 faits, 11 à faire), soit environ **6-7 mois** au rythme de 2
+**Total V1 : 257 points sur 15 sprints** (5 faits, 10 à faire), soit environ **6-7 mois** au rythme de 2
 semaines/sprint si la vélocité réelle confirme l'hypothèse de 15-25 pts/sprint.
 
 ## Notes de cadrage

@@ -1,0 +1,119 @@
+@page "/environments/{EnvironmentId:guid}/workflows/{WorkflowId:guid}/operations/new"
+@attribute [Authorize(Roles = Roles.Operateur + "," + Roles.Administrateur)]
+@inject IMediator Mediator
+@inject NavigationManager NavigationManager
+
+<PageTitle>Nouvelle opération - N4 Sentinel</PageTitle>
+
+@if (workflow is null || environment is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <h1>Nouvelle opération — @workflow.Name</h1>
+    <p>
+        <span class="badge bg-info text-dark">@workflow.Type.ToLabel()</span>
+        <span class="badge bg-secondary">@workflow.Scope.ToLabel()</span>
+        @if (environment.Kind == EnvironmentKind.Production)
+        {
+            <span class="badge bg-danger">PRODUCTION</span>
+        }
+    </p>
+
+    @if (environment.Kind == EnvironmentKind.Production)
+    {
+        <div class="alert alert-warning">
+            Environnement de Production : le motif, la fenêtre d'intervention, l'impact attendu et la
+            référence de l'incident ou du changement sont obligatoires (FR-011), et l'opération nécessitera
+            une approbation par un autre utilisateur avant exécution.
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="CreateOperationRun">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        <div class="mb-3">
+            <label class="form-label" for="motif">Motif</label>
+            <InputTextArea id="motif" class="form-control" @bind-Value="model.Motif" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="window">Fenêtre d'intervention</label>
+            <InputText id="window" class="form-control" @bind-Value="model.InterventionWindowDescription" placeholder="ex. 2026-08-10 22:00 - 23:00" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="impact">Impact attendu</label>
+            <InputTextArea id="impact" class="form-control" @bind-Value="model.Impact" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="reference">Référence incident/changement</label>
+            <InputText id="reference" class="form-control" @bind-Value="model.IncidentOrChangeReference" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Créer l'opération</button>
+        <a class="btn btn-secondary" href="environments/@EnvironmentId/operations/new">Annuler</a>
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public Guid EnvironmentId { get; set; }
+
+    [Parameter]
+    public Guid WorkflowId { get; set; }
+
+    [CascadingParameter]
+    private Task<Microsoft.AspNetCore.Components.Authorization.AuthenticationState>? AuthStateTask { get; set; }
+
+    private readonly CreateOperationRunModel model = new();
+    private WorkflowDetailDto? workflow;
+    private EnvironmentDetailDto? environment;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        workflow = await Mediator.Send(new GetWorkflowByIdQuery(WorkflowId));
+        environment = await Mediator.Send(new GetEnvironmentByIdQuery(EnvironmentId));
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (workflow?.Versions.FirstOrDefault(v => v.Status == WorkflowVersionStatus.Active) is not { } activeVersion)
+        {
+            errorMessage = "Ce workflow n'a pas de version Active.";
+            return;
+        }
+
+        errorMessage = null;
+        try
+        {
+            var userId = AuthStateTask is not null
+                ? (await AuthStateTask).User.Identity?.Name ?? "inconnu"
+                : "inconnu";
+
+            var id = await Mediator.Send(new CreateOperationRunCommand(
+                EnvironmentId, WorkflowId, activeVersion.Id, model.Motif, model.InterventionWindowDescription,
+                model.Impact, model.IncidentOrChangeReference, userId));
+
+            NavigationManager.NavigateTo($"environments/{EnvironmentId}/operations/{id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+
+    private sealed class CreateOperationRunModel
+    {
+        public string? Motif { get; set; }
+        public string? InterventionWindowDescription { get; set; }
+        public string? Impact { get; set; }
+        public string? IncidentOrChangeReference { get; set; }
+    }
+}

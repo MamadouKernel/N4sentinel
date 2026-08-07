@@ -28,7 +28,7 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
 | E2.1 | En tant qu'Opérateur, je veux sélectionner un scénario compatible avec mes habilitations et l'environnement choisi. (FR-010) | 5 | Must | **Fait** (Sprint 3) |
-| E2.2 | En tant qu'Opérateur, je veux être obligé de saisir motif, fenêtre d'intervention, périmètre, impact et référence d'incident/changement avant toute opération mutative en Production. (FR-011) | 5 | Must | À faire |
+| E2.2 | En tant qu'Opérateur, je veux être obligé de saisir motif, fenêtre d'intervention, périmètre, impact et référence d'incident/changement avant toute opération mutative en Production. (FR-011) | 5 | Must | **Fait** (Sprint 4) |
 
 ## Epic 3 — Pilotage de l'exécution et mode simulation (FR-005 et suite)
 
@@ -37,9 +37,9 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 | E3.1 | En tant qu'Opérateur, je veux lancer une simulation d'un workflow (étapes, dépendances, risques, prérequis non satisfaits) sans exécuter aucune commande. (FR-005) | 8 | Must | **Fait** (Sprint 3) |
 | E3.2 | En tant qu'Opérateur habilité, je veux exécuter un scénario d'arrêt complet de l'écosystème N4 dans l'ordre requis, avec confirmation à chaque étape sensible. | 13 | Must | À faire |
 | E3.3 | En tant qu'Opérateur habilité, je veux exécuter un scénario de démarrage complet respectant l'ordre Cluster Nodes → Center/Standby Node → Bridge → XPS → ECN4/ECN4Web. | 13 | Must | À faire |
-| E3.4 | En tant qu'Opérateur habilité, je veux exécuter une opération partielle ou unitaire sur un composant ou groupe de composants autorisé. | 8 | Must | À faire |
+| E3.4 | En tant qu'Opérateur habilité, je veux exécuter une opération partielle ou unitaire sur un composant ou groupe de composants autorisé. | 8 | Must | **Fait** (Sprint 4) |
 | E3.5 | En tant qu'Opérateur, je veux que la progression s'arrête automatiquement si un prérequis ou critère de réussite n'est pas satisfait, avec reprise depuis le dernier point de contrôle valide. | 8 | Must | À faire |
-| E3.6 | En tant qu'Approbateur, je veux valider le lancement d'un workflow en Production et les contournements/arrêts forcés (double validation). | 5 | Must | À faire |
+| E3.6 | En tant qu'Approbateur, je veux valider le lancement d'un workflow en Production et les contournements/arrêts forcés (double validation). | 5 | Must | **Fait** (Sprint 4) |
 
 ## Epic 4 — Tableau de bord de supervision
 
