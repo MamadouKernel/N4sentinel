@@ -37,6 +37,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<DiagnosticRule> DiagnosticRules => Set<DiagnosticRule>();
 
+    public DbSet<DiagnosticCase> DiagnosticCases => Set<DiagnosticCase>();
+
+    public DbSet<ImportedLogFile> ImportedLogFiles => Set<ImportedLogFile>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

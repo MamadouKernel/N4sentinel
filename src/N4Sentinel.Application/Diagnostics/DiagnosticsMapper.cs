@@ -14,4 +14,26 @@ internal static class DiagnosticsMapper
         rule.Id, rule.RuleKey, rule.VersionNumber, rule.Domain, rule.ConditionDescription, rule.RequiredSources,
         rule.Hypothesis, rule.Severity, rule.ConfidenceCalculationMethod, rule.AdditionalChecks,
         rule.Recommendation, rule.Status, rule.CreatedAtUtc, rule.UpdatedAtUtc);
+
+    public static DiagnosticHypothesisDto ToDto(DiagnosticHypothesis hypothesis) => new(
+        hypothesis.Id, hypothesis.Domain, hypothesis.AppliedRuleId, hypothesis.AppliedRuleKey,
+        hypothesis.AppliedRuleVersion, hypothesis.CauseDescription, hypothesis.ConfidenceLevel,
+        hypothesis.SupportingEvidence, hypothesis.ContradictingEvidence, hypothesis.MissingInformation,
+        hypothesis.RecommendedChecks, hypothesis.SafeActionsOrEscalation, hypothesis.CreatedAtUtc);
+
+    public static DiagnosticCaseDto ToDto(DiagnosticCase diagnosticCase) => new(
+        diagnosticCase.Id, diagnosticCase.EnvironmentId, diagnosticCase.Symptom, diagnosticCase.PeriodStartUtc,
+        diagnosticCase.PeriodEndUtc, diagnosticCase.CorrelationReference, diagnosticCase.RequestedByUserId,
+        diagnosticCase.CreatedAtUtc, diagnosticCase.ConclusionLevel, diagnosticCase.ConclusionSummary,
+        diagnosticCase.ConcludedAtUtc, diagnosticCase.Hypotheses.Select(ToDto).ToList());
+
+    public static ImportedLogFileDto ToDto(ImportedLogFile file) => new(
+        file.Id, file.EnvironmentId, file.FileName, file.Source, file.CorrelationReference, file.ContentHash, file.RetentionDays,
+        file.AnalysisStatus, file.ImportedAtUtc, file.AnalyzedAtUtc, file.TotalLineCount, file.ErrorLineCount,
+        file.WarningLineCount, file.DetectedSignatures, file.Verdict);
+
+    public static ImportedLogFileDetailDto ToDetailDto(ImportedLogFile file) => new(
+        file.Id, file.EnvironmentId, file.FileName, file.Source, file.CorrelationReference, file.Content, file.ContentHash, file.RetentionDays,
+        file.AnalysisStatus, file.ImportedAtUtc, file.AnalyzedAtUtc, file.TotalLineCount, file.ErrorLineCount,
+        file.WarningLineCount, file.DetectedSignatures, file.Verdict);
 }

@@ -1,0 +1,128 @@
+@page "/environments/{EnvironmentId:guid}/diagnostic-cases/new"
+@attribute [Authorize]
+@inject ISender Mediator
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Nouveau diagnostic - N4 Sentinel</PageTitle>
+
+<div class="mx-auto max-w-3xl space-y-6">
+    <div>
+        <div class="flex items-center gap-2 text-sm text-slate-500">
+            <a href="environments" class="hover:text-slate-700">Environnements</a>
+            <span>/</span>
+            <a href="@($"environments/{EnvironmentId}")" class="hover:text-slate-700">@environment?.Name</a>
+            <span>/</span>
+            <a href="@($"environments/{EnvironmentId}/diagnostic-cases")" class="hover:text-slate-700">Diagnostics</a>
+            <span>/</span>
+            <span class="font-medium text-slate-900">Nouveau</span>
+        </div>
+        <h1 class="mt-1 text-2xl font-bold text-slate-900">Créer un cas de diagnostic</h1>
+        <p class="text-sm text-slate-600">Définissez le symptôme et la période d'analyse pour exécuter le moteur de diagnostic (FR-060).</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="rounded-md bg-rose-50 p-4 text-sm font-medium text-rose-800 border border-rose-200">
+            @errorMessage
+        </div>
+    }
+
+    <EditForm Model="command" OnValidSubmit="HandleSubmit" FormName="create-diagnostic-case" class="card space-y-5 p-6">
+        <DataAnnotationsValidator />
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700">Symptôme constaté <span class="text-rose-500">*</span></label>
+            <InputTextArea @bind-Value="command.Symptom" rows="3" class="form-input mt-1 w-full" placeholder="Ex: Ralentissement extrême des traitements EDI et timeouts ActiveMQ lors du pic de charge..." />
+            <p class="mt-1 text-xs text-slate-500">Décrivez le comportement anormal observé ou l'alerte déclenchée (FR-060).</p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Début de la période <span class="text-rose-500">*</span></label>
+                <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="command.PeriodStartUtc" class="form-input mt-1 w-full" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700">Fin de la période <span class="text-rose-500">*</span></label>
+                <InputDate Type="InputDateType.DateTimeLocal" @bind-Value="command.PeriodEndUtc" class="form-input mt-1 w-full" />
+            </div>
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-slate-700">Référence de corrélation / Incident <span class="text-rose-500">*</span></label>
+            <InputText @bind-Value="command.CorrelationReference" class="form-input mt-1 w-full" placeholder="Ex: INC-2026-042" />
+            <p class="mt-1 text-xs text-slate-500">Permet de corréler ce cas avec les signaux collectés et les logs importés portant la même référence.</p>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200">
+            <a href="@($"environments/{EnvironmentId}/diagnostic-cases")" class="btn btn-outline-secondary">Annuler</a>
+            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                @(isSubmitting ? "Création en cours..." : "Créer le cas de diagnostic")
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    [Parameter] public Guid EnvironmentId { get; set; }
+
+    private EnvironmentDetailDto? environment;
+    private CreateDiagnosticCaseForm command = new();
+    private bool isSubmitting;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        environment = await Mediator.Send(new GetEnvironmentByIdQuery(EnvironmentId));
+        if (environment == null)
+        {
+            NavigationManager.NavigateTo("environments");
+            return;
+        }
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userName = authState.User.Identity?.Name ?? "Opérateur";
+
+        command.EnvironmentId = EnvironmentId;
+        command.RequestedByUserId = userName;
+        command.PeriodStartUtc = DateTime.UtcNow.AddHours(-2);
+        command.PeriodEndUtc = DateTime.UtcNow;
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var caseId = await Mediator.Send(new CreateDiagnosticCaseCommand(
+                command.EnvironmentId,
+                command.Symptom,
+                command.PeriodStartUtc,
+                command.PeriodEndUtc,
+                command.CorrelationReference,
+                command.RequestedByUserId));
+
+            NavigationManager.NavigateTo($"environments/{EnvironmentId}/diagnostic-cases/{caseId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private sealed class CreateDiagnosticCaseForm
+    {
+        public Guid EnvironmentId { get; set; }
+        public string Symptom { get; set; } = string.Empty;
+        public DateTime PeriodStartUtc { get; set; }
+        public DateTime PeriodEndUtc { get; set; }
+        public string CorrelationReference { get; set; } = string.Empty;
+        public string RequestedByUserId { get; set; } = string.Empty;
+    }
+}

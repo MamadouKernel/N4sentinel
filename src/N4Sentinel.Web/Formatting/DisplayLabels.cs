@@ -209,6 +209,24 @@ public static class DisplayLabels
         _ => severity.ToString(),
     };
 
+    public static string ToLabel(this DiagnosticConfidenceLevel level) => level switch
+    {
+        DiagnosticConfidenceLevel.Low => "Faible",
+        DiagnosticConfidenceLevel.Medium => "Moyenne",
+        DiagnosticConfidenceLevel.High => "Élevée",
+        _ => level.ToString(),
+    };
+
+    public static string ToLabel(this ConclusionLevel conclusion) => conclusion switch
+    {
+        ConclusionLevel.ConfirmedCause => "Cause confirmée",
+        ConclusionLevel.VeryLikelyCause => "Cause très probable",
+        ConclusionLevel.MultiplePossibleCauses => "Causes multiples possibles",
+        ConclusionLevel.InsufficientInformation => "Information insuffisante",
+        ConclusionLevel.NoAnomalyDetected => "Aucune anomalie détectée",
+        _ => conclusion.ToString(),
+    };
+
     public static string ToLabel(this DiagnosticRuleStatus status) => status switch
     {
         DiagnosticRuleStatus.Draft => "Brouillon",

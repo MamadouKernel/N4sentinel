@@ -1,0 +1,399 @@
+@page "/environments/{EnvironmentId:guid}/diagnostic-cases/{CaseId:guid}"
+@attribute [Authorize]
+@inject ISender Mediator
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Détail du diagnostic - N4 Sentinel</PageTitle>
+
+@if (isLoading)
+{
+    <div class="card p-8 text-center text-slate-500">Chargement du cas de diagnostic...</div>
+}
+else if (diagnosticCase == null)
+{
+    <div class="card p-8 text-center text-slate-500">Cas de diagnostic introuvable.</div>
+}
+else
+{
+    <div class="space-y-6">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-slate-500">
+                <a href="environments" class="hover:text-slate-700">Environnements</a>
+                <span>/</span>
+                <a href="@($"environments/{EnvironmentId}")" class="hover:text-slate-700">@environment?.Name</a>
+                <span>/</span>
+                <a href="@($"environments/{EnvironmentId}/diagnostic-cases")" class="hover:text-slate-700">Diagnostics</a>
+                <span>/</span>
+                <span class="font-medium text-slate-900">@diagnosticCase.CorrelationReference</span>
+            </div>
+            <div class="mt-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-900">@diagnosticCase.Symptom</h1>
+                    <p class="mt-1 text-sm text-slate-600">
+                        Créé le @diagnosticCase.CreatedAtUtc.ToString("dd/MM/yyyy HH:mm") par <span class="font-medium">@diagnosticCase.RequestedByUserId</span>
+                    </p>
+                </div>
+                <div class="flex items-center gap-3">
+                    @if (diagnosticCase.ConclusionLevel is not null)
+                    {
+                        <span class="inline-flex items-center rounded-md bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-800 border border-emerald-300">
+                            Diagnostic conclu : @diagnosticCase.ConclusionLevel.Value.ToLabel()
+                        </span>
+                    }
+                    else
+                    {
+                        <button class="btn btn-primary" @onclick="RunEngine" disabled="@isRunningEngine">
+                            @(isRunningEngine ? "Analyse du moteur en cours..." : "Lancer le moteur de diagnostic")
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(actionMessage))
+        {
+            <div class="rounded-md bg-emerald-50 p-4 text-sm font-medium text-emerald-800 border border-emerald-200">
+                @actionMessage
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="rounded-md bg-rose-50 p-4 text-sm font-medium text-rose-800 border border-rose-200">
+                @errorMessage
+            </div>
+        }
+
+        <!-- Informational banner for Period & Correlation -->
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div class="card p-4">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Référence Incident / Corrélation</span>
+                <p class="mt-1 font-mono text-base font-bold text-slate-900">@diagnosticCase.CorrelationReference</p>
+            </div>
+            <div class="card p-4">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Période d'analyse</span>
+                <p class="mt-1 text-sm font-medium text-slate-900">
+                    @diagnosticCase.PeriodStartUtc.ToString("dd/MM/yyyy HH:mm") → @diagnosticCase.PeriodEndUtc.ToString("dd/MM/yyyy HH:mm")
+                </p>
+            </div>
+            <div class="card p-4">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Signaux & Logs liés</span>
+                <p class="mt-1 text-sm font-medium text-slate-900">
+                    @correlatedSignals?.Count signal(aux) | @correlatedLogs?.Count log(s)
+                </p>
+            </div>
+        </div>
+
+        <!-- Hypotheses Section -->
+        <div class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-bold text-slate-900">Hypothèses de cause (@diagnosticCase.Hypotheses.Count)</h2>
+                @if (diagnosticCase.ConclusionLevel is null)
+                {
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => showManualHypothesisForm = !showManualHypothesisForm">
+                        @(showManualHypothesisForm ? "Fermer le formulaire" : "+ Ajouter une hypothèse manuelle")
+                    </button>
+                }
+            </div>
+
+            @if (showManualHypothesisForm && diagnosticCase.ConclusionLevel is null)
+            {
+                <div class="card p-5 space-y-4 bg-slate-50 border-brand-200">
+                    <h3 class="font-semibold text-slate-900">Ajouter une hypothèse de cause (FR-063)</h3>
+
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Domaine de cause</label>
+                            <select @bind="newHypothesisDomain" class="form-select mt-1 w-full">
+                                @foreach (var d in Enum.GetValues<DiagnosticDomain>())
+                                {
+                                    <option value="@d">@d.ToLabel()</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Niveau de confiance</label>
+                            <select @bind="newHypothesisConfidence" class="form-select mt-1 w-full">
+                                @foreach (var c in Enum.GetValues<DiagnosticConfidenceLevel>())
+                                {
+                                    <option value="@c">@c.ToLabel()</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Description de la cause suspectée <span class="text-rose-500">*</span></label>
+                        <textarea @bind="newHypothesisDescription" rows="2" class="form-input mt-1 w-full" placeholder="Décrivez l'hypothèse explicative..."></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Preuves à l'appui</label>
+                        <input @bind="newHypothesisSupporting" type="text" class="form-input mt-1 w-full" placeholder="Extrait de journal, signal, métrique..." />
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => showManualHypothesisForm = false">Annuler</button>
+                        <button class="btn btn-primary btn-sm" @onclick="AddManualHypothesis" disabled="@isSubmittingHypothesis">
+                            Ajouter l'hypothèse
+                        </button>
+                    </div>
+                </div>
+            }
+
+            @if (diagnosticCase.Hypotheses.Count == 0)
+            {
+                <div class="card p-6 text-center text-slate-500">
+                    Aucune hypothèse produite. Cliquez sur <strong>"Lancer le moteur de diagnostic"</strong> pour générer automatiquement les hypothèses basées sur les règles actives et les signaux.
+                </div>
+            }
+            else
+            {
+                <div class="space-y-4">
+                    @foreach (var h in diagnosticCase.Hypotheses.OrderByDescending(x => x.ConfidenceLevel))
+                    {
+                        <div class="card p-5 space-y-3 border-l-4 @GetConfidenceBorderClass(h.ConfidenceLevel)">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center rounded-md bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-800">
+                                        @h.Domain.ToLabel()
+                                    </span>
+                                    <span class="inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold @GetConfidenceBadgeClass(h.ConfidenceLevel)">
+                                        Confiance : @h.ConfidenceLevel.ToLabel()
+                                    </span>
+                                    @if (!string.IsNullOrEmpty(h.AppliedRuleKey))
+                                    {
+                                        <span class="text-xs font-mono text-slate-500">Règle @h.AppliedRuleKey v@h.AppliedRuleVersion</span>
+                                    }
+                                </div>
+                                <span class="text-xs text-slate-400">@h.CreatedAtUtc.ToString("dd/MM/yyyy HH:mm")</span>
+                            </div>
+
+                            <h3 class="text-base font-bold text-slate-900">@h.CauseDescription</h3>
+
+                            @if (!string.IsNullOrEmpty(h.SupportingEvidence))
+                            {
+                                <div class="text-xs text-slate-700 bg-emerald-50/50 p-2.5 rounded border border-emerald-100">
+                                    <strong class="text-emerald-800">Preuves à l'appui :</strong> @h.SupportingEvidence
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(h.MissingInformation))
+                            {
+                                <div class="text-xs text-slate-700 bg-amber-50/50 p-2.5 rounded border border-amber-100">
+                                    <strong class="text-amber-800">Informations manquantes :</strong> @h.MissingInformation
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(h.RecommendedChecks))
+                            {
+                                <div class="text-xs text-slate-700 bg-blue-50/50 p-2.5 rounded border border-blue-100">
+                                    <strong class="text-blue-800">Vérifications recommandées :</strong> @h.RecommendedChecks
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(h.SafeActionsOrEscalation))
+                            {
+                                <div class="text-xs text-slate-700 bg-slate-100 p-2.5 rounded border border-slate-200">
+                                    <strong class="text-slate-800">Action recommandée / Escalade :</strong> @h.SafeActionsOrEscalation
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Conclusion Section -->
+        @if (diagnosticCase.ConclusionLevel is null)
+        {
+            <div class="card p-6 space-y-4 bg-slate-50 border-slate-300">
+                <h2 class="text-lg font-bold text-slate-900">Conclure le diagnostic (FR-069)</h2>
+                <p class="text-xs text-slate-600">Une fois les hypothèses analysées et validées, saisissez la conclusion finale pour verrouiller le cas.</p>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">Niveau de conclusion <span class="text-rose-500">*</span></label>
+                        <select @bind="conclusionLevel" class="form-select mt-1 w-full">
+                            @foreach (var level in Enum.GetValues<ConclusionLevel>())
+                            {
+                                <option value="@level">@level.ToLabel()</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-700">Synthèse de conclusion <span class="text-rose-500">*</span></label>
+                    <textarea @bind="conclusionSummary" rows="3" class="form-input mt-1 w-full" placeholder="Précisez le périmètre analysé, la cause confirmée ou probable et les mesures prises..."></textarea>
+                </div>
+
+                <div class="flex justify-end pt-2">
+                    <button class="btn btn-success" @onclick="ConcludeCase" disabled="@isSubmittingConclusion">
+                        @(isSubmittingConclusion ? "Finalisation..." : "Conclure et verrouiller le diagnostic")
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card p-6 space-y-2 bg-emerald-50/40 border-emerald-200">
+                <h2 class="text-lg font-bold text-emerald-900">Synthèse de conclusion de l'incident</h2>
+                <p class="text-sm text-slate-800 whitespace-pre-line">@diagnosticCase.ConclusionSummary</p>
+                <p class="text-xs text-slate-500 pt-2">Conclu le @diagnosticCase.ConcludedAtUtc?.ToString("dd/MM/yyyy HH:mm")</p>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid EnvironmentId { get; set; }
+    [Parameter] public Guid CaseId { get; set; }
+
+    private EnvironmentDetailDto? environment;
+    private DiagnosticCaseDto? diagnosticCase;
+    private IReadOnlyList<DiagnosticSignalDto>? correlatedSignals;
+    private IReadOnlyList<ImportedLogFileDto>? correlatedLogs;
+
+    private bool isLoading = true;
+    private bool isRunningEngine;
+    private bool showManualHypothesisForm;
+    private bool isSubmittingHypothesis;
+    private bool isSubmittingConclusion;
+    private string? actionMessage;
+    private string? errorMessage;
+
+    // Manual Hypothesis form fields
+    private DiagnosticDomain newHypothesisDomain = DiagnosticDomain.Network;
+    private DiagnosticConfidenceLevel newHypothesisConfidence = DiagnosticConfidenceLevel.Medium;
+    private string newHypothesisDescription = string.Empty;
+    private string newHypothesisSupporting = string.Empty;
+
+    // Conclusion form fields
+    private ConclusionLevel conclusionLevel = ConclusionLevel.VeryLikelyCause;
+    private string conclusionSummary = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        isLoading = true;
+        environment = await Mediator.Send(new GetEnvironmentByIdQuery(EnvironmentId));
+        diagnosticCase = await Mediator.Send(new GetDiagnosticCaseByIdQuery(CaseId));
+
+        if (diagnosticCase != null)
+        {
+            correlatedSignals = await Mediator.Send(new ListDiagnosticSignalsByCorrelationQuery(diagnosticCase.CorrelationReference));
+            var logs = await Mediator.Send(new ListImportedLogFilesByEnvironmentQuery(EnvironmentId));
+            correlatedLogs = logs.Where(l => l.CorrelationReference == diagnosticCase.CorrelationReference).ToList();
+        }
+
+        isLoading = false;
+    }
+
+    private async Task RunEngine()
+    {
+        if (diagnosticCase == null) return;
+        isRunningEngine = true;
+        actionMessage = null;
+        errorMessage = null;
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userName = authState.User.Identity?.Name ?? "Opérateur";
+
+            var count = await Mediator.Send(new RunDiagnosticEngineCommand(CaseId, userName));
+            actionMessage = $"Moteur de diagnostic exécuté avec succès : {count} hypothèse(s) générée(s).";
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isRunningEngine = false;
+        }
+    }
+
+    private async Task AddManualHypothesis()
+    {
+        if (string.IsNullOrWhiteSpace(newHypothesisDescription))
+        {
+            errorMessage = "La description de l'hypothèse est obligatoire.";
+            return;
+        }
+
+        isSubmittingHypothesis = true;
+        errorMessage = null;
+
+        try
+        {
+            await Mediator.Send(new AddDiagnosticHypothesisCommand(
+                CaseId,
+                newHypothesisDomain,
+                null,
+                newHypothesisDescription,
+                newHypothesisConfidence,
+                newHypothesisSupporting,
+                null, null, null, null));
+
+            actionMessage = "Hypothèse manuelle ajoutée.";
+            showManualHypothesisForm = false;
+            newHypothesisDescription = string.Empty;
+            newHypothesisSupporting = string.Empty;
+
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSubmittingHypothesis = false;
+        }
+    }
+
+    private async Task ConcludeCase()
+    {
+        if (string.IsNullOrWhiteSpace(conclusionSummary))
+        {
+            errorMessage = "La synthèse de conclusion est obligatoire.";
+            return;
+        }
+
+        isSubmittingConclusion = true;
+        errorMessage = null;
+
+        try
+        {
+            await Mediator.Send(new ConcludeDiagnosticCaseCommand(CaseId, conclusionLevel, conclusionSummary));
+            actionMessage = "Le diagnostic a été conclu et verrouillé.";
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isSubmittingConclusion = false;
+        }
+    }
+
+    private static string GetConfidenceBorderClass(DiagnosticConfidenceLevel level) => level switch
+    {
+        DiagnosticConfidenceLevel.High => "border-emerald-500",
+        DiagnosticConfidenceLevel.Medium => "border-amber-500",
+        _ => "border-slate-300",
+    };
+
+    private static string GetConfidenceBadgeClass(DiagnosticConfidenceLevel level) => level switch
+    {
+        DiagnosticConfidenceLevel.High => "bg-emerald-100 text-emerald-800",
+        DiagnosticConfidenceLevel.Medium => "bg-amber-100 text-amber-800",
+        _ => "bg-slate-100 text-slate-700",
+    };
+}

@@ -1,0 +1,121 @@
+@page "/environments/{EnvironmentId:guid}/diagnostic-cases"
+@attribute [Authorize]
+@inject ISender Mediator
+@inject NavigationManager NavigationManager
+
+<PageTitle>Cas de diagnostic - N4 Sentinel</PageTitle>
+
+<div class="space-y-6">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+            <div class="flex items-center gap-2 text-sm text-slate-500">
+                <a href="environments" class="hover:text-slate-700">Environnements</a>
+                <span>/</span>
+                <a href="@($"environments/{EnvironmentId}")" class="hover:text-slate-700">@environment?.Name</a>
+                <span>/</span>
+                <span class="font-medium text-slate-900">Diagnostics</span>
+            </div>
+            <h1 class="mt-1 text-2xl font-bold text-slate-900">Cas de diagnostic</h1>
+            <p class="text-sm text-slate-600">Historique et gestion des cas de diagnostic d'incidents (FR-060, E7.2).</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <a href="@($"environments/{EnvironmentId}/diagnostics")" class="btn btn-outline-secondary">Signaux collectés</a>
+            <a href="@($"environments/{EnvironmentId}/logs")" class="btn btn-outline-secondary">Journaux techniques</a>
+            <a href="@($"environments/{EnvironmentId}/diagnostic-cases/new")" class="btn btn-primary">Nouveau diagnostic</a>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="card p-8 text-center text-slate-500">Chargement des cas de diagnostic...</div>
+    }
+    else if (cases == null || cases.Count == 0)
+    {
+        <div class="card p-8 text-center">
+            <h3 class="text-lg font-medium text-slate-900">Aucun cas de diagnostic enregistré</h3>
+            <p class="mt-1 text-sm text-slate-500">Créez un cas de diagnostic sur un symptôme ou un incident pour démarrer le moteur.</p>
+            <div class="mt-4">
+                <a href="@($"environments/{EnvironmentId}/diagnostic-cases/new")" class="btn btn-primary">Nouveau diagnostic</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card overflow-hidden">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <thead class="bg-slate-50 font-semibold text-slate-700">
+                    <tr>
+                        <th class="px-4 py-3">Symptôme</th>
+                        <th class="px-4 py-3">Période d'analyse</th>
+                        <th class="px-4 py-3">Réf. Corrélation</th>
+                        <th class="px-4 py-3">Statut</th>
+                        <th class="px-4 py-3">Hypothèses</th>
+                        <th class="px-4 py-3">Demandeur</th>
+                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3 text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 font-medium text-slate-800">
+                    @foreach (var c in cases)
+                    {
+                        <tr class="hover:bg-slate-50">
+                            <td class="px-4 py-3 max-w-xs truncate font-semibold text-brand-900" title="@c.Symptom">
+                                @c.Symptom
+                            </td>
+                            <td class="px-4 py-3 text-slate-600">
+                                @c.PeriodStartUtc.ToString("dd/MM/yyyy HH:mm") → @c.PeriodEndUtc.ToString("HH:mm")
+                            </td>
+                            <td class="px-4 py-3 font-mono text-xs text-slate-700">
+                                @c.CorrelationReference
+                            </td>
+                            <td class="px-4 py-3">
+                                @if (c.ConclusionLevel is not null)
+                                {
+                                    <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
+                                        Conclu : @c.ConclusionLevel.Value.ToLabel()
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800">
+                                        Ouvert
+                                    </span>
+                                }
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="badge bg-slate-100 text-slate-800">@c.Hypotheses.Count hypothèse(s)</span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-600">@c.RequestedByUserId</td>
+                            <td class="px-4 py-3 text-slate-500 text-xs">@c.CreatedAtUtc.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td class="px-4 py-3 text-right">
+                                <a href="@($"environments/{EnvironmentId}/diagnostic-cases/{c.Id}")" class="btn btn-outline-secondary btn-sm">Afficher</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid EnvironmentId { get; set; }
+
+    private EnvironmentDetailDto? environment;
+    private IReadOnlyList<DiagnosticCaseDto>? cases;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        environment = await Mediator.Send(new GetEnvironmentByIdQuery(EnvironmentId));
+        if (environment == null)
+        {
+            NavigationManager.NavigateTo("environments");
+            return;
+        }
+
+        cases = await Mediator.Send(new ListDiagnosticCasesByEnvironmentQuery(EnvironmentId));
+        isLoading = false;
+    }
+}
