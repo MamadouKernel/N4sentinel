@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 using N4Sentinel.Domain.Entities;
 
 namespace N4Sentinel.Application.Operations.Commands;
@@ -13,7 +14,12 @@ public sealed record CreateOperationRunCommand(
     string? InterventionWindowDescription,
     string? Impact,
     string? IncidentOrChangeReference,
-    string RequestedByUserId) : IRequest<Guid>;
+    string RequestedByUserId) : IRequest<Guid>, IAuditableRequest
+{
+    string IAuditableRequest.ActorUserId => RequestedByUserId;
+    string IAuditableRequest.Action => "Lancement d'opération";
+    string IAuditableRequest.Summary => $"Opération demandée sur l'environnement '{EnvironmentId}' (workflow '{WorkflowId}').";
+}
 
 public sealed class CreateOperationRunCommandValidator : AbstractValidator<CreateOperationRunCommand>
 {

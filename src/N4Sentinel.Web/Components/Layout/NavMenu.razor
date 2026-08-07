@@ -29,6 +29,7 @@
             <AuthorizeView Roles="@Roles.Administrateur">
                 <Authorized>
                     <NavLink class="navbar-link" href="admin/users">Comptes</NavLink>
+                    <NavLink class="navbar-link" href="admin/audit">Journal d'audit</NavLink>
                 </Authorized>
             </AuthorizeView>
         </nav>
@@ -86,6 +87,7 @@
                 <AuthorizeView Roles="@Roles.Administrateur">
                     <Authorized>
                         <NavLink class="navbar-link-mobile" href="admin/users" @onclick="CloseMobileMenu">Comptes</NavLink>
+                        <NavLink class="navbar-link-mobile" href="admin/audit" @onclick="CloseMobileMenu">Journal d'audit</NavLink>
                     </Authorized>
                 </AuthorizeView>
                 <AuthorizeView>

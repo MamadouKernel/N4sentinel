@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using N4Sentinel.Application;
+using N4Sentinel.Application.Abstractions;
 using N4Sentinel.Infrastructure;
 using N4Sentinel.Web.Components;
 using N4Sentinel.Web.Components.Account;
@@ -56,6 +57,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.Services.AddScoped<IUserRoleService, UserRoleService>();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);

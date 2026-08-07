@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using N4Sentinel.Application.Users;
 
 namespace N4Sentinel.Web.Data;
 

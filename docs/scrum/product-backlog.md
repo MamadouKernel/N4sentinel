@@ -88,7 +88,7 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 
 | # | User Story | Pts | Priorité | Statut |
 |---|---|---|---|---|
-| E10.1 | En tant qu'Administrateur, je veux consulter un journal d'audit complet (qui, quoi, quand, résultat) de toutes les opérations, validations et dérogations. | 8 | Must | À faire |
+| E10.1 | En tant qu'Administrateur, je veux consulter un journal d'audit complet (qui, quoi, quand, résultat) de toutes les opérations, validations et dérogations. | 8 | Must | **Fait, partiellement** (Sprint 9) — audite les validations d'opération et la gestion de rôles ; pas encore le référentiel (Environnements/Composants/Workflows), voir décision Sprint 9 |
 | E10.2 | En tant qu'utilisateur, je veux exporter un rapport d'opération ou d'incident. | 5 | Should | À faire |
 
 ## Epic 11 — Sécurité, utilisateurs et rôles (FR transverses)
@@ -97,8 +97,8 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 |---|---|---|---|---|
 | E11.1 | En tant qu'Administrateur, je veux gérer les comptes et l'attribution des 4 rôles (Lecteur, Opérateur, Approbateur, Administrateur), différenciés par environnement. | 8 | Must | **Fait, partiellement** (Sprint 8) — rôles globaux, pas encore différenciés par environnement ; voir décision Sprint 8 |
 | E11.1b | En tant qu'Administrateur, je veux que les rôles attribués à un utilisateur puissent différer d'un environnement à l'autre (ex. Opérateur sur UAT, Lecteur sur Production). | 8 | Could | À faire — nécessite une refonte du modèle d'autorisation (actuellement global, cf. décision Sprint 8) |
-| E11.2 | En tant que système, je dois empêcher un Administrateur d'approuver seul son propre contournement (séparation des responsabilités). | 5 | Must | À faire |
-| E11.3 | En tant qu'Administrateur, je veux que toute attribution/modification/révocation de rôle soit auditée. | 3 | Must | À faire |
+| E11.2 | En tant que système, je dois empêcher un Administrateur d'approuver seul son propre contournement (séparation des responsabilités). | 5 | Must | **Fait, partiellement** (Sprint 9) — règle appliquée aux étapes RequiresApproval ; le concept complet de "contournement" (FR-027) reste à construire |
+| E11.3 | En tant qu'Administrateur, je veux que toute attribution/modification/révocation de rôle soit auditée. | 3 | Must | **Fait** (Sprint 9) |
 
 ## Epic 12 — Infrastructure & plateforme (non-fonctionnel)
 

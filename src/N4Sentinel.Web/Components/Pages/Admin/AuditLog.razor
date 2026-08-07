@@ -1,0 +1,67 @@
+@page "/admin/audit"
+@attribute [Authorize(Roles = Roles.Administrateur)]
+@inject IMediator Mediator
+
+<PageTitle>Journal d'audit - N4 Sentinel</PageTitle>
+
+<h1>Journal d'audit</h1>
+<p class="text-muted">
+    Qui, quoi, quand (E10.1) — lancements et validations d'opération, confirmations d'étape sensible,
+    attributions et révocations de rôle. Périmètre volontairement réduit à ce sprint aux actions qui portent
+    déjà l'identité de l'acteur ; voir <code>docs/scrum/sprints/sprint-9.md</code>.
+</p>
+
+@if (entries is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else if (entries.Count == 0)
+{
+    <p>Aucune entrée d'audit pour le moment.</p>
+}
+else
+{
+    <div class="table-responsive">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Auteur</th>
+                <th>Action</th>
+                <th>Détail</th>
+                <th>Résultat</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in entries)
+            {
+                <tr>
+                    <td>@entry.OccurredAtUtc.ToLocalTime().ToString("g")</td>
+                    <td>@entry.ActorUserId</td>
+                    <td>@entry.Action</td>
+                    <td>@entry.Summary</td>
+                    <td>
+                        @if (entry.Succeeded)
+                        {
+                            <span class="badge bg-success">Réussi</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-danger">Échoué</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<AuditEntryDto>? entries;
+
+    protected override async Task OnInitializedAsync()
+    {
+        entries = await Mediator.Send(new ListAuditEntriesQuery());
+    }
+}

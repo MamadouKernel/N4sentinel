@@ -1,10 +1,16 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 
 namespace N4Sentinel.Application.Operations.Commands;
 
-public sealed record RejectOperationRunCommand(Guid OperationRunId, string RejectedByUserId, string Reason) : IRequest;
+public sealed record RejectOperationRunCommand(Guid OperationRunId, string RejectedByUserId, string Reason) : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.ActorUserId => RejectedByUserId;
+    string IAuditableRequest.Action => "Rejet d'opération";
+    string IAuditableRequest.Summary => $"Opération '{OperationRunId}' rejetée : {Reason}";
+}
 
 public sealed class RejectOperationRunCommandValidator : AbstractValidator<RejectOperationRunCommand>
 {

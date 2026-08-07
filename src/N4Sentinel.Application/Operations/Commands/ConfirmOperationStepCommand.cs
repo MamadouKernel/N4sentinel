@@ -2,10 +2,17 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
+using N4Sentinel.Domain.Exceptions;
 
 namespace N4Sentinel.Application.Operations.Commands;
 
-public sealed record ConfirmOperationStepCommand(Guid OperationRunId, Guid StepId, string ConfirmedByUserId) : IRequest;
+public sealed record ConfirmOperationStepCommand(Guid OperationRunId, Guid StepId, string ConfirmedByUserId) : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.ActorUserId => ConfirmedByUserId;
+    string IAuditableRequest.Action => "Confirmation d'étape sensible";
+    string IAuditableRequest.Summary => $"Étape '{StepId}' de l'opération '{OperationRunId}' confirmée.";
+}
 
 public sealed class ConfirmOperationStepCommandValidator : AbstractValidator<ConfirmOperationStepCommand>
 {
@@ -19,8 +26,9 @@ public sealed class ConfirmOperationStepCommandValidator : AbstractValidator<Con
 
 /// <summary>
 /// Exécute une étape sensible précédemment mise en attente (statut AwaitingConfirmation) suite à un geste
-/// humain explicite (E3.2). L'identité du confirmateur est journalisée pour traçabilité (Serilog) — le
-/// domaine ne la persiste pas en tant que telle dans ce sprint (l'audit complet est l'objet de l'Epic 10).
+/// humain explicite (E3.2). Refuse la confirmation d'une étape RequiresApproval par le demandeur de
+/// l'opération (E11.2). L'identité du confirmateur est journalisée dans le journal d'audit (E10.1, via
+/// <see cref="IAuditableRequest"/>) et dans Serilog.
 /// </summary>
 public sealed class ConfirmOperationStepCommandHandler(
     IOperationRunRepository operationRuns,
@@ -39,6 +47,15 @@ public sealed class ConfirmOperationStepCommandHandler(
 
         var version = workflow.Versions.FirstOrDefault(v => v.Id == run.WorkflowVersionId)
             ?? throw new KeyNotFoundException($"Version '{run.WorkflowVersionId}' introuvable.");
+
+        var step = version.Steps.FirstOrDefault(s => s.Id == request.StepId);
+        if (step is { RequiresApproval: true } &&
+            string.Equals(request.ConfirmedByUserId, run.RequestedByUserId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DomainRuleException(
+                "Une étape nécessitant une approbation ne peut pas être confirmée par la même personne que " +
+                "celle qui a demandé l'opération (E11.2, séparation des responsabilités).");
+        }
 
         logger.LogInformation(
             "Étape {StepId} de l'opération {OperationRunId} confirmée par {ConfirmedByUserId}.",

@@ -1,10 +1,16 @@
 using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Common;
 
 namespace N4Sentinel.Application.Operations.Commands;
 
-public sealed record ApproveOperationRunCommand(Guid OperationRunId, string ApprovedByUserId) : IRequest;
+public sealed record ApproveOperationRunCommand(Guid OperationRunId, string ApprovedByUserId) : IRequest, IAuditableRequest
+{
+    string IAuditableRequest.ActorUserId => ApprovedByUserId;
+    string IAuditableRequest.Action => "Approbation d'opération";
+    string IAuditableRequest.Summary => $"Opération '{OperationRunId}' approuvée.";
+}
 
 public sealed class ApproveOperationRunCommandValidator : AbstractValidator<ApproveOperationRunCommand>
 {

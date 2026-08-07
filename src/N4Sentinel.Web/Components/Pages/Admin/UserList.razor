@@ -1,14 +1,15 @@
 @page "/admin/users"
 @attribute [Authorize(Roles = Roles.Administrateur)]
-@using Microsoft.AspNetCore.Identity
-@inject UserManager<ApplicationUser> UserManager
+@using System.Security.Claims
+@inject IMediator Mediator
 
 <PageTitle>Comptes - N4 Sentinel</PageTitle>
 
 <h1>Gestion des comptes</h1>
 <p class="text-muted">
     Attribution des rôles et verrouillage de compte (E11.1). Un Administrateur ne peut ni retirer son propre
-    rôle Administrateur, ni verrouiller son propre compte, pour éviter un auto-blocage.
+    rôle Administrateur, ni verrouiller son propre compte, pour éviter un auto-blocage. Toute
+    attribution/révocation de rôle est journalisée dans le journal d'audit (E11.3).
 </p>
 
 @if (!string.IsNullOrEmpty(errorMessage))
@@ -35,10 +36,10 @@ else
         <tbody>
             @foreach (var row in users)
             {
-                var isSelf = string.Equals(row.User.Id, currentUserId, StringComparison.Ordinal);
+                var isSelf = string.Equals(row.UserId, currentUserId, StringComparison.Ordinal);
                 <tr>
                     <td>
-                        @row.User.Email
+                        @row.Email
                         @if (isSelf)
                         {
                             <span class="badge bg-secondary ms-2">Vous</span>
@@ -50,10 +51,10 @@ else
                             var isInRole = row.Roles.Contains(role);
                             var disableToggle = isSelf && role == Roles.Administrateur && isInRole;
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="@(row.User.Id + "-" + role)"
+                                <input class="form-check-input" type="checkbox" id="@(row.UserId + "-" + role)"
                                        checked="@isInRole" disabled="@disableToggle"
-                                       @onchange="e => ToggleRoleAsync(row.User, role, (bool)e.Value!)" />
-                                <label class="form-check-label" for="@(row.User.Id + "-" + role)">@role</label>
+                                       @onchange="e => ToggleRoleAsync(row.UserId, role, (bool)e.Value!)" />
+                                <label class="form-check-label" for="@(row.UserId + "-" + role)">@role</label>
                             </div>
                         }
                     </td>
@@ -70,11 +71,11 @@ else
                     <td>
                         @if (row.IsLockedOut)
                         {
-                            <button class="btn btn-sm btn-outline-success" @onclick="() => UnlockAsync(row.User)">Déverrouiller</button>
+                            <button class="btn btn-sm btn-outline-success" @onclick="() => UnlockAsync(row.UserId)">Déverrouiller</button>
                         }
                         else
                         {
-                            <button class="btn btn-sm btn-outline-danger" disabled="@isSelf" @onclick="() => LockAsync(row.User)">Verrouiller</button>
+                            <button class="btn btn-sm btn-outline-danger" disabled="@isSelf" @onclick="() => LockAsync(row.UserId)">Verrouiller</button>
                         }
                     </td>
                 </tr>
@@ -88,7 +89,7 @@ else
     [CascadingParameter]
     private Task<AuthenticationState>? AuthStateTask { get; set; }
 
-    private List<UserRow>? users;
+    private IReadOnlyList<UserRoleInfoDto>? users;
     private string? currentUserId;
     private string? errorMessage;
 
@@ -96,7 +97,7 @@ else
     {
         if (AuthStateTask is not null)
         {
-            currentUserId = UserManager.GetUserId((await AuthStateTask).User);
+            currentUserId = (await AuthStateTask).User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         }
 
         await LoadAsync();
@@ -104,38 +105,21 @@ else
 
     private async Task LoadAsync()
     {
-        var all = UserManager.Users.OrderBy(u => u.Email).ToList();
-        var rows = new List<UserRow>();
-        foreach (var user in all)
-        {
-            var roles = await UserManager.GetRolesAsync(user);
-            var isLockedOut = await UserManager.IsLockedOutAsync(user);
-            rows.Add(new UserRow(user, roles.ToHashSet(), isLockedOut));
-        }
-
-        users = rows;
+        users = await Mediator.Send(new ListUsersQuery());
     }
 
-    private async Task ToggleRoleAsync(ApplicationUser user, string role, bool enabled)
+    private async Task ToggleRoleAsync(string userId, string role, bool enabled)
     {
         errorMessage = null;
         try
         {
-            var isSelf = string.Equals(user.Id, currentUserId, StringComparison.Ordinal);
-            if (isSelf && role == Roles.Administrateur && !enabled)
+            if (enabled)
             {
-                errorMessage = "Vous ne pouvez pas retirer votre propre rôle Administrateur.";
-                return;
+                await Mediator.Send(new GrantRoleCommand(userId, role, currentUserId ?? "inconnu"));
             }
-
-            var result = enabled
-                ? await UserManager.AddToRoleAsync(user, role)
-                : await UserManager.RemoveFromRoleAsync(user, role);
-
-            if (!result.Succeeded)
+            else
             {
-                errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
-                return;
+                await Mediator.Send(new RevokeRoleCommand(userId, role, currentUserId ?? "inconnu"));
             }
 
             await LoadAsync();
@@ -146,25 +130,12 @@ else
         }
     }
 
-    private async Task LockAsync(ApplicationUser user)
+    private async Task LockAsync(string userId)
     {
         errorMessage = null;
         try
         {
-            if (string.Equals(user.Id, currentUserId, StringComparison.Ordinal))
-            {
-                errorMessage = "Vous ne pouvez pas verrouiller votre propre compte.";
-                return;
-            }
-
-            await UserManager.SetLockoutEnabledAsync(user, true);
-            var result = await UserManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
-            if (!result.Succeeded)
-            {
-                errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
-                return;
-            }
-
+            await Mediator.Send(new LockUserAccountCommand(userId, currentUserId ?? "inconnu"));
             await LoadAsync();
         }
         catch (Exception ex)
@@ -173,18 +144,12 @@ else
         }
     }
 
-    private async Task UnlockAsync(ApplicationUser user)
+    private async Task UnlockAsync(string userId)
     {
         errorMessage = null;
         try
         {
-            var result = await UserManager.SetLockoutEndDateAsync(user, null);
-            if (!result.Succeeded)
-            {
-                errorMessage = string.Join(", ", result.Errors.Select(e => e.Description));
-                return;
-            }
-
+            await Mediator.Send(new UnlockUserAccountCommand(userId));
             await LoadAsync();
         }
         catch (Exception ex)
@@ -192,6 +157,4 @@ else
             errorMessage = ex.Message;
         }
     }
-
-    private sealed record UserRow(ApplicationUser User, HashSet<string> Roles, bool IsLockedOut);
 }
