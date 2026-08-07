@@ -1,68 +1,95 @@
-﻿@implements IDisposable
+@implements IDisposable
 
 @inject NavigationManager NavigationManager
+@inject IOptions<BrandingOptions> BrandingOptions
+@inject IOptions<FeatureOptions> FeatureOptions
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">N4 Sentinel</a>
-    </div>
-</div>
+<header class="sticky top-0 z-30 border-b border-slate-200 bg-white">
+    <div class="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        <a href="" class="flex items-center gap-2 text-brand-900">
+            <span class="flex h-9 w-9 items-center justify-center rounded-md bg-brand-800 text-sm font-bold text-gold-300">N4</span>
+            <span class="text-base font-semibold tracking-tight">@BrandingOptions.Value.ApplicationName</span>
+        </a>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+        <nav class="hidden items-center gap-1 md:flex">
+            <NavLink class="navbar-link" href="" Match="NavLinkMatch.All">Accueil</NavLink>
+            @if (FeatureOptions.Value.Environments)
+            {
+                <AuthorizeView>
+                    <Authorized>
+                        <NavLink class="navbar-link" href="environments">Environnements</NavLink>
+                    </Authorized>
+                </AuthorizeView>
+            }
+        </nav>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Accueil
-            </NavLink>
-        </div>
-
-        <AuthorizeView>
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="environments">
-                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Environnements
-                    </NavLink>
-                </div>
-            </Authorized>
-        </AuthorizeView>
-
-        <AuthorizeView>
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Manage">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
+        <div class="hidden items-center gap-3 md:flex">
+            <AuthorizeView>
+                <Authorized>
+                    <NavLink class="navbar-link" href="Account/Manage">@context.User.Identity?.Name</NavLink>
                     <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
                         <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                        <button type="submit" class="nav-link">
-                            <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
-                        </button>
+                        <button type="submit" class="btn btn-outline-secondary btn-sm">Se déconnecter</button>
                     </form>
-                </div>
-            </Authorized>
-            <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Register">
-                        <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Register
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Login">
-                        <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
-                    </NavLink>
-                </div>
-            </NotAuthorized>
-        </AuthorizeView>
-    </nav>
-</div>
+                </Authorized>
+                <NotAuthorized>
+                    <NavLink class="navbar-link" href="Account/Login">Se connecter</NavLink>
+                    <NavLink class="btn btn-primary btn-sm" href="Account/Register">Créer un compte</NavLink>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+
+        <button type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 md:hidden"
+                aria-label="Ouvrir le menu" @onclick="ToggleMobileMenu">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+                @if (isMobileMenuOpen)
+                {
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                }
+                else
+                {
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                }
+            </svg>
+        </button>
+    </div>
+
+    @if (isMobileMenuOpen)
+    {
+        <div class="border-t border-slate-200 px-4 pb-4 md:hidden">
+            <nav class="flex flex-col gap-1 pt-2">
+                <NavLink class="navbar-link-mobile" href="" Match="NavLinkMatch.All" @onclick="CloseMobileMenu">Accueil</NavLink>
+                @if (FeatureOptions.Value.Environments)
+                {
+                    <AuthorizeView>
+                        <Authorized>
+                            <NavLink class="navbar-link-mobile" href="environments" @onclick="CloseMobileMenu">Environnements</NavLink>
+                        </Authorized>
+                    </AuthorizeView>
+                }
+                <AuthorizeView>
+                    <Authorized>
+                        <NavLink class="navbar-link-mobile" href="Account/Manage" @onclick="CloseMobileMenu">@context.User.Identity?.Name</NavLink>
+                        <form action="Account/Logout" method="post" class="pt-1">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                            <button type="submit" class="btn btn-outline-secondary btn-sm w-full">Se déconnecter</button>
+                        </form>
+                    </Authorized>
+                    <NotAuthorized>
+                        <NavLink class="navbar-link-mobile" href="Account/Login" @onclick="CloseMobileMenu">Se connecter</NavLink>
+                        <NavLink class="navbar-link-mobile" href="Account/Register" @onclick="CloseMobileMenu">Créer un compte</NavLink>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </nav>
+        </div>
+    }
+</header>
 
 @code {
     private string? currentUrl;
+    private bool isMobileMenuOpen;
 
     protected override void OnInitialized()
     {
@@ -73,12 +100,16 @@
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
+        isMobileMenuOpen = false;
         StateHasChanged();
     }
+
+    private void ToggleMobileMenu() => isMobileMenuOpen = !isMobileMenuOpen;
+
+    private void CloseMobileMenu() => isMobileMenuOpen = false;
 
     public void Dispose()
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
-

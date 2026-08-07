@@ -1,0 +1,14 @@
+{
+  "name": "n4sentinel-web",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Outillage front-end (Tailwind CSS) pour N4 Sentinel. Node.js n'est requis que pour modifier la feuille de style ; le CSS compilé est committé dans wwwroot/app.css.",
+  "scripts": {
+    "build:css": "tailwindcss -i ./Styles/app.css -o ./wwwroot/app.css --minify",
+    "watch:css": "tailwindcss -i ./Styles/app.css -o ./wwwroot/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3"
+  }
+}

@@ -1,0 +1,281 @@
+@import "tailwindcss";
+
+/*
+ * Source Tailwind CSS pour N4 Sentinel. Compilé vers wwwroot/app.css (committé, servi tel quel en
+ * production — Node.js n'est nécessaire que pour modifier ce fichier : `npm run build:css`).
+ *
+ * Palette ancrée sur l'identité visuelle CIT (bleu marine + doré). Design plat, moderne : pas de
+ * dégradé, coins nets à discrets, ombres légères.
+ */
+
+@theme {
+    --font-sans: 'Inter', 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+    --color-brand-50: #eef3f9;
+    --color-brand-100: #d6e2f0;
+    --color-brand-200: #adc5e1;
+    --color-brand-300: #7fa3cd;
+    --color-brand-400: #4d7bae;
+    --color-brand-500: #2f5c8c;
+    --color-brand-600: #1e4470;
+    --color-brand-700: #17335a;
+    --color-brand-800: #112643;
+    --color-brand-900: #0b1a2e;
+    --color-brand-950: #06101d;
+
+    --color-gold-50: #fbf7ee;
+    --color-gold-100: #f5ead0;
+    --color-gold-200: #ead29f;
+    --color-gold-300: #ddb76c;
+    --color-gold-400: #cf9f45;
+    --color-gold-500: #b8852f;
+    --color-gold-600: #966a26;
+    --color-gold-700: #745121;
+    --color-gold-800: #5c4120;
+    --color-gold-900: #4b361d;
+}
+
+@layer base {
+    body {
+        font-family: var(--font-sans);
+        @apply bg-slate-50 text-slate-800;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        @apply font-semibold text-brand-900;
+    }
+
+    a {
+        @apply text-brand-600;
+    }
+
+    a:hover {
+        @apply text-brand-700;
+    }
+}
+
+@layer components {
+    /* --- Grille (compatible avec le balisage col- et row existant) --- */
+    .row {
+        @apply flex flex-wrap -mx-3;
+    }
+
+    .row > * {
+        @apply px-3;
+    }
+
+    .col-md-4, .col-md-6, .col-md-12,
+    .col-sm-3, .col-sm-9,
+    .col-lg-3, .col-lg-4, .col-lg-6, .col-lg-9,
+    .col-xl-6 {
+        @apply w-full;
+    }
+
+    @media (min-width: 640px) {
+        .col-sm-3 { width: 25%; }
+        .col-sm-9 { width: 75%; }
+    }
+
+    @media (min-width: 768px) {
+        .col-md-4 { width: 33.3333%; }
+        .col-md-6 { width: 50%; }
+        .col-md-12 { width: 100%; }
+    }
+
+    @media (min-width: 1024px) {
+        .col-lg-3 { width: 25%; }
+        .col-lg-4 { width: 33.3333%; }
+        .col-lg-6 { width: 50%; }
+        .col-lg-9 { width: 75%; }
+        .col-lg-offset-2 { margin-left: 16.6667%; }
+    }
+
+    @media (min-width: 1280px) {
+        .col-xl-6 { width: 50%; }
+    }
+
+    /* --- Boutons --- */
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-md border border-transparent
+               px-4 py-2 text-sm font-medium transition-colors cursor-pointer
+               focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2
+               disabled:opacity-50 disabled:cursor-not-allowed;
+    }
+
+    .btn-sm { @apply px-3 py-1.5 text-xs; }
+    .btn-lg { @apply px-5 py-3 text-base; }
+
+    .btn-primary { @apply bg-brand-700 text-white hover:bg-brand-800 focus-visible:outline-brand-600; }
+    .btn-secondary { @apply bg-slate-600 text-white hover:bg-slate-700 focus-visible:outline-slate-500; }
+    .btn-success { @apply bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:outline-emerald-500; }
+    .btn-danger { @apply bg-red-600 text-white hover:bg-red-700 focus-visible:outline-red-500; }
+    .btn-warning { @apply bg-amber-500 text-white hover:bg-amber-600 focus-visible:outline-amber-400; }
+
+    .btn-outline-primary { @apply border-brand-600 text-brand-700 bg-white hover:bg-brand-50; }
+    .btn-outline-secondary { @apply border-slate-400 text-slate-700 bg-white hover:bg-slate-50; }
+    .btn-outline-success { @apply border-emerald-500 text-emerald-700 bg-white hover:bg-emerald-50; }
+    .btn-outline-danger { @apply border-red-500 text-red-700 bg-white hover:bg-red-50; }
+
+    .btn-link { @apply text-brand-600 underline-offset-2 hover:underline bg-transparent px-0 py-0; }
+
+    /* --- Formulaires --- */
+    .form-control, .form-select {
+        @apply block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900
+               shadow-sm placeholder:text-slate-400
+               focus:border-brand-500 focus:outline focus:outline-2 focus:outline-brand-200;
+    }
+
+    .form-label {
+        @apply mb-1 block text-sm font-medium text-slate-700;
+    }
+
+    .form-check {
+        @apply flex items-center gap-2;
+    }
+
+    .form-check-input {
+        @apply h-4 w-4 rounded border-slate-300 text-brand-600 focus:outline focus:outline-2 focus:outline-brand-200;
+    }
+
+    .form-check-label {
+        @apply text-sm text-slate-700;
+    }
+
+    .form-horizontal .form-label {
+        @apply md:text-right;
+    }
+
+    .form-floating {
+        @apply relative;
+    }
+
+    .form-floating > .form-control {
+        @apply pt-5 pb-1.5;
+    }
+
+    .form-floating > label {
+        @apply pointer-events-none absolute left-3 top-1.5 text-xs text-slate-400;
+    }
+
+    .input-group {
+        @apply flex items-stretch;
+    }
+
+    .input-group > .form-control {
+        @apply rounded-l-md rounded-r-none;
+    }
+
+    .input-group-text, .input-group-append {
+        @apply inline-flex items-center rounded-r-md border border-l-0 border-slate-300 bg-slate-100
+               px-3 text-sm text-slate-500;
+    }
+
+    /* --- Alertes / badges --- */
+    .alert {
+        @apply rounded-md border px-4 py-3 text-sm;
+    }
+
+    .alert-danger { @apply border-red-200 bg-red-50 text-red-800; }
+    .alert-success { @apply border-emerald-200 bg-emerald-50 text-emerald-800; }
+    .alert-warning { @apply border-amber-200 bg-amber-50 text-amber-800; }
+    .alert-info { @apply border-sky-200 bg-sky-50 text-sky-800; }
+
+    .badge {
+        @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+    }
+
+    .bg-primary { @apply bg-brand-700 text-white; }
+    .bg-secondary { @apply bg-slate-500 text-white; }
+    .bg-success { @apply bg-emerald-600 text-white; }
+    .bg-danger { @apply bg-red-600 text-white; }
+    .bg-warning { @apply bg-amber-500 text-white; }
+    .bg-info { @apply bg-sky-600 text-white; }
+
+    .text-danger { @apply text-red-600; }
+    .text-success { @apply text-emerald-600; }
+    .text-warning { @apply text-amber-600; }
+    .text-info { @apply text-sky-600; }
+    .text-muted { @apply text-slate-500; }
+    .text-secondary { @apply text-slate-500; }
+    .text-dark { @apply text-slate-900; }
+
+    /* --- Tableaux --- */
+    .table-responsive {
+        @apply w-full overflow-x-auto;
+    }
+
+    .table {
+        @apply w-full border-collapse text-left text-sm;
+    }
+
+    .table th {
+        @apply border-b border-slate-200 bg-slate-50 px-3 py-2 font-medium text-slate-600;
+    }
+
+    .table td {
+        @apply border-b border-slate-100 px-3 py-2 text-slate-700;
+    }
+
+    .table-hover tbody tr:hover {
+        @apply bg-slate-50;
+    }
+
+    .table-sm th, .table-sm td {
+        @apply px-2 py-1;
+    }
+
+    .table-danger td { @apply bg-red-50; }
+    .table-success td { @apply bg-emerald-50; }
+    .table-warning td { @apply bg-amber-50; }
+    .table-info td { @apply bg-sky-50; }
+
+    /* --- Navigation (classes utilitaires génériques, hors composant Navbar dédié) --- */
+    .nav {
+        @apply flex flex-wrap gap-1;
+    }
+
+    .nav-pills .nav-link {
+        @apply rounded-md;
+    }
+
+    .nav-link {
+        @apply px-3 py-2 text-sm font-medium text-slate-600 hover:text-brand-700;
+    }
+
+    .nav-link.active {
+        @apply bg-brand-50 text-brand-700;
+    }
+
+    .menu {
+        @apply list-none p-0 m-0;
+    }
+
+    /* --- Utilitaires manquants de Tailwind (noms hérités du balisage Bootstrap) --- */
+    .d-flex { @apply flex; }
+
+    /* --- Navbar applicative (Components/Layout/NavMenu.razor) --- */
+    .navbar-link {
+        @apply rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-brand-800;
+    }
+
+    .navbar-link.active {
+        @apply text-brand-800;
+    }
+
+    .navbar-link-mobile {
+        @apply rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-brand-800;
+    }
+
+    /* --- Retour visuel de validation Blazor (EditForm / InputBase / ValidationMessage) --- */
+    .valid.modified:not([type="checkbox"]) {
+        @apply border-emerald-400 outline-none;
+    }
+
+    .invalid {
+        @apply border-red-400 outline-none;
+    }
+
+    .validation-message {
+        @apply mt-1 block text-xs text-red-600;
+    }
+}

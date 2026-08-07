@@ -27,4 +27,16 @@
     <ProjectReference Include="..\N4Sentinel.Infrastructure\N4Sentinel.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!--
+    Recompile la feuille de style Tailwind (Styles/app.css -> wwwroot/app.css) si Node.js est
+    disponible. wwwroot/app.css est committé dans le dépôt : ce target est une commodité pour le
+    développement, jamais un prérequis de build — un poste sans Node.js compile et exécute
+    l'application normalement avec le CSS déjà présent.
+  -->
+  <Target Name="BuildTailwindCss" BeforeTargets="BeforeBuild">
+    <Exec Command="npm run build:css" WorkingDirectory="$(MSBuildProjectDirectory)"
+          Condition="Exists('$(MSBuildProjectDirectory)\node_modules') And '$(Configuration)' == 'Debug'"
+          ContinueOnError="WarnAndContinue" />
+  </Target>
+
 </Project>

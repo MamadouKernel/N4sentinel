@@ -3,8 +3,10 @@
 Vue d'ensemble sprint par sprint du `product-backlog.md`. Sprints de 2 semaines, ~15-25 points par sprint
 (hypothèse initiale, à recalibrer sur la vélocité réelle après les sprints 2-3 — voir note en bas de page).
 Chaque sprint respecte les dépendances : le moteur de workflows (Sprint 2) doit exister avant tout pilotage
-réel (Sprints 4-6), qui doit exister avant que le tableau de bord ait quelque chose de réel à afficher
-(Sprint 7), etc.
+réel (Sprints 4-5, 7), qui doit exister avant que le tableau de bord ait quelque chose de réel à afficher
+(Sprint 8), etc. Le Sprint 6 (modernisation UI) s'intercale entre le pilotage d'arrêt (Sprint 5) et le
+pilotage de démarrage (Sprint 7) car il touche la structure partagée par toutes les pages déjà livrées et
+toutes celles à venir — autant l'exécuter avant de construire de nouvelles pages dans l'ancien style.
 
 | Sprint | Thème | Stories (points) | Total pts | Statut |
 |---|---|---|---|---|
@@ -14,29 +16,33 @@ réel (Sprints 4-6), qui doit exister avant que le tableau de bord ait quelque c
 | 3 | Mode simulation & préparation | E1.5 Test connectivité sans action mutative (5) · E3.1 Mode simulation (8) · E2.1 Sélection de scénario (5) | 18 | **Fait** |
 | 4 | Premières opérations réelles (risque maîtrisé) | E2.2 Motif/référence obligatoires (5) · E3.4 Opération partielle/unitaire (8) · E3.6 Double validation (5) | 18 | **Fait** |
 | 5 | Pilotage — arrêt complet | E3.2 Scénario d'arrêt complet (13) · E3.5 Arrêt sur échec / reprise (8) | 21 | **Fait** |
-| 6 | Pilotage — démarrage complet | E3.3 Scénario de démarrage complet (13) · E1.6 Cartographie systèmes dépendants (5) | 18 | À faire |
-| 7 | Tableau de bord & comptes | E4.1 Dashboard temps réel (8) · E4.2 Historique des opérations (5) · E11.1 Gestion des comptes (UI) (8) | 21 | À faire |
-| 8 | Sécurité & audit transverse | E11.2 Séparation des responsabilités (5) · E11.3 Audit des rôles (3) · E10.1 Journal d'audit complet (8) | 16 | À faire |
-| 9 | Supervision dossiers partagés / ActiveMQ | E5.1 Anomalies dossiers partagés (8) · E5.3 Synchro N4/Bridge/XPS, ActiveMQ (8) | 16 | À faire |
-| 10 | Reconstitution & EDI | E5.2 Reconstitution sécurisée (8) · E6.1 Suivi intégrations EDI (8) | 16 | À faire |
-| 11 | Diagnostic — collecte & règles | E7.1 Collecte automatique de signaux (8) · E7.3 Règles de diagnostic versionnées (8) | 16 | À faire |
-| 12 | Diagnostic — moteur & logs | E7.2 Moteur de diagnostic (classification par domaine/confiance) (13) · E8.1 Analyse de logs (recherche/corrélation) (8) | 21 | À faire |
-| 13 | Assistant documentaire N4 | E9.1 Assistant N4 (RAG, réponses sourcées) (13) · E9.2 Garde-fou "jamais d'action déclenchée" (3) | 16 | À faire |
-| 14 | Clôture V1 | E9.3 SOP versionnées (8) · E10.2 Export de rapports (5) | 13 | À faire |
+| 6 | Modernisation UI — Tailwind, navbar, configurabilité (demande DSI directe) | Migration Bootstrap→Tailwind (8) · Layout navbar responsive (5) · Configurabilité branding/modules (5) · Vérification desktop/mobile (3) | 21 | **Fait** |
+| 7 | Pilotage — démarrage complet | E3.3 Scénario de démarrage complet (13) · E1.6 Cartographie systèmes dépendants (5) | 18 | À faire |
+| 8 | Tableau de bord & comptes | E4.1 Dashboard temps réel (8) · E4.2 Historique des opérations (5) · E11.1 Gestion des comptes (UI) (8) | 21 | À faire |
+| 9 | Sécurité & audit transverse | E11.2 Séparation des responsabilités (5) · E11.3 Audit des rôles (3) · E10.1 Journal d'audit complet (8) | 16 | À faire |
+| 10 | Supervision dossiers partagés / ActiveMQ | E5.1 Anomalies dossiers partagés (8) · E5.3 Synchro N4/Bridge/XPS, ActiveMQ (8) | 16 | À faire |
+| 11 | Reconstitution & EDI | E5.2 Reconstitution sécurisée (8) · E6.1 Suivi intégrations EDI (8) | 16 | À faire |
+| 12 | Diagnostic — collecte & règles | E7.1 Collecte automatique de signaux (8) · E7.3 Règles de diagnostic versionnées (8) | 16 | À faire |
+| 13 | Diagnostic — moteur & logs | E7.2 Moteur de diagnostic (classification par domaine/confiance) (13) · E8.1 Analyse de logs (recherche/corrélation) (8) | 21 | À faire |
+| 14 | Assistant documentaire N4 | E9.1 Assistant N4 (RAG, réponses sourcées) (13) · E9.2 Garde-fou "jamais d'action déclenchée" (3) | 16 | À faire |
+| 15 | Clôture V1 | E9.3 SOP versionnées (8) · E10.2 Export de rapports (5) | 13 | À faire |
 
-**Total V1 : 257 points sur 15 sprints** (6 faits, 9 à faire), soit environ **6-7 mois** au rythme de 2
-semaines/sprint si la vélocité réelle confirme l'hypothèse de 15-25 pts/sprint.
+**Total V1 : 278 points sur 16 sprints** (7 faits, 9 à faire), soit environ **7-8 mois** au
+rythme de 2 semaines/sprint si la vélocité réelle confirme l'hypothèse de 15-25 pts/sprint. Le Sprint 6
+(modernisation UI) est une insertion hors périmètre initial du cahier des charges, demandée directement par
+la DSI ; il décale d'un cran tous les sprints fonctionnels suivants (l'ancien Sprint 6 "démarrage complet"
+devient le Sprint 7, etc.) sans changer leur contenu.
 
 ## Notes de cadrage
 
 - Ce séquencement est une **proposition de Sprint Planning indicative**, pas un engagement contractuel : à
   chaque Sprint Review, le contenu du sprint suivant sera reconfirmé avec le Product Owner (DSI) en fonction
   de la vélocité observée et des priorités qui évoluent.
-- Les Sprints 2-6 (moteur de workflows → pilotage complet) sont le chemin critique : sans eux, aucune
+- Les Sprints 2-5 et 7 (moteur de workflows → pilotage complet) sont le chemin critique : sans eux, aucune
   fonctionnalité "métier" visible pour un opérateur n'existe encore, seulement le référentiel. À signaler à
-  la DSI si une démo intermédiaire est attendue plus tôt — on peut réordonner (ex. avancer le Sprint 7
+  la DSI si une démo intermédiaire est attendue plus tôt — on peut réordonner (ex. avancer le Sprint 8
   Dashboard) si une visibilité rapide est préférée à la profondeur fonctionnelle.
-- Les Sprints 9-14 (supervision dossiers/EDI, diagnostic, assistant documentaire) sont largement
+- Les Sprints 10-15 (supervision dossiers/EDI, diagnostic, assistant documentaire) sont largement
   parallélisables entre eux s'il y a plusieurs développeurs — ici planifiés en séquence car cette session
   travaille avec une seule "équipe" de développement.
 - Detail des critères d'acceptation par story : `docs/scrum/product-backlog.md`. Comptes rendus détaillés

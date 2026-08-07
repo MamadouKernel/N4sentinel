@@ -5,10 +5,14 @@ using N4Sentinel.Application;
 using N4Sentinel.Infrastructure;
 using N4Sentinel.Web.Components;
 using N4Sentinel.Web.Components.Account;
+using N4Sentinel.Web.Configuration;
 using N4Sentinel.Web.Data;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<BrandingOptions>(builder.Configuration.GetSection(BrandingOptions.SectionName));
+builder.Services.Configure<FeatureOptions>(builder.Configuration.GetSection(FeatureOptions.SectionName));
 
 // Hébergement en Service Windows plutôt qu'IIS : no-op automatique hors installation en tant que service
 // (dotnet run en développement n'est pas affecté). Nom de service utilisé par les scripts install-service.ps1.
