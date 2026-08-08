@@ -9,6 +9,7 @@ public sealed record EnvironmentDetailDto(
     string Code,
     EnvironmentKind Kind,
     EnvironmentStatus Status,
+    ExecutionMode AllowedExecutionMode,
     string? Description,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,

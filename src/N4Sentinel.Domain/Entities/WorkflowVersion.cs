@@ -42,8 +42,60 @@ public class WorkflowVersion
 
     public DateTime UpdatedAtUtc { get; private set; }
 
+    /// <summary>Motif documenté de la dérogation à la séquence de référence (FR-044).</summary>
+    public string? SequenceExceptionReason { get; private set; }
+
+    /// <summary>Utilisateur ayant approuvé la dérogation ; distinct de celui qui l'a demandée.</summary>
+    public string? SequenceExceptionApprovedByUserId { get; private set; }
+
+    public DateTime? SequenceExceptionApprovedAtUtc { get; private set; }
+
+    /// <summary>
+    /// Vrai si cette version porte une dérogation approuvée et documentée l'autorisant à s'écarter de
+    /// l'ordre de la séquence active — l'unique échappatoire prévue par FR-044.
+    /// </summary>
+    public bool HasApprovedSequenceException =>
+        !string.IsNullOrWhiteSpace(SequenceExceptionReason)
+        && !string.IsNullOrWhiteSpace(SequenceExceptionApprovedByUserId);
+
     /// <summary>Étapes triées par <see cref="WorkflowStep.Position"/> — l'ordre de la liste interne n'est pas fiable après un rechargement depuis la base.</summary>
     public IReadOnlyList<WorkflowStep> Steps => _steps.OrderBy(s => s.Position).ToList();
+
+    /// <summary>
+    /// Enregistre la dérogation « workflow exceptionnel approuvé et documenté » prévue par FR-044. Doit être
+    /// posée avant l'activation : accorder une dérogation à une version déjà active reviendrait à régulariser
+    /// après coup un ordre déjà exécutable.
+    /// </summary>
+    public void ApproveSequenceException(string reason, string requestedByUserId, string approvedByUserId)
+    {
+        if (Status is WorkflowVersionStatus.Active or WorkflowVersionStatus.Disabled)
+        {
+            throw new DomainRuleException(
+                "Une dérogation de séquence doit être approuvée avant l'activation de la version.");
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new DomainRuleException("Le motif de la dérogation à la séquence est obligatoire (FR-044).");
+        }
+
+        if (string.IsNullOrWhiteSpace(approvedByUserId))
+        {
+            throw new DomainRuleException("Un approbateur est obligatoire pour déroger à la séquence (FR-044).");
+        }
+
+        if (string.Equals(requestedByUserId?.Trim(), approvedByUserId.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new DomainRuleException(
+                "L'approbateur de la dérogation doit être distinct de son demandeur : déroger à l'ordre " +
+                "d'exploitation ne peut pas être une décision individuelle.");
+        }
+
+        SequenceExceptionReason = reason.Trim();
+        SequenceExceptionApprovedByUserId = approvedByUserId.Trim();
+        SequenceExceptionApprovedAtUtc = DateTime.UtcNow;
+        UpdatedAtUtc = SequenceExceptionApprovedAtUtc.Value;
+    }
 
     public void UpdateRollbackPlan(bool allowsRollback, string? rollbackNotes)
     {

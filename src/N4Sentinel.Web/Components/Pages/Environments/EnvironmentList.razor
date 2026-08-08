@@ -2,56 +2,94 @@
 @attribute [Authorize]
 @inject IMediator Mediator
 
-<PageTitle>Environnements - N4 Sentinel</PageTitle>
+<PageTitle>Environnements N4 — N4 Sentinel</PageTitle>
 
-<h1>Environnements</h1>
-
-<AuthorizeView Roles="@Roles.Administrateur">
-    <Authorized>
-        <a class="btn btn-primary mb-3" href="environments/new">Nouvel environnement</a>
-    </Authorized>
-</AuthorizeView>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Environnements N4</h1>
+        <p class="page-subtitle">
+            Cartographie fonctionnelle et niveaux d'automatisation des socles N4 (FR-001).
+        </p>
+    </div>
+    <AuthorizeView Roles="@Roles.Administrateur">
+        <Authorized>
+            <div class="page-actions">
+                <a class="btn btn-primary" href="environments/new">Nouvel environnement</a>
+            </div>
+        </Authorized>
+    </AuthorizeView>
+</div>
 
 @if (environments is null)
 {
-    <p><em>Chargement...</em></p>
+    <div class="card loading-block">
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Chargement des environnements…</span>
+    </div>
 }
 else if (environments.Count == 0)
 {
-    <p>Aucun environnement enregistré.</p>
+    <div class="empty-state">
+        <h2 class="empty-state-title">Aucun environnement enregistré</h2>
+        <p class="empty-state-text">
+            Commencez par ajouter un environnement pour modéliser le socle N4 et y rattacher ses composants.
+        </p>
+    </div>
 }
 else
 {
     <div class="table-responsive">
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>Nom</th>
-                <th>Code</th>
-                <th>Type</th>
-                <th>Statut</th>
-                <th>Composants</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var env in environments)
-            {
-                <tr class="@(env.Kind == EnvironmentKind.Production ? "table-danger" : "")">
-                    <td>
-                        <a href="environments/@env.Id">@env.Name</a>
-                        @if (env.Kind == EnvironmentKind.Production)
-                        {
-                            <span class="badge bg-danger ms-2">PRODUCTION</span>
-                        }
-                    </td>
-                    <td>@env.Code</td>
-                    <td>@env.Kind.ToLabel()</td>
-                    <td>@env.Status.ToLabel()</td>
-                    <td>@env.ComponentCount</td>
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Environnement</th>
+                    <th>Code</th>
+                    <th>Périmètre</th>
+                    <th>Statut</th>
+                    <th>Mode de pilotage</th>
+                    <th class="text-center">Composants</th>
+                    <th class="text-right">Actions</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var env in environments)
+                {
+                    <tr>
+                        <td>
+                            <a href="environments/@env.Id" class="inline-flex items-center gap-2 font-semibold text-brand-900 hover:text-brand-600">
+                                @env.Name
+                                @if (env.Kind == EnvironmentKind.Production)
+                                {
+                                    <span class="env-chip env-chip-production">Prod</span>
+                                }
+                            </a>
+                        </td>
+                        <td class="font-mono text-xs text-slate-500">@env.Code</td>
+                        <td>@env.Kind.ToLabel()</td>
+                        <td>
+                            <span class="badge @env.Status.ToBadgeClass()">
+                                <span class="dot" aria-hidden="true"></span>
+                                @env.Status.ToLabel()
+                            </span>
+                        </td>
+                        <td>
+                            @if (env.AllowedExecutionMode == ExecutionMode.FullyAutomatic)
+                            {
+                                <span class="badge bg-info">Palier 2 — automatique</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-secondary">Palier 1 — semi-automatique</span>
+                            }
+                        </td>
+                        <td class="text-center tabular-nums">@env.ComponentCount</td>
+                        <td class="text-right">
+                            <a href="environments/@env.Id" class="btn btn-outline-secondary btn-sm">Consulter</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </div>
 }
 

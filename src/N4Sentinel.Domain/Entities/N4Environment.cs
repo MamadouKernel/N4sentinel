@@ -50,11 +50,20 @@ public class N4Environment
 
     public EnvironmentStatus Status { get; private set; }
 
+    /// <summary>Mode d'automatisation autorisé par la DSI (Palier 1 Semi-Auto vs Palier 2 Full-Auto, §2.2.3).</summary>
+    public ExecutionMode AllowedExecutionMode { get; private set; } = ExecutionMode.SemiAutomatic;
+
     public string? Description { get; private set; }
 
     public DateTime CreatedAtUtc { get; private set; }
 
     public DateTime UpdatedAtUtc { get; private set; }
+
+    public void SetExecutionMode(ExecutionMode mode)
+    {
+        AllowedExecutionMode = mode;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
 
     public IReadOnlyCollection<N4Component> Components => _components;
 

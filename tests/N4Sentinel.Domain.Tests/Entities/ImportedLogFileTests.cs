@@ -68,4 +68,13 @@ public class ImportedLogFileTests
 
         file.Verdict.Should().Be(LogAnalysisVerdict.Warnings);
     }
+
+    [Fact]
+    public void Constructor_WithCorrelationReference_SetsProperty()
+    {
+        var file = new ImportedLogFile(
+            Guid.NewGuid(), "app.log", "Bridge", "INFO text", 30, "INC-12345");
+
+        file.CorrelationReference.Should().Be("INC-12345");
+    }
 }

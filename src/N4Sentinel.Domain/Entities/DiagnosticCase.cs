@@ -141,7 +141,7 @@ public class DiagnosticCase
         ConcludedAtUtc = DateTime.UtcNow;
     }
 
-    private void EnsureNotConcluded()
+    public void EnsureNotConcluded()
     {
         if (ConclusionLevel is not null)
         {

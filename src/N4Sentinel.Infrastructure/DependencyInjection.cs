@@ -6,6 +6,8 @@ using N4Sentinel.Infrastructure.Connectors;
 using N4Sentinel.Infrastructure.Persistence;
 using N4Sentinel.Infrastructure.Persistence.Repositories;
 
+using Microsoft.EntityFrameworkCore.Diagnostics;
+
 namespace N4Sentinel.Infrastructure;
 
 public static class DependencyInjection
@@ -17,7 +19,8 @@ public static class DependencyInjection
 
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(connectionString, sql =>
-                sql.MigrationsHistoryTable("__EFMigrationsHistory_App")));
+                sql.MigrationsHistoryTable("__EFMigrationsHistory_App"))
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
         services.AddScoped<IEnvironmentRepository, EfEnvironmentRepository>();
         services.AddScoped<IComponentRepository, EfComponentRepository>();
@@ -41,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<ISopAssociationRepository, EfSopAssociationRepository>();
         services.AddScoped<IHealthyReferencePeriodRepository, EfHealthyReferencePeriodRepository>();
         services.AddScoped<IUserEnvironmentRoleRepository, EfUserEnvironmentRoleRepository>();
+        services.AddScoped<ISequenceTemplateRepository, EfSequenceTemplateRepository>();
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<AppDbContext>());
 
         // Seule implémentation disponible tant que les accès réseau réels aux serveurs N4 ne sont pas autorisés.

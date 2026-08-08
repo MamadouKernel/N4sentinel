@@ -8,6 +8,7 @@ public sealed record EnvironmentDto(
     string Code,
     EnvironmentKind Kind,
     EnvironmentStatus Status,
+    ExecutionMode AllowedExecutionMode,
     string? Description,
     int ComponentCount,
     DateTime CreatedAtUtc,

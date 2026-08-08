@@ -16,6 +16,10 @@ public class WorkflowVersionConfiguration : IEntityTypeConfiguration<WorkflowVer
         builder.Property(v => v.Status).HasConversion<string>().HasMaxLength(20);
         builder.Property(v => v.RollbackNotes).HasMaxLength(2000);
 
+        // Dérogation à la séquence d'exploitation (FR-044).
+        builder.Property(v => v.SequenceExceptionReason).HasMaxLength(1000);
+        builder.Property(v => v.SequenceExceptionApprovedByUserId).HasMaxLength(256);
+
         builder.HasIndex(v => new { v.WorkflowId, v.VersionNumber }).IsUnique();
 
         builder.HasMany(v => v.Steps)

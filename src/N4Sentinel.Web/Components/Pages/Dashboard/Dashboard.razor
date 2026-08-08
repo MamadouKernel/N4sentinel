@@ -5,163 +5,206 @@
 
 <PageTitle>Tableau de bord - N4 Sentinel</PageTitle>
 
-<h1>Tableau de bord</h1>
-<p class="text-muted">Rafraîchi automatiquement toutes les 10 secondes.</p>
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+    <div>
+        <h1 class="text-2xl font-bold text-slate-900">Tableau de bord de supervision</h1>
+        <p class="mt-1 flex items-center gap-2 text-sm text-slate-500">
+            <span class="pulse-online"></span>
+            Supervision temps réel (Actualisé toutes les 10s)
+        </p>
+    </div>
+</div>
 
 @if (summary is null)
 {
-    <p><em>Chargement...</em></p>
+    <div class="flex h-48 items-center justify-center rounded-xl border border-slate-200 bg-white p-8">
+        <div class="flex items-center gap-3 text-slate-500">
+            <svg class="h-5 w-5 animate-spin text-brand-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="text-sm font-medium">Chargement des télémétries N4...</span>
+        </div>
+    </div>
 }
 else
 {
-    <div class="row">
-        <div class="col-md-4 mb-3">
-            <div class="rounded-md border border-slate-200 bg-white p-4">
-                <p class="text-muted mb-1">Environnements</p>
-                <p class="text-2xl font-semibold text-brand-900">@summary.Environments.Count</p>
+    <div class="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="stat-card border-l-4 border-l-brand-600">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Environnements enregistrés</p>
+            <div class="mt-2 flex items-baseline justify-between">
+                <p class="text-3xl font-extrabold text-brand-900">@summary.Environments.Count</p>
+                <span class="rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">Vue globale</span>
             </div>
         </div>
-        <div class="col-md-4 mb-3">
-            <div class="rounded-md border border-slate-200 bg-white p-4">
-                <p class="text-muted mb-1">Opérations en cours</p>
-                <p class="text-2xl font-semibold text-brand-900">@summary.ActiveOperations.Count</p>
-            </div>
-        </div>
-        <div class="col-md-4 mb-3">
-            <div class="rounded-md border border-slate-200 bg-white p-4">
-                <p class="text-muted mb-1">En attente d'approbation</p>
-                <p class="text-2xl font-semibold text-brand-900">@summary.PendingApprovalsCount</p>
-            </div>
-        </div>
-    </div>
-
-    <h2>Environnements</h2>
-    <div class="table-responsive">
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>Nom</th>
-                <th>Type</th>
-                <th>Statut</th>
-                <th>Composants</th>
-                <th>Composants critiques</th>
-                <th>Opérations en cours</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var env in summary.Environments)
-            {
-                <tr class="@(env.Kind == EnvironmentKind.Production ? "table-danger" : "")">
-                    <td><a href="environments/@env.Id">@env.Name</a></td>
-                    <td>@env.Kind.ToLabel()</td>
-                    <td>@env.Status.ToLabel()</td>
-                    <td>@env.ComponentCount</td>
-                    <td>@env.CriticalComponentCount</td>
-                    <td>@env.ActiveOperationsCount</td>
-                </tr>
-            }
-        </tbody>
-    </table>
-    </div>
-
-    <h2>Opérations en cours</h2>
-    <p><a href="operations">Historique complet des opérations →</a></p>
-    @if (summary.ActiveOperations.Count == 0)
-    {
-        <p>Aucune opération en cours actuellement.</p>
-    }
-    else
-    {
-        <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Environnement</th>
-                    <th>Demandeur</th>
-                    <th>Demandée le</th>
-                    <th>Statut</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var run in summary.ActiveOperations)
+        <div class="stat-card border-l-4 border-l-emerald-500">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Opérations en cours</p>
+            <div class="mt-2 flex items-baseline justify-between">
+                <p class="text-3xl font-extrabold text-emerald-700">@summary.ActiveOperations.Count</p>
+                @if (summary.ActiveOperations.Count > 0)
                 {
+                    <span class="pulse-online"></span>
+                }
+            </div>
+        </div>
+        <div class="stat-card border-l-4 border-l-amber-500">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">En attente d'approbation</p>
+            <div class="mt-2 flex items-baseline justify-between">
+                <p class="text-3xl font-extrabold text-amber-700">@summary.PendingApprovalsCount</p>
+                @if (summary.PendingApprovalsCount > 0)
+                {
+                    <span class="pulse-warning"></span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-100 bg-slate-50/80 px-5 py-3">
+            <h2 class="text-base font-semibold text-slate-800">Cartographie des environnements</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
                     <tr>
-                        <td>@run.EnvironmentName</td>
-                        <td>@run.RequestedByUserId</td>
-                        <td>@run.RequestedAtUtc.ToLocalTime().ToString("g")</td>
-                        <td><span class="badge @run.Status.ToBadgeClass()">@run.Status.ToLabel()</span></td>
-                        <td><a class="btn btn-sm btn-outline-secondary" href="environments/@run.EnvironmentId/operations/@run.Id">Détail</a></td>
+                        <th>Environnement</th>
+                        <th>Type</th>
+                        <th>Statut</th>
+                        <th>Composants</th>
+                        <th>Composants critiques</th>
+                        <th>Opérations en cours</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var env in summary.Environments)
+                    {
+                        <tr class="transition-colors hover:bg-slate-50/80 @(env.Kind == EnvironmentKind.Production ? "bg-rose-50/30" : "")">
+                            <td class="font-medium"><a href="environments/@env.Id" class="text-brand-700 hover:text-brand-900 hover:underline">@env.Name</a></td>
+                            <td>
+                                @if (env.Kind == EnvironmentKind.Production)
+                                {
+                                    <span class="inline-flex items-center rounded-md bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">PRODUCTION</span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">@env.Kind.ToLabel()</span>
+                                }
+                            </td>
+                            <td><span class="badge-pill-success">@env.Status.ToLabel()</span></td>
+                            <td class="font-semibold text-slate-700">@env.ComponentCount</td>
+                            <td class="font-semibold text-amber-700">@env.CriticalComponentCount</td>
+                            <td>@env.ActiveOperationsCount</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50/80 px-5 py-3">
+            <h2 class="text-base font-semibold text-slate-800">Opérations en cours</h2>
+            <a href="operations" class="text-xs font-semibold text-brand-700 hover:underline">Historique complet →</a>
+        </div>
+        @if (summary.ActiveOperations.Count == 0)
+        {
+            <div class="p-6 text-center text-sm text-slate-500">Aucune opération en cours actuellement.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Environnement</th>
+                            <th>Demandeur</th>
+                            <th>Demandée le</th>
+                            <th>Statut</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var run in summary.ActiveOperations)
+                        {
+                            <tr class="hover:bg-slate-50/80">
+                                <td class="font-medium">@run.EnvironmentName</td>
+                                <td class="text-slate-600">@run.RequestedByUserId</td>
+                                <td class="text-slate-500">@run.RequestedAtUtc.ToLocalTime().ToString("g")</td>
+                                <td><span class="badge @run.Status.ToBadgeClass()">@run.Status.ToLabel()</span></td>
+                                <td><a class="btn btn-sm btn-outline-secondary" href="environments/@run.EnvironmentId/operations/@run.Id">Détail</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+    @if (summary.FailedOperationsAlert.Count > 0)
+    {
+        <div class="mb-8 overflow-hidden rounded-xl border border-rose-200 bg-white shadow-sm">
+            <div class="flex items-center gap-2 border-b border-rose-100 bg-rose-50 px-5 py-3 text-rose-900">
+                <span class="pulse-error"></span>
+                <h2 class="text-base font-semibold">Alertes — opérations échouées</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Environnement</th>
+                            <th>Demandeur</th>
+                            <th>Échouée le</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var run in summary.FailedOperationsAlert)
+                        {
+                            <tr class="bg-rose-50/40 hover:bg-rose-50/70">
+                                <td class="font-medium text-rose-950">@run.EnvironmentName</td>
+                                <td class="text-slate-700">@run.RequestedByUserId</td>
+                                <td class="text-slate-600">@(run.CompletedAtUtc?.ToLocalTime().ToString("g"))</td>
+                                <td><a class="btn btn-sm btn-outline-danger" href="environments/@run.EnvironmentId/operations/@run.Id">Détail</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     }
 
-    <h2>Alertes — opérations échouées</h2>
-    @if (summary.FailedOperationsAlert.Count == 0)
+    @if (summary.SupervisionAlerts.Count > 0)
     {
-        <p>Aucune opération en échec.</p>
-    }
-    else
-    {
-        <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Environnement</th>
-                    <th>Demandeur</th>
-                    <th>Échouée le</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var run in summary.FailedOperationsAlert)
-                {
-                    <tr class="table-danger">
-                        <td>@run.EnvironmentName</td>
-                        <td>@run.RequestedByUserId</td>
-                        <td>@(run.CompletedAtUtc?.ToLocalTime().ToString("g"))</td>
-                        <td><a class="btn btn-sm btn-outline-danger" href="environments/@run.EnvironmentId/operations/@run.Id">Détail</a></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        </div>
-    }
-
-    <h2>Alertes — dossiers partagés & synchronisation</h2>
-    @if (summary.SupervisionAlerts.Count == 0)
-    {
-        <p>Aucune anomalie de dossier partagé ou de synchronisation détectée.</p>
-    }
-    else
-    {
-        <div class="table-responsive">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Environnement</th>
-                    <th>Type</th>
-                    <th>Nom</th>
-                    <th>Anomalie</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var alert in summary.SupervisionAlerts)
-                {
-                    <tr class="table-danger">
-                        <td>@alert.EnvironmentName</td>
-                        <td>@alert.Kind</td>
-                        <td>@alert.Name</td>
-                        <td>@alert.AnomalyDescription</td>
-                        <td><a class="btn btn-sm btn-outline-danger" href="environments/@alert.EnvironmentId/supervision">Détail</a></td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <div class="mb-8 overflow-hidden rounded-xl border border-amber-200 bg-white shadow-sm">
+            <div class="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-3 text-amber-900">
+                <span class="pulse-warning"></span>
+                <h2 class="text-base font-semibold">Alertes — dossiers partagés & synchronisation</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Environnement</th>
+                            <th>Type</th>
+                            <th>Nom</th>
+                            <th>Anomalie</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var alert in summary.SupervisionAlerts)
+                        {
+                            <tr class="bg-amber-50/40 hover:bg-amber-50/70">
+                                <td class="font-medium text-slate-900">@alert.EnvironmentName</td>
+                                <td><span class="badge-pill-warning">@alert.Kind</span></td>
+                                <td class="font-mono text-xs text-slate-800">@alert.Name</td>
+                                <td class="text-slate-700">@alert.AnomalyDescription</td>
+                                <td><a class="btn btn-sm btn-outline-danger" href="environments/@alert.EnvironmentId/supervision">Détail</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     }
 }

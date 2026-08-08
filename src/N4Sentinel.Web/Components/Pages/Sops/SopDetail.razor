@@ -20,7 +20,7 @@ else
                 <span class="badge @StatusBadgeClass(sop.Status)">@sop.Status.ToLabel()</span>
                 @if (sop.IsGeneratedFromExecution)
                 {
-                    <span class="badge bg-indigo-100 text-indigo-800">Générée depuis une exécution</span>
+                    <span class="badge bg-gold">Générée depuis une exécution</span>
                 }
             </h1>
             <a href="/sops" class="text-sm text-slate-500 hover:text-slate-700">← Retour aux SOP</a>
@@ -205,9 +205,9 @@ else
         }
         else
         {
-            <div class="card overflow-hidden">
-                <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
-                    <thead class="bg-slate-50 font-semibold text-slate-700">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
                         <tr>
                             <th class="px-4 py-3">Version</th>
                             <th class="px-4 py-3">Statut</th>

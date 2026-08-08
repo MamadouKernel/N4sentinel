@@ -640,6 +640,41 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
                     b.ToTable("ImportedLogFiles", (string)null);
                 });
 
+            modelBuilder.Entity("N4Sentinel.Domain.Entities.JmxMetricSignal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CollectedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ComponentName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("EnvironmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("MetricName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MetricValue")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double?>("NumericValue")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Unit")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("JmxMetricSignals");
+                });
+
             modelBuilder.Entity("N4Sentinel.Domain.Entities.N4Component", b =>
                 {
                     b.Property<Guid>("Id")
@@ -686,6 +721,9 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
                         .HasMaxLength(45)
                         .HasColumnType("nvarchar(45)");
 
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -723,6 +761,9 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AllowedExecutionMode")
+                        .HasColumnType("int");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -937,6 +978,99 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
                     b.HasIndex("FolderReconstitutionId");
 
                     b.ToTable("ReconstitutionStepRecords", (string)null);
+                });
+
+            modelBuilder.Entity("N4Sentinel.Domain.Entities.SequenceTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<Guid?>("EnvironmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TemplateKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<int>("WorkflowType")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TemplateKey", "VersionNumber")
+                        .IsUnique();
+
+                    b.ToTable("SequenceTemplates", (string)null);
+                });
+
+            modelBuilder.Entity("N4Sentinel.Domain.Entities.SequenceTier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ComponentKind")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Execution")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsOptional")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SequenceTemplateId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("SettleDelaySeconds")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SuccessCriteria")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SequenceTemplateId", "Position");
+
+                    b.ToTable("SequenceTiers", (string)null);
                 });
 
             modelBuilder.Entity("N4Sentinel.Domain.Entities.SharedFolder", b =>
@@ -1480,6 +1614,17 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<DateTime?>("SequenceExceptionApprovedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SequenceExceptionApprovedByUserId")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("SequenceExceptionReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1539,6 +1684,15 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("N4Sentinel.Domain.Entities.SequenceTier", b =>
+                {
+                    b.HasOne("N4Sentinel.Domain.Entities.SequenceTemplate", null)
+                        .WithMany("Tiers")
+                        .HasForeignKey("SequenceTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("N4Sentinel.Domain.Entities.SopExecutionStepConfirmation", b =>
                 {
                     b.HasOne("N4Sentinel.Domain.Entities.SopExecution", null)
@@ -1591,6 +1745,11 @@ namespace N4Sentinel.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("N4Sentinel.Domain.Entities.OperationRun", b =>
                 {
                     b.Navigation("StepExecutions");
+                });
+
+            modelBuilder.Entity("N4Sentinel.Domain.Entities.SequenceTemplate", b =>
+                {
+                    b.Navigation("Tiers");
                 });
 
             modelBuilder.Entity("N4Sentinel.Domain.Entities.SopExecution", b =>

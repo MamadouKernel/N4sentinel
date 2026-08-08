@@ -1,4 +1,4 @@
-﻿@page "/Account/Login"
+@page "/Account/Login"
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authentication
@@ -119,9 +119,8 @@
                 return;
             }
 
-            // This doesn't count login failures towards account lockout
-            // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+            // Enforces account lockout on repeated failed password attempts (SEC-001 / OWASP A07)
+            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
         }
 
         if (result.Succeeded)

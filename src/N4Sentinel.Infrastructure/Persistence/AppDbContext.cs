@@ -55,6 +55,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     public DbSet<UserEnvironmentRole> UserEnvironmentRoles => Set<UserEnvironmentRole>();
 
+    public DbSet<JmxMetricSignal> JmxMetricSignals => Set<JmxMetricSignal>();
+
+    public DbSet<SequenceTemplate> SequenceTemplates => Set<SequenceTemplate>();
+
+    public DbSet<SequenceTier> SequenceTiers => Set<SequenceTier>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

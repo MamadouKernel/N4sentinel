@@ -32,6 +32,8 @@ public sealed class RunDiagnosticEngineCommandHandler(
         var diagnosticCase = await cases.GetByIdAsync(request.DiagnosticCaseId, cancellationToken)
             ?? throw new KeyNotFoundException($"Cas de diagnostic '{request.DiagnosticCaseId}' introuvable.");
 
+        diagnosticCase.EnsureNotConcluded();
+
         var evaluatedHypotheses = await engine.EvaluateAsync(diagnosticCase, cancellationToken);
 
         foreach (var hypothesis in evaluatedHypotheses)

@@ -8,6 +8,9 @@ using N4Sentinel.Application.Abstractions;
 using N4Sentinel.Application.Diagnostics.Queries;
 using N4Sentinel.Application.Sops.Queries;
 using N4Sentinel.Infrastructure;
+using N4Sentinel.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
+using N4Sentinel.Application.Users;
 using N4Sentinel.Web.Components;
 using N4Sentinel.Web.Components.Account;
 using N4Sentinel.Web.Configuration;
@@ -54,7 +57,8 @@ builder.Services.AddAuthorization();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString, sql => sql.MigrationsHistoryTable("__EFMigrationsHistory_Identity")));
+    options.UseSqlServer(connectionString, sql => sql.MigrationsHistoryTable("__EFMigrationsHistory_Identity"))
+    .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
@@ -82,7 +86,18 @@ if (app.Environment.IsDevelopment())
     app.UseMigrationsEndPoint();
 
     using var scope = app.Services.CreateScope();
+    var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await appDb.Database.MigrateAsync();
+    await appDb.Database.ExecuteSqlRawAsync(
+        "IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'Environments') AND name = 'AllowedExecutionMode') ALTER TABLE Environments ADD AllowedExecutionMode int NOT NULL DEFAULT 0;");
+
+    var identityDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await identityDb.Database.MigrateAsync();
+
     await IdentitySeeder.SeedAsync(scope.ServiceProvider, app.Configuration);
+
+    // Séquences d'arrêt/démarrage Navis : installées si absentes, jamais écrasées.
+    await SequenceTemplateSeeder.SeedAsync(scope.ServiceProvider);
 }
 else
 {
@@ -92,6 +107,17 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 
 // Pas de redirection HTTPS/HSTS : la solution est hébergée en HTTP sur le réseau interne CIT, sans IIS ni
 // terminaison TLS pour l'instant (décision DSI). À revoir si l'accès s'étend hors du réseau de confiance.
+
+// Enforce defense-in-depth HTTP security headers (OWASP A05)
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("X-Frame-Options", "SAMEORIGIN");
+    context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+    context.Response.Headers.Remove("Server");
+    await next();
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -107,6 +133,7 @@ app.MapAdditionalIdentityEndpoints();
 
 // FR-093/E10.2 : export structuré des rapports d'opération/incident (vue rendue, aucune entité "Rapport" persistée).
 var reportJsonOptions = new JsonSerializerOptions { WriteIndented = true };
+var exportAuthorizationPolicy = new AuthorizeAttribute { Roles = $"{Roles.Operateur},{Roles.Administrateur}" };
 
 app.MapGet("/reports/operations/{operationRunId:guid}/export", async (Guid operationRunId, ISender mediator) =>
 {
@@ -116,7 +143,7 @@ app.MapGet("/reports/operations/{operationRunId:guid}/export", async (Guid opera
         : Results.File(
             JsonSerializer.SerializeToUtf8Bytes(report, reportJsonOptions), "application/json",
             $"rapport-operation-{operationRunId}.json");
-}).RequireAuthorization();
+}).RequireAuthorization(exportAuthorizationPolicy);
 
 app.MapGet("/reports/operations/{operationRunId:guid}/export.pdf", async (Guid operationRunId, ISender mediator) =>
 {
@@ -126,7 +153,7 @@ app.MapGet("/reports/operations/{operationRunId:guid}/export.pdf", async (Guid o
         : Results.File(
             new OperationReportPdfDocument(report).GeneratePdf(), "application/pdf",
             $"rapport-operation-{operationRunId}.pdf");
-}).RequireAuthorization();
+}).RequireAuthorization(exportAuthorizationPolicy);
 
 app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/export", async (Guid diagnosticCaseId, ISender mediator) =>
 {
@@ -136,7 +163,7 @@ app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/export", async (Guid diag
         : Results.File(
             JsonSerializer.SerializeToUtf8Bytes(report, reportJsonOptions), "application/json",
             $"rapport-incident-{diagnosticCaseId}.json");
-}).RequireAuthorization();
+}).RequireAuthorization(exportAuthorizationPolicy);
 
 app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/export.pdf", async (Guid diagnosticCaseId, ISender mediator) =>
 {
@@ -146,7 +173,7 @@ app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/export.pdf", async (Guid 
         : Results.File(
             new IncidentReportPdfDocument(report).GeneratePdf(), "application/pdf",
             $"rapport-incident-{diagnosticCaseId}.pdf");
-}).RequireAuthorization();
+}).RequireAuthorization(exportAuthorizationPolicy);
 
 // FR-067 : export structuré du paquet d'escalade (journaux déjà expurgés à l'import, empreintes SHA-256 déjà calculées).
 app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/escalation-package/export", async (Guid diagnosticCaseId, ISender mediator, HttpContext context) =>
@@ -158,6 +185,6 @@ app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/escalation-package/export
         : Results.File(
             JsonSerializer.SerializeToUtf8Bytes(package, reportJsonOptions), "application/json",
             $"paquet-escalade-{diagnosticCaseId}.json");
-}).RequireAuthorization();
+}).RequireAuthorization(exportAuthorizationPolicy);
 
 app.Run();

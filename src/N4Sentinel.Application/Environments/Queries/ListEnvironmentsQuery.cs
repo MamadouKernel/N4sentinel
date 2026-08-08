@@ -18,7 +18,7 @@ public sealed class ListEnvironmentsQueryHandler(IEnvironmentRepository environm
             .OrderBy(e => e.Kind != Domain.Entities.EnvironmentKind.Production)
             .ThenBy(e => e.Name)
             .Select(e => new EnvironmentDto(
-                e.Id, e.Name, e.Code, e.Kind, e.Status, e.Description,
+                e.Id, e.Name, e.Code, e.Kind, e.Status, e.AllowedExecutionMode, e.Description,
                 e.Components.Count, e.CreatedAtUtc, e.UpdatedAtUtc))
             .ToList();
     }

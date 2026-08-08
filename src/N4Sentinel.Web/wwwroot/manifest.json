@@ -1,0 +1,16 @@
+{
+  "short_name": "N4Sentinel",
+  "name": "N4 Sentinel - Supervision & Pilotage TOS N4",
+  "icons": [
+    {
+      "src": "favicon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#112643",
+  "theme_color": "#112643",
+  "display": "standalone",
+  "orientation": "any"
+}

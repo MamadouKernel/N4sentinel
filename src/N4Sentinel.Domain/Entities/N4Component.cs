@@ -29,7 +29,8 @@ public class N4Component
         string? serviceOrProcessName = null,
         string? healthCheckDescription = null,
         string? technicalOwner = null,
-        string? functionalOwner = null)
+        string? functionalOwner = null,
+        N4ComponentKind kind = N4ComponentKind.Unspecified)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -45,6 +46,7 @@ public class N4Component
         EnvironmentId = environmentId;
         Name = name.Trim();
         Role = role.Trim();
+        Kind = kind;
         Criticality = criticality;
         Governance = governance;
         HostName = hostName?.Trim();
@@ -68,6 +70,14 @@ public class N4Component
     public string Name { get; private set; }
 
     public string Role { get; private set; }
+
+    /// <summary>
+    /// Nature technique du composant. <see cref="Role"/> reste un libellé libre à destination des humains ;
+    /// <see cref="Kind"/> est ce sur quoi les règles automatiques s'appuient — notamment le séquencement
+    /// d'arrêt/démarrage, qui doit savoir qu'un composant est un Cluster Node sans dépendre de son
+    /// orthographe.
+    /// </summary>
+    public N4ComponentKind Kind { get; private set; }
 
     public string? HostName { get; private set; }
 
@@ -108,7 +118,8 @@ public class N4Component
         ComponentCriticality criticality,
         ComponentGovernance governance,
         string? technicalOwner,
-        string? functionalOwner)
+        string? functionalOwner,
+        N4ComponentKind kind = N4ComponentKind.Unspecified)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -122,6 +133,7 @@ public class N4Component
 
         Name = name.Trim();
         Role = role.Trim();
+        Kind = kind;
         HostName = hostName?.Trim();
         IpAddress = ipAddress?.Trim();
         DnsName = dnsName?.Trim();

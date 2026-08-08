@@ -30,6 +30,6 @@ public sealed class GetEnvironmentByIdQueryHandler(IEnvironmentRepository enviro
 
         return new EnvironmentDetailDto(
             environment.Id, environment.Name, environment.Code, environment.Kind, environment.Status,
-            environment.Description, environment.CreatedAtUtc, environment.UpdatedAtUtc, components);
+            environment.AllowedExecutionMode, environment.Description, environment.CreatedAtUtc, environment.UpdatedAtUtc, components);
     }
 }
