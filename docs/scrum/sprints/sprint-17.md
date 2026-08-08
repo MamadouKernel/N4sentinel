@@ -82,9 +82,22 @@ Séquences vérifiées **en base** après exécution réelle du seeder (`sqlcmd`
 `__EFMigrationsHistory_App` — `dotnet ef database update --no-build` avait affiché « Done. » sans rien
 appliquer, sur un binaire antérieur à la migration.
 
+### FR-042 — redémarrage roulant
+`RollingRestartPlanner` découpe les Cluster Nodes en lots successifs de taille `total − seuil`, de sorte que
+le nombre de nœuds encore disponibles ne descende jamais sous le seuil demandé — c'est ce qui distingue un
+redémarrage roulant d'un arrêt complet déguisé. Navis décrit le principe (« restart some cluster nodes, wait
+for them to be up and then do the next set » `[GUIDE p.842]`) sans garantie de service ; le seuil est
+l'apport de N4 Sentinel, exigé par FR-042.
+
+Refus explicites plutôt que comportements silencieux : seuil à zéro (« utilisez la séquence d'arrêt
+complet »), seuil ne laissant aucun nœud à redémarrer, nœud non pilotable, aucun Cluster Node déclaré. Le tri
+par nom rend les lots reproductibles d'un calcul à l'autre, donc auditables.
+
+Vérifié dans le navigateur sur 5 nœuds avec un seuil de 3 : 3 lots (2, 2, 1), chaque lot laissant bien
+3 nœuds disponibles.
+
 ## Reste à faire
 
-- FR-042 rolling restart des Cluster Nodes avec maintien d'un quorum.
 - FR-046 / FR-047 continuité et bascule du rôle Center.
 - FR-029A recalcul de l'ordre en ignorant les composants déjà arrêtés.
 - Écran d'édition des séquences : la page `/admin/sequences` est en lecture seule, les commandes CQRS
