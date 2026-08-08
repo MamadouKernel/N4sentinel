@@ -40,6 +40,12 @@ règles de diagnostic ne sont pas enregistrés et validés dans le référentiel
 | E3.4 | En tant qu'Opérateur habilité, je veux exécuter une opération partielle ou unitaire sur un composant ou groupe de composants autorisé. | 8 | Must | **Fait** (Sprint 4) |
 | E3.5 | En tant qu'Opérateur, je veux que la progression s'arrête automatiquement si un prérequis ou critère de réussite n'est pas satisfait, avec reprise depuis le dernier point de contrôle valide. | 8 | Must | **Fait** (Sprint 5) |
 | E3.6 | En tant qu'Approbateur, je veux valider le lancement d'un workflow en Production et les contournements/arrêts forcés (double validation). | 5 | Must | **Fait** (Sprint 4) |
+| E3.7 | En tant qu'Administrateur, je veux que les séquences exactes d'arrêt et de démarrage soient **configurables par environnement et versionnées**, conformément aux règles générales de séquencement du cahier des charges. | 13 | Must | **Fait** (Sprint 17) |
+| E3.8 | En tant que DSI, je veux que la solution **empêche l'activation d'un workflow contredisant la séquence de référence** (XPS avant Bridge, Center avant les Cluster Nodes), sauf dérogation approuvée et documentée. (FR-044) | 8 | Must | **Fait** (Sprint 17) |
+| E3.9 | En tant qu'Opérateur habilité, je veux un **redémarrage roulant** des Cluster Nodes maintenant un nombre minimal de nœuds disponibles. (FR-042) | 5 | Must | **Fait** (Sprint 17) |
+| E3.10 | En tant qu'Opérateur habilité, je veux **arbitrer la continuité du rôle Center** avant toute action sur le primaire, et qu'aucune situation à deux Center actifs ne soit possible. (FR-046, FR-047) | 8 | Must | **Fait** (Sprint 17) |
+| E3.11 | En tant qu'Opérateur, je veux que le plan **écarte les composants déjà dans l'état visé** et recalcule l'enchaînement sans rompre les dépendances. (FR-029A) | 5 | Must | **Fait** (Sprint 17) — état issu d'un constat déclaré ; la détection automatique dépend d'un connecteur réel |
+| E1.7 | En tant qu'Administrateur, je veux **typer techniquement chaque composant** (`N4ComponentKind`) afin que les règles de séquencement puissent s'y appliquer sans dépendre d'un libellé libre. | 3 | Must | **Fait** (Sprint 17) — mécanisme livré ; le typage du référentiel existant reste à saisir |
 
 ## Epic 4 — Tableau de bord de supervision
 
