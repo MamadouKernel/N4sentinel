@@ -96,9 +96,32 @@ par nom rend les lots reproductibles d'un calcul à l'autre, donc auditables.
 Vérifié dans le navigateur sur 5 nœuds avec un seuil de 3 : 3 lots (2, 2, 1), chaque lot laissant bien
 3 nœuds disponibles.
 
+### FR-046 / FR-047 — continuité et bascule du rôle Center
+Le point dur n'est pas l'ordre des services mais le **verrou** : un seul Center détient le rôle actif à la
+fois, arbitré par un verrou base de données (défaut depuis N4 3.3) ou fichier via ActiveMQ
+`[GUIDE p.450-451]`. Conséquence : arrêter le primaire alors que le Standby tourne **provoque une bascule**,
+et c'est le comportement nominal, pas un incident. D'où l'obligation de FR-046 de demander l'intention avant
+d'agir — l'écran pose la question en premier, aucun déroulé n'est calculé avant.
+
+*Continuité sur le primaire* : arrêter le Standby → arrêter le primaire → démarrer le primaire → **confirmer
+qu'il a repris le rôle** → seulement alors relancer le Standby. C'est la procédure Navis à la lettre :
+« restart the N4 Navis Center Node service on the main Center node and wait until it becomes active [...] once
+the Center node is active, then start N4 on the Standby node » `[GUIDE §1.10.4 p.451]`.
+
+*Bascule assumée* : vérifier l'aptitude du Standby **avant** d'arrêter le primaire — basculer vers un Standby
+inapte laisserait l'environnement sans Center actif. Décision notable : le plan **n'inclut pas** le
+redémarrage du primaire. Le relancer sans contrôle préalable est exactement le scénario « deux Center
+actifs » que FR-047 interdit ; le plan s'arrête donc sur la vérification et le signale explicitement.
+
+Les deux plans se terminent par un contrôle d'unicité du rôle actif, verrouillé par un test paramétré.
+Refus explicites sur un référentiel incohérent : deux composants typés Center Node, aucun Center, Standby
+absent alors qu'une bascule est demandée, composant non pilotable.
+
+Vérifié dans le navigateur sur un couple Center/Standby : 7 étapes pour la continuité, 4 pour la bascule,
+dans l'ordre attendu.
+
 ## Reste à faire
 
-- FR-046 / FR-047 continuité et bascule du rôle Center.
 - FR-029A recalcul de l'ordre en ignorant les composants déjà arrêtés.
 - Écran d'édition des séquences : la page `/admin/sequences` est en lecture seule, les commandes CQRS
   d'édition et de réordonnancement existent mais ne sont pas encore câblées à l'UI.

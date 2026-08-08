@@ -1,0 +1,147 @@
+@page "/environments/{Id:guid}/center-maintenance"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>Intervention Center / Standby — N4 Sentinel</PageTitle>
+
+<div class="breadcrumb">
+    <a href="environments/@Id">Environnement</a>
+    <span class="breadcrumb-sep">/</span>
+    <span>Intervention Center / Standby</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Intervention sur le Center Node</h1>
+        <p class="page-subtitle">
+            Avant toute action sur le Center primaire, le rôle actif doit être arbitré (FR-046). Un seul
+            Center peut détenir ce rôle : arrêter le primaire alors que le Standby tourne provoque une
+            bascule — c'est le comportement nominal du verrou, pas un incident.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-6">
+    <div class="card-body">
+        <label class="form-label">Le rôle actif doit-il rester sur le primaire ?</label>
+        <div class="mt-2 flex flex-col gap-3">
+            <label class="form-check">
+                <input type="radio" name="strategy" class="form-check-input"
+                       checked="@(strategy == CenterRoleStrategy.KeepRoleOnPrimary)"
+                       @onchange="@(() => strategy = CenterRoleStrategy.KeepRoleOnPrimary)" />
+                <span class="form-check-label">
+                    <strong>Oui, conserver le rôle sur le primaire.</strong>
+                    Le Standby sera arrêté en premier, puis remis en service une fois le primaire redevenu actif.
+                </span>
+            </label>
+            <label class="form-check">
+                <input type="radio" name="strategy" class="form-check-input"
+                       checked="@(strategy == CenterRoleStrategy.AcceptFailover)"
+                       @onchange="@(() => strategy = CenterRoleStrategy.AcceptFailover)" />
+                <span class="form-check-label">
+                    <strong>Non, j'accepte la bascule vers le Standby.</strong>
+                    Son aptitude sera vérifiée avant l'arrêt du primaire.
+                </span>
+            </label>
+        </div>
+
+        <button type="button" class="btn btn-primary mt-5" @onclick="LoadAsync">Calculer le déroulé</button>
+    </div>
+</div>
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-warning mb-4">@errorMessage</div>
+}
+
+@if (plan is not null)
+{
+    <div class="alert alert-info mb-4">
+        <div>
+            <p class="font-semibold">
+                @(plan.Strategy == CenterRoleStrategy.KeepRoleOnPrimary
+                    ? "Continuité sur le primaire" : "Bascule assumée vers le Standby")
+            </p>
+            <p class="mt-1">@plan.Summary</p>
+        </div>
+    </div>
+
+    @if (plan.Warnings.Count > 0)
+    {
+        <div class="alert alert-warning mb-4">
+            <div>
+                <ul class="list-disc pl-5">
+                    @foreach (var warning in plan.Warnings)
+                    {
+                        <li>@warning</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th class="w-16">#</th>
+                        <th>Étape</th>
+                        <th>Action</th>
+                        <th>Contrôle de réussite</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var step in plan.Steps)
+                    {
+                        <tr>
+                            <td class="font-semibold tabular-nums">@step.Position</td>
+                            <td>@step.Label</td>
+                            <td>
+                                @if (step.IsVerification)
+                                {
+                                    <span class="badge bg-secondary">vérification</span>
+                                }
+                                else if (step.Action == WorkflowStepAction.Stop)
+                                {
+                                    <span class="badge bg-danger">arrêter</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">démarrer</span>
+                                }
+                            </td>
+                            <td class="text-xs text-slate-600">@step.SuccessCriteria</td>
+                            <td class="text-xs text-slate-400">@step.SourceReference</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private CenterRoleStrategy strategy = CenterRoleStrategy.KeepRoleOnPrimary;
+    private CenterMaintenancePlanDto? plan;
+    private string? errorMessage;
+
+    private async Task LoadAsync()
+    {
+        errorMessage = null;
+        plan = null;
+
+        try
+        {
+            plan = await Mediator.Send(new PreviewCenterMaintenanceQuery(Id, strategy));
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}
