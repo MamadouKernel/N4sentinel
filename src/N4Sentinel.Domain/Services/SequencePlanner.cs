@@ -21,10 +21,11 @@ public sealed record SequencePlanStep(
     public bool IsCheckpoint => ComponentId is null;
 }
 
-/// <summary>Résultat du dépliage : les étapes, et les lacunes constatées dans le référentiel.</summary>
+/// <summary>Résultat du dépliage : les étapes, les lacunes du référentiel, et ce qui a été écarté (FR-029A).</summary>
 public sealed record SequencePlan(
     IReadOnlyList<SequencePlanStep> Steps,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    IReadOnlyList<string> SkippedForCurrentState);
 
 /// <summary>
 /// Déplie une <see cref="SequenceTemplate"/> (un ordre exprimé par *type* de composant) sur les composants
@@ -36,7 +37,15 @@ public sealed record SequencePlan(
 /// </summary>
 public static class SequencePlanner
 {
-    public static SequencePlan Plan(SequenceTemplate template, IReadOnlyCollection<N4Component> components)
+    /// <param name="observedStates">
+    /// États constatés, pour recalculer le plan à partir des seuls composants encore concernés (FR-029A :
+    /// « ignorer proprement les composants déjà arrêtés et recalculer l'ordre [...] sans rompre les
+    /// dépendances »). Facultatif : sans lui, toutes les étapes sont produites.
+    /// </param>
+    public static SequencePlan Plan(
+        SequenceTemplate template,
+        IReadOnlyCollection<N4Component> components,
+        IReadOnlyDictionary<Guid, ObservedComponentState>? observedStates = null)
     {
         ArgumentNullException.ThrowIfNull(template);
         ArgumentNullException.ThrowIfNull(components);
@@ -56,8 +65,15 @@ public static class SequencePlanner
                 "Une séquence ne peut décrire qu'un arrêt ou un démarrage."),
         };
 
+        // Un composant est hors sujet s'il est déjà dans l'état visé : rien à arrêter s'il est arrêté,
+        // rien à démarrer s'il tourne. L'état Unknown ne permet jamais d'écarter une étape.
+        var alreadyInTargetState = template.WorkflowType == WorkflowType.Stop
+            ? ObservedComponentState.Stopped
+            : ObservedComponentState.Running;
+
         var steps = new List<SequencePlanStep>();
         var warnings = new List<string>();
+        var skipped = new List<string>();
         var position = 0;
         var previousStepExists = false;
 
@@ -111,6 +127,26 @@ public static class SequencePlanner
 
             var actionable = tierComponents.Except(notControllable).ToList();
 
+            // FR-029A : le recalcul se fait en filtrant AVANT l'émission des étapes. Le chaînage et la
+            // numérotation étant construits au fil de l'émission, ils se réajustent d'eux-mêmes — aucune
+            // dépendance ne peut pointer vers une étape écartée.
+            if (observedStates is not null)
+            {
+                var outOfScope = actionable
+                    .Where(c => observedStates.TryGetValue(c.Id, out var state) && state == alreadyInTargetState)
+                    .ToList();
+
+                foreach (var component in outOfScope)
+                {
+                    skipped.Add(
+                        $"« {component.Name} » est déjà " +
+                        (alreadyInTargetState == ObservedComponentState.Stopped ? "arrêté" : "démarré") +
+                        " : l'étape est écartée du plan.");
+                }
+
+                actionable = actionable.Except(outOfScope).ToList();
+            }
+
             for (var i = 0; i < actionable.Count; i++)
             {
                 var component = actionable[i];
@@ -145,7 +181,7 @@ public static class SequencePlanner
                 "paliers de cette séquence.");
         }
 
-        return new SequencePlan(steps, warnings);
+        return new SequencePlan(steps, warnings, skipped);
     }
 
     /// <summary>

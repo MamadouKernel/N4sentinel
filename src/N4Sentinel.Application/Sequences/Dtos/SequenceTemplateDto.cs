@@ -50,4 +50,5 @@ public sealed record SequencePlanDto(
     string SequenceName,
     WorkflowType WorkflowType,
     IReadOnlyList<SequencePlanStepDto> Steps,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    IReadOnlyList<string> SkippedForCurrentState);

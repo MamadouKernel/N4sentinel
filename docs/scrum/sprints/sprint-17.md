@@ -120,6 +120,23 @@ absent alors qu'une bascule est demandée, composant non pilotable.
 Vérifié dans le navigateur sur un couple Center/Standby : 7 étapes pour la continuité, 4 pour la bascule,
 dans l'ordre attendu.
 
+### FR-029A — arrêt adapté à l'état
+« Ignorer proprement les composants déjà arrêtés et recalculer l'ordre à partir des services encore actifs,
+sans rompre les dépendances. » Le filtrage intervient **avant** l'émission des étapes : le chaînage et la
+numérotation étant construits au fil de l'émission, ils se réajustent d'eux-mêmes et aucune dépendance ne
+peut pointer vers une étape écartée. Un test le verrouille en retirant le nœud du milieu d'une série de trois.
+
+`ObservedComponentState.Unknown` est la valeur par défaut et **n'autorise jamais** à écarter une étape : dans
+le doute, on la conserve. Les points de contrôle ne sont jamais écartés — ils ne dépendent d'aucun composant.
+
+**Limite assumée** : l'état provient d'un **constat déclaré par l'opérateur**, pas d'une détection
+automatique. Tant qu'aucun connecteur réel n'est autorisé, prétendre détecter l'état des services serait de
+l'automatisation simulée — le principe tenu depuis le Sprint 2 l'interdit. Le recalcul, lui, est réel et
+testé ; seule sa source d'entrée reste manuelle. Même parti pris que la reconstitution guidée du Sprint 11.
+
+Vérifié dans le navigateur : un Cluster Node déclaré déjà démarré est écarté, le plan se renumérote sans
+trou, les contrôles d'encadrement restent dus.
+
 ## Reste à faire
 
 - FR-029A recalcul de l'ordre en ignorant les composants déjà arrêtés.

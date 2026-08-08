@@ -44,7 +44,11 @@ public sealed class GetSequenceTemplateByIdQueryHandler(ISequenceTemplateReposit
 /// sans rien créer. C'est l'écran de contrôle avant génération : on voit exactement combien d'étapes seront
 /// produites pour N Cluster Nodes, et ce qui manque au référentiel.
 /// </summary>
-public sealed record PreviewSequencePlanQuery(Guid EnvironmentId, WorkflowType WorkflowType)
+public sealed record PreviewSequencePlanQuery(
+    Guid EnvironmentId,
+    WorkflowType WorkflowType,
+    /// <summary>États constatés, pour recalculer le plan sur les seuls composants concernés (FR-029A).</summary>
+    IReadOnlyDictionary<Guid, ObservedComponentState>? ObservedStates = null)
     : IRequest<SequencePlanDto?>;
 
 public sealed class PreviewSequencePlanQueryHandler(
@@ -71,7 +75,7 @@ public sealed class PreviewSequencePlanQueryHandler(
         }
 
         var environmentComponents = await components.ListByEnvironmentAsync(request.EnvironmentId, cancellationToken);
-        var plan = SequencePlanner.Plan(template, environmentComponents);
+        var plan = SequencePlanner.Plan(template, environmentComponents, request.ObservedStates);
 
         return new SequencePlanDto(
             environment.Id,
@@ -80,6 +84,7 @@ public sealed class PreviewSequencePlanQueryHandler(
             template.Name,
             template.WorkflowType,
             plan.Steps.Select(SequencesMapper.ToDto).ToList(),
-            plan.Warnings);
+            plan.Warnings,
+            plan.SkippedForCurrentState);
     }
 }

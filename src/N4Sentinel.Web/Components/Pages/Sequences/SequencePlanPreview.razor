@@ -45,6 +45,56 @@
     </div>
 </div>
 
+<div class="card mb-6">
+    <div class="card-header">
+        <h2 class="card-title">État constaté des composants (FR-029A)</h2>
+    </div>
+    <div class="card-body">
+        <p class="mb-4 text-sm text-slate-600">
+            Déclarez ici l'état réellement observé. Le plan écarte alors les composants déjà dans l'état visé
+            et recalcule l'enchaînement sans rompre les dépendances. Un composant laissé « non constaté »
+            reste dans le plan : rien n'est écarté sur une supposition.
+        </p>
+
+        @if (environmentComponents is null)
+        {
+            <div class="loading-block"><span class="spinner" aria-hidden="true"></span></div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Composant</th>
+                            <th>Type N4</th>
+                            <th>État constaté</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var component in environmentComponents)
+                        {
+                            <tr>
+                                <td>@component.Name</td>
+                                <td class="text-xs text-slate-500">@component.Kind.ToLabel()</td>
+                                <td>
+                                    <select class="form-select"
+                                            value="@GetState(component.Id)"
+                                            @onchange="e => SetState(component.Id, e.Value?.ToString())">
+                                        <option value="@ObservedComponentState.Unknown">Non constaté</option>
+                                        <option value="@ObservedComponentState.Running">En fonctionnement</option>
+                                        <option value="@ObservedComponentState.Stopped">Arrêté</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
 @if (errorMessage is not null)
 {
     <div class="alert alert-danger mb-4">@errorMessage</div>
@@ -64,6 +114,21 @@
 }
 else if (plan is not null)
 {
+    @if (plan.SkippedForCurrentState.Count > 0)
+    {
+        <div class="alert alert-success mb-4">
+            <div>
+                <p class="font-semibold">Étapes écartées au vu de l'état constaté (FR-029A)</p>
+                <ul class="mt-1 list-disc pl-5">
+                    @foreach (var skipped in plan.SkippedForCurrentState)
+                    {
+                        <li>@skipped</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
     @if (plan.Warnings.Count > 0)
     {
         <div class="alert alert-warning mb-4">
@@ -160,6 +225,23 @@ else if (plan is not null)
     private string? errorMessage;
     private string? successMessage;
 
+    private IReadOnlyList<ComponentDto>? environmentComponents;
+    private readonly Dictionary<Guid, ObservedComponentState> observedStates = [];
+
+    protected override async Task OnParametersSetAsync() =>
+        environmentComponents = await Mediator.Send(new ListComponentsByEnvironmentQuery(Id));
+
+    private ObservedComponentState GetState(Guid componentId) =>
+        observedStates.TryGetValue(componentId, out var state) ? state : ObservedComponentState.Unknown;
+
+    private void SetState(Guid componentId, string? raw)
+    {
+        if (Enum.TryParse<ObservedComponentState>(raw, out var state))
+        {
+            observedStates[componentId] = state;
+        }
+    }
+
     private async Task LoadAsync()
     {
         errorMessage = null;
@@ -168,7 +250,12 @@ else if (plan is not null)
 
         try
         {
-            plan = await Mediator.Send(new PreviewSequencePlanQuery(Id, workflowType));
+            // Seuls les états réellement constatés sont transmis ; « non constaté » n'écarte rien.
+            var declared = observedStates
+                .Where(kv => kv.Value != ObservedComponentState.Unknown)
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+            plan = await Mediator.Send(new PreviewSequencePlanQuery(Id, workflowType, declared));
 
             if (plan is null)
             {
