@@ -53,13 +53,18 @@ else
                 <article class="card mb-4">
                     <div class="card-header">
                         <div>
-                            <h3 class="card-title">@template.Name</h3>
+                            <h3 class="card-title">
+                                <a href="admin/sequences/@template.Id">@template.Name</a>
+                            </h3>
                             <p class="mt-0.5 text-xs text-slate-500">
                                 @template.TemplateKey · version @template.VersionNumber ·
-                                @(template.EnvironmentId is null ? "toutes environnements" : "spécifique à un environnement")
+                                @(template.EnvironmentId is null ? "tous environnements" : "spécifique à un environnement")
                             </p>
                         </div>
-                        <span class="badge @template.Status.ToBadgeClass()">@template.Status.ToLabel()</span>
+                        <div class="flex items-center gap-2">
+                            <span class="badge @template.Status.ToBadgeClass()">@template.Status.ToLabel()</span>
+                            <a class="btn btn-outline-secondary btn-sm" href="admin/sequences/@template.Id">Configurer</a>
+                        </div>
                     </div>
 
                     <div class="card-body">

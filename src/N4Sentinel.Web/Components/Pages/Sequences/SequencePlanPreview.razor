@@ -1,0 +1,209 @@
+@page "/environments/{Id:guid}/sequence-plan"
+@attribute [Authorize]
+@inject IMediator Mediator
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>Plan de séquence — N4 Sentinel</PageTitle>
+
+<div class="breadcrumb">
+    <a href="environments/@Id">Environnement</a>
+    <span class="breadcrumb-sep">/</span>
+    <span>Plan de séquence</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Plan d'arrêt et de démarrage</h1>
+        <p class="page-subtitle">
+            Déroulé de la séquence active appliquée aux composants réellement déclarés dans cet environnement.
+            Rien n'est créé ni exécuté ici : c'est un contrôle avant génération.
+        </p>
+    </div>
+</div>
+
+<div class="card mb-6">
+    <div class="card-body flex flex-wrap items-end gap-3">
+        <div>
+            <label class="form-label" for="type">Type d'opération</label>
+            <select id="type" class="form-select" @bind="workflowType">
+                <option value="@WorkflowType.Start">Démarrage</option>
+                <option value="@WorkflowType.Stop">Arrêt</option>
+            </select>
+        </div>
+        <button type="button" class="btn btn-primary" @onclick="LoadAsync">Calculer le plan</button>
+        <AuthorizeView Roles="@Roles.Administrateur">
+            <Authorized>
+                @if (plan is not null && plan.Steps.Count > 0)
+                {
+                    <button type="button" class="btn btn-accent" @onclick="GenerateAsync">
+                        Générer le workflow correspondant
+                    </button>
+                }
+            </Authorized>
+        </AuthorizeView>
+    </div>
+</div>
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger mb-4">@errorMessage</div>
+}
+
+@if (successMessage is not null)
+{
+    <div class="alert alert-success mb-4">@successMessage</div>
+}
+
+@if (loading)
+{
+    <div class="card loading-block">
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Calcul du plan…</span>
+    </div>
+}
+else if (plan is not null)
+{
+    @if (plan.Warnings.Count > 0)
+    {
+        <div class="alert alert-warning mb-4">
+            <div>
+                <p class="font-semibold">Le référentiel appelle votre attention</p>
+                <ul class="mt-1 list-disc pl-5">
+                    @foreach (var warning in plan.Warnings)
+                    {
+                        <li>@warning</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    @if (plan.Steps.Count == 0)
+    {
+        <div class="empty-state">
+            <h2 class="empty-state-title">Aucune étape planifiée</h2>
+            <p class="empty-state-text">
+                Aucun composant typé et pilotable ne correspond aux paliers de la séquence
+                « @plan.SequenceName ». Typez les composants de l'environnement pour qu'ils y apparaissent.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">@plan.SequenceName — @plan.Steps.Count étapes</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="w-16">#</th>
+                            <th>Étape</th>
+                            <th>Type</th>
+                            <th>Attend l'étape précédente</th>
+                            <th>Contrôle de réussite</th>
+                            <th>Source</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var step in plan.Steps)
+                        {
+                            <tr>
+                                <td class="font-semibold tabular-nums">@step.Position</td>
+                                <td>
+                                    @step.ComponentName
+                                    @if (step.ComponentId is null)
+                                    {
+                                        <span class="badge bg-secondary ml-2">contrôle</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (step.ComponentId is null)
+                                    {
+                                        <span class="text-slate-400">—</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-info">@step.ComponentKind.ToLabel()</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (step.WaitsForPreviousStep)
+                                    {
+                                        <span class="badge bg-warning">oui</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-slate-400">non</span>
+                                    }
+                                </td>
+                                <td class="text-xs text-slate-600">@step.SuccessCriteria</td>
+                                <td class="text-xs text-slate-400">@step.SourceReference</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private WorkflowType workflowType = WorkflowType.Start;
+    private SequencePlanDto? plan;
+    private bool loading;
+    private string? errorMessage;
+    private string? successMessage;
+
+    private async Task LoadAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+        loading = true;
+
+        try
+        {
+            plan = await Mediator.Send(new PreviewSequencePlanQuery(Id, workflowType));
+
+            if (plan is null)
+            {
+                errorMessage =
+                    $"Aucune séquence active de type « {workflowType.ToLabel()} » n'est définie pour cet environnement.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task GenerateAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = state.User.Identity?.Name ?? "Administrateur";
+
+            var workflowId = await Mediator.Send(
+                new GenerateWorkflowFromSequenceCommand(Id, workflowType, null, user));
+
+            NavigationManager.NavigateTo($"environments/{Id}/workflows/{workflowId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}

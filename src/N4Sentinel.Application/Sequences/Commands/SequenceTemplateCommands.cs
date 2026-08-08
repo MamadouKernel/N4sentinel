@@ -83,7 +83,8 @@ public sealed class CreateSequenceTemplateVersionCommandHandler(
 
 public sealed record AddSequenceTierCommand(
     Guid SequenceTemplateId, N4ComponentKind ComponentKind, string Label, SequenceTierExecution Execution,
-    string? SuccessCriteria, bool IsOptional, int? SettleDelaySeconds, string? SourceReference, string ActorUserId)
+    string? SuccessCriteria, bool IsOptional, int? SettleDelaySeconds, string? SourceReference, string ActorUserId,
+    SequenceTierKind Kind = SequenceTierKind.ComponentAction)
     : IRequest<Guid>, IAuditableRequest
 {
     string IAuditableRequest.ActorUserId => ActorUserId;
@@ -97,8 +98,10 @@ public sealed class AddSequenceTierCommandValidator : AbstractValidator<AddSeque
     {
         RuleFor(x => x.SequenceTemplateId).NotEmpty();
         RuleFor(x => x.Label).NotEmpty().MaximumLength(200);
+        // Seul un palier d'action cible un composant ; un point de contrôle n'en vise aucun.
         RuleFor(x => x.ComponentKind).NotEqual(N4ComponentKind.Unspecified)
-            .WithMessage("Un palier doit cibler un type de composant précis.");
+            .When(x => x.Kind == SequenceTierKind.ComponentAction)
+            .WithMessage("Un palier d'action doit cibler un type de composant précis.");
         RuleFor(x => x.SettleDelaySeconds).GreaterThanOrEqualTo(0).When(x => x.SettleDelaySeconds is not null);
         RuleFor(x => x.ActorUserId).NotEmpty();
     }
@@ -114,7 +117,7 @@ public sealed class AddSequenceTierCommandHandler(ISequenceTemplateRepository te
 
         var tier = template.AddTier(
             request.ComponentKind, request.Label, request.Execution, request.SuccessCriteria, request.IsOptional,
-            request.SettleDelaySeconds, request.SourceReference);
+            request.SettleDelaySeconds, request.SourceReference, request.Kind);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
