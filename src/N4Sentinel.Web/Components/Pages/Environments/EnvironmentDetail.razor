@@ -124,6 +124,7 @@ else
                 <tr>
                     <th>Nom</th>
                     <th>Rôle</th>
+                    <th>Type N4</th>
                     <th>Serveur / VM</th>
                     <th>Criticité</th>
                     <th>Gouvernance</th>
@@ -136,6 +137,17 @@ else
                     <tr>
                         <td>@component.Name</td>
                         <td>@component.Role</td>
+                        <td>
+                            @if (component.Kind == N4ComponentKind.Unspecified)
+                            {
+                                @* Un composant non typé est invisible des séquences d'arrêt/démarrage. *@
+                                <span class="badge bg-warning">À typer</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-info">@component.Kind.ToLabel()</span>
+                            }
+                        </td>
                         <td>@component.HostName</td>
                         <td>@component.Criticality.ToLabel()</td>
                         <td>@component.Governance.ToLabel()</td>

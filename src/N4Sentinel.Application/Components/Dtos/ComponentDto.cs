@@ -19,4 +19,6 @@ public sealed record ComponentDto(
     string? FunctionalOwner,
     IReadOnlyCollection<Guid> DependsOnComponentIds,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    /// <summary>Type technique, sur lequel s'appuie le séquencement d'arrêt/démarrage.</summary>
+    N4ComponentKind Kind = N4ComponentKind.Unspecified);

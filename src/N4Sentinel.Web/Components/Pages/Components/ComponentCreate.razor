@@ -91,6 +91,22 @@ else
 
         <div class="row">
             <div class="col-md-6 mb-3">
+                <label class="form-label" for="kind">Type technique N4</label>
+                <InputSelect id="kind" class="form-select" @bind-Value="model.Kind">
+                    @foreach (var k in Enum.GetValues<N4ComponentKind>())
+                    {
+                        <option value="@k">@k.ToLabel()</option>
+                    }
+                </InputSelect>
+                <span class="form-hint">
+                    Détermine la place du composant dans les séquences d'arrêt et de démarrage. Un composant
+                    laissé « Non typé » n'apparaîtra dans aucune séquence.
+                </span>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
                 <label class="form-label" for="technicalOwner">Responsable technique</label>
                 <InputText id="technicalOwner" class="form-control" @bind-Value="model.TechnicalOwner" />
             </div>
@@ -172,7 +188,7 @@ else
                 EnvironmentId, model.Name, model.Role, model.HostName, model.IpAddress, model.DnsName,
                 model.OperatingSystem, model.ServiceOrProcessName, model.HealthCheckDescription,
                 model.Criticality, model.Governance, model.TechnicalOwner, model.FunctionalOwner,
-                selectedDependencyIds, userName));
+                selectedDependencyIds, userName, model.Kind));
             NavigationManager.NavigateTo($"environments/{EnvironmentId}");
         }
         catch (Exception ex)
@@ -197,6 +213,8 @@ else
         public string? HealthCheckDescription { get; set; }
         public ComponentCriticality Criticality { get; set; } = ComponentCriticality.Medium;
         public ComponentGovernance Governance { get; set; } = ComponentGovernance.SupervisedOnly;
+
+        public N4ComponentKind Kind { get; set; } = N4ComponentKind.Unspecified;
         public string? TechnicalOwner { get; set; }
         public string? FunctionalOwner { get; set; }
     }

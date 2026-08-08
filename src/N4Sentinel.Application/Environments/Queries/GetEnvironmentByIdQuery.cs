@@ -25,7 +25,7 @@ public sealed class GetEnvironmentByIdQueryHandler(IEnvironmentRepository enviro
                 c.Id, c.EnvironmentId, c.Name, c.Role, c.HostName, c.IpAddress, c.DnsName,
                 c.OperatingSystem, c.ServiceOrProcessName, c.HealthCheckDescription, c.Criticality,
                 c.Governance, c.TechnicalOwner, c.FunctionalOwner, c.DependsOnComponentIds,
-                c.CreatedAtUtc, c.UpdatedAtUtc))
+                c.CreatedAtUtc, c.UpdatedAtUtc, c.Kind))
             .ToList();
 
         return new EnvironmentDetailDto(

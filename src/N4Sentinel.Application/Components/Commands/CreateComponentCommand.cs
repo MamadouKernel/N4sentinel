@@ -21,7 +21,8 @@ public sealed record CreateComponentCommand(
     string? TechnicalOwner,
     string? FunctionalOwner,
     IReadOnlyCollection<Guid> DependsOnComponentIds,
-    string ActorUserId) : IRequest<Guid>, IAuditableRequest
+    string ActorUserId,
+    N4ComponentKind Kind = N4ComponentKind.Unspecified) : IRequest<Guid>, IAuditableRequest
 {
     string IAuditableRequest.Action => "Création de composant";
     string IAuditableRequest.Summary => $"Composant '{Name}' créé sur l'environnement '{EnvironmentId}'.";
@@ -57,7 +58,7 @@ public sealed class CreateComponentCommandHandler(
             request.EnvironmentId, request.Name, request.Role, request.Criticality, request.Governance,
             request.HostName, request.IpAddress, request.DnsName, request.OperatingSystem,
             request.ServiceOrProcessName, request.HealthCheckDescription, request.TechnicalOwner,
-            request.FunctionalOwner);
+            request.FunctionalOwner, request.Kind);
 
         component.ReplaceDependencies(request.DependsOnComponentIds);
 

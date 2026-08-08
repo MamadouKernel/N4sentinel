@@ -21,7 +21,8 @@ public sealed record UpdateComponentCommand(
     string? TechnicalOwner,
     string? FunctionalOwner,
     IReadOnlyCollection<Guid> DependsOnComponentIds,
-    string ActorUserId) : IRequest, IAuditableRequest
+    string ActorUserId,
+    N4ComponentKind Kind = N4ComponentKind.Unspecified) : IRequest, IAuditableRequest
 {
     string IAuditableRequest.Action => "Modification de composant";
     string IAuditableRequest.Summary => $"Composant '{Id}' modifié.";
@@ -54,7 +55,8 @@ public sealed class UpdateComponentCommandHandler(
         component.UpdateDetails(
             request.Name, request.Role, request.HostName, request.IpAddress, request.DnsName,
             request.OperatingSystem, request.ServiceOrProcessName, request.HealthCheckDescription,
-            request.Criticality, request.Governance, request.TechnicalOwner, request.FunctionalOwner);
+            request.Criticality, request.Governance, request.TechnicalOwner, request.FunctionalOwner,
+            request.Kind);
 
         component.ReplaceDependencies(request.DependsOnComponentIds);
 
