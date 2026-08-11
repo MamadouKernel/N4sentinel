@@ -121,6 +121,25 @@ public class OperationStepExecution
         OverriddenAtUtc = DateTime.UtcNow;
     }
 
+    /// <summary>
+    /// Écarte l'étape suite à une annulation d'opération (FR-025). Autorisée depuis Pending ou
+    /// AwaitingConfirmation uniquement : ce dépôt exécute chaque étape de façon synchrone (aucune commande
+    /// technique n'est jamais laissée "en cours" entre deux actions de l'opérateur), donc ces deux statuts sont
+    /// les seuls points sûrs sur lesquels une annulation peut s'appuyer sans interrompre une action engagée.
+    /// </summary>
+    internal void MarkCancelled()
+    {
+        if (Status is not (OperationStepExecutionStatus.Pending or OperationStepExecutionStatus.AwaitingConfirmation))
+        {
+            throw new DomainRuleException(
+                $"Transition invalide : une étape au statut '{Status}' ne peut pas être annulée directement.");
+        }
+
+        Status = OperationStepExecutionStatus.Cancelled;
+        ResultMessage = "Opération annulée avant l'exécution de cette étape.";
+        CompletedAtUtc = DateTime.UtcNow;
+    }
+
     /// <summary>Remet une étape échouée à Pending pour permettre une reprise (E3.5).</summary>
     internal void ResetToPending()
     {

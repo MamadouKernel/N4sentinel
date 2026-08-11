@@ -27,10 +27,9 @@ public sealed class RevokeRoleCommandHandler(IUserRoleService userRoles) : IRequ
 {
     public async Task Handle(RevokeRoleCommand request, CancellationToken cancellationToken)
     {
-        if (request.Role == Roles.Administrateur &&
-            string.Equals(request.UserId, request.RevokedByUserId, StringComparison.Ordinal))
+        if (string.Equals(request.UserId, request.RevokedByUserId, StringComparison.Ordinal))
         {
-            throw new DomainRuleException("Vous ne pouvez pas retirer votre propre rôle Administrateur.");
+            throw new DomainRuleException("Vous ne pouvez pas modifier votre propre rôle.");
         }
 
         await userRoles.RevokeRoleAsync(request.UserId, request.Role, cancellationToken);

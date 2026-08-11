@@ -25,5 +25,17 @@ public class EfOperationRunRepository(AppDbContext dbContext) : IOperationRunRep
             .AsSplitQuery()
             .ToListAsync(cancellationToken);
 
+    private static readonly OperationRunStatus[] InFlightStatuses =
+    [
+        OperationRunStatus.PendingApproval,
+        OperationRunStatus.Approved,
+        OperationRunStatus.Running,
+        OperationRunStatus.ReconciliationRequired,
+    ];
+
+    public Task<bool> HasInFlightOperationAsync(Guid environmentId, CancellationToken cancellationToken) =>
+        dbContext.OperationRuns.AnyAsync(
+            r => r.EnvironmentId == environmentId && InFlightStatuses.Contains(r.Status), cancellationToken);
+
     public void Add(OperationRun operationRun) => dbContext.OperationRuns.Add(operationRun);
 }

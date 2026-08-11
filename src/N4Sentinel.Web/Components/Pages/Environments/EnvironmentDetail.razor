@@ -154,7 +154,8 @@ else
                         <td>@component.HostName</td>
                         <td>@component.Criticality.ToLabel()</td>
                         <td>@component.Governance.ToLabel()</td>
-                        <td>
+                        <td class="d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-secondary" href="environments/@Id/components/@component.Id/supervision">Détail</a>
                             <AuthorizeView Roles="@Roles.Administrateur">
                                 <Authorized>
                                     <a class="btn btn-sm btn-outline-secondary" href="environments/@Id/components/@component.Id/edit">Modifier</a>

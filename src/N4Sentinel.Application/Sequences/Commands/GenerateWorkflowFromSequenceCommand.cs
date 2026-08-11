@@ -46,6 +46,7 @@ public sealed class GenerateWorkflowFromSequenceCommandHandler(
     ISequenceTemplateRepository templates,
     IComponentRepository components,
     IWorkflowRepository workflows,
+    IServerConnector connector,
     IUnitOfWork unitOfWork) : IRequestHandler<GenerateWorkflowFromSequenceCommand, Guid>
 {
     public async Task<Guid> Handle(GenerateWorkflowFromSequenceCommand request, CancellationToken cancellationToken)
@@ -56,7 +57,8 @@ public sealed class GenerateWorkflowFromSequenceCommandHandler(
                 $"Aucune séquence active de type {request.WorkflowType} n'est définie pour cet environnement.");
 
         var environmentComponents = await components.ListByEnvironmentAsync(request.EnvironmentId, cancellationToken);
-        var plan = SequencePlanner.Plan(template, environmentComponents);
+        var observedStates = await ObserveStatesAsync(environmentComponents, cancellationToken);
+        var plan = SequencePlanner.Plan(template, environmentComponents, observedStates);
 
         if (plan.Steps.Count == 0)
         {
@@ -111,5 +113,37 @@ public sealed class GenerateWorkflowFromSequenceCommandHandler(
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return workflow.Id;
+    }
+
+    /// <summary>
+    /// Constate l'état réel des composants pilotables avant de déplier le plan (FR-029A : "ignorer proprement
+    /// les composants déjà arrêtés et recalculer l'ordre à partir des services encore actifs"). Un composant
+    /// dont l'état n'a pas pu être confirmé — connecteur indisponible ou état transitoire (Loading, Waiting,
+    /// Initializing, Recovering, Disconnected) — reste <see cref="ObservedComponentState.Unknown"/> plutôt que
+    /// Stopped ou Running : le planificateur n'écarte jamais une étape sur une simple supposition.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<Guid, ObservedComponentState>> ObserveStatesAsync(
+        IReadOnlyList<N4Component> environmentComponents, CancellationToken cancellationToken)
+    {
+        var observed = new Dictionary<Guid, ObservedComponentState>();
+        foreach (var component in environmentComponents.Where(c => c.Governance == ComponentGovernance.Controllable))
+        {
+            try
+            {
+                var health = await connector.CheckHealthAsync(component, cancellationToken);
+                observed[component.Id] = health switch
+                {
+                    ComponentHealthStatus.Active => ObservedComponentState.Running,
+                    ComponentHealthStatus.Shutdown or ComponentHealthStatus.Inactive => ObservedComponentState.Stopped,
+                    _ => ObservedComponentState.Unknown,
+                };
+            }
+            catch
+            {
+                observed[component.Id] = ObservedComponentState.Unknown;
+            }
+        }
+
+        return observed;
     }
 }

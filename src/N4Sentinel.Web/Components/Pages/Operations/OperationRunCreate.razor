@@ -44,6 +44,59 @@ else
         <div class="alert alert-danger">@errorMessage</div>
     }
 
+    @if (workflow.Scope is WorkflowScope.Unit or WorkflowScope.Partial)
+    {
+        <div class="card p-3 mb-3">
+            <h2 class="h5">Analyse d'impact (FR-041)</h2>
+            @if (impactAnalysis is null)
+            {
+                <p class="text-muted mb-0"><em>Analyse en cours...</em></p>
+            }
+            else if (!impactAnalysis.HasDependents)
+            {
+                <p class="text-muted mb-0">Aucun autre composant du référentiel ne déclare les composants ciblés comme dépendance.</p>
+            }
+            else
+            {
+                <ul class="list-unstyled mb-0">
+                    @foreach (var impact in impactAnalysis.Impacts.Where(i => i.DependentComponentNames.Count > 0))
+                    {
+                        <li class="mb-1">
+                            <strong>@impact.ComponentName</strong> (criticité @impact.Criticality) — composants dépendants
+                            susceptibles d'être affectés : @string.Join(", ", impact.DependentComponentNames)
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    }
+
+    <div class="card p-3 mb-3">
+        <h2 class="h5">Pré-check automatique (FR-012)</h2>
+        @if (prerequisites is null)
+        {
+            <p class="text-muted mb-0"><em>Vérification des prérequis...</em></p>
+        }
+        else
+        {
+            <ul class="list-unstyled mb-2">
+                @foreach (var check in prerequisites.Checks)
+                {
+                    <li class="mb-1">
+                        <span class="badge @PrerequisiteBadgeClass(check.Status)">@PrerequisiteStatusLabel(check.Status)</span>
+                        <strong>@check.Name</strong> — @check.Detail
+                    </li>
+                }
+            </ul>
+            @if (prerequisites.HasBlockingCheck)
+            {
+                <p class="text-danger mb-0">
+                    Au moins un contrôle bloquant empêche le lancement de cette opération tant qu'il n'est pas résolu.
+                </p>
+            }
+        }
+    </div>
+
     <EditForm Model="model" OnValidSubmit="SubmitAsync" FormName="CreateOperationRun">
         <DataAnnotationsValidator />
         <ValidationSummary class="text-danger" />
@@ -65,7 +118,7 @@ else
             <InputText id="reference" class="form-control" @bind-Value="model.IncidentOrChangeReference" />
         </div>
 
-        <button type="submit" class="btn btn-primary">Créer l'opération</button>
+        <button type="submit" class="btn btn-primary" disabled="@(prerequisites?.HasBlockingCheck == true)">Créer l'opération</button>
         <a class="btn btn-secondary" href="environments/@EnvironmentId/operations/new">Annuler</a>
     </EditForm>
 }
@@ -85,6 +138,8 @@ else
     private EnvironmentDetailDto? environment;
     private string? errorMessage;
     private bool? accessGranted;
+    private PrerequisiteCheckReportDto? prerequisites;
+    private OperationImpactAnalysisDto? impactAnalysis;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -97,7 +152,36 @@ else
 
         workflow = await Mediator.Send(new GetWorkflowByIdQuery(WorkflowId));
         environment = await Mediator.Send(new GetEnvironmentByIdQuery(EnvironmentId));
+
+        if (workflow?.Versions.FirstOrDefault(v => v.Status == WorkflowVersionStatus.Active) is { } activeVersion)
+        {
+            prerequisites = await Mediator.Send(new CheckOperationPrerequisitesQuery(EnvironmentId, WorkflowId, activeVersion.Id));
+            if (workflow.Scope is WorkflowScope.Unit or WorkflowScope.Partial)
+            {
+                impactAnalysis = await Mediator.Send(new GetOperationImpactAnalysisQuery(EnvironmentId, WorkflowId, activeVersion.Id));
+            }
+        }
     }
+
+    private static string PrerequisiteBadgeClass(PrerequisiteCheckStatus status) => status switch
+    {
+        PrerequisiteCheckStatus.Satisfied => "bg-success",
+        PrerequisiteCheckStatus.Warning => "bg-warning text-dark",
+        PrerequisiteCheckStatus.Blocking => "bg-danger",
+        PrerequisiteCheckStatus.NotApplicable => "bg-secondary",
+        PrerequisiteCheckStatus.UnableToVerify => "bg-secondary",
+        _ => "bg-secondary",
+    };
+
+    private static string PrerequisiteStatusLabel(PrerequisiteCheckStatus status) => status switch
+    {
+        PrerequisiteCheckStatus.Satisfied => "Satisfait",
+        PrerequisiteCheckStatus.Warning => "Avertissement",
+        PrerequisiteCheckStatus.Blocking => "Bloquant",
+        PrerequisiteCheckStatus.NotApplicable => "Non applicable",
+        PrerequisiteCheckStatus.UnableToVerify => "Impossible à vérifier",
+        _ => status.ToString(),
+    };
 
     private async Task SubmitAsync()
     {

@@ -282,6 +282,74 @@ public class OperationRun
         CompletedAtUtc = null;
     }
 
+    /// <summary>
+    /// Annulation sûre (FR-025) : n'interrompt jamais une commande technique déjà engagée. Les étapes encore
+    /// non engagées (Pending) ou en attente d'une confirmation humaine (AwaitingConfirmation) sont écartées ;
+    /// les étapes déjà résolues (Succeeded/Failed/Skipped/Overridden) restent inchangées pour ne pas réécrire
+    /// l'historique réel de ce qui a été exécuté.
+    /// </summary>
+    public void Cancel(string cancelledByUserId, string reason)
+    {
+        if (Status is not (OperationRunStatus.PendingApproval or OperationRunStatus.Approved or OperationRunStatus.Running))
+        {
+            throw new DomainRuleException(
+                $"Une opération au statut '{Status}' ne peut pas être annulée.");
+        }
+
+        if (string.IsNullOrWhiteSpace(cancelledByUserId))
+        {
+            throw new DomainRuleException("L'utilisateur demandant l'annulation est obligatoire.");
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new DomainRuleException("Le motif de l'annulation est obligatoire (FR-025).");
+        }
+
+        foreach (var step in _stepExecutions.Where(s =>
+            s.Status is OperationStepExecutionStatus.Pending or OperationStepExecutionStatus.AwaitingConfirmation))
+        {
+            step.MarkCancelled();
+        }
+
+        Status = OperationRunStatus.Cancelled;
+        CompletedAtUtc = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Suspend une reprise (FR-024) : l'état réel constaté avant de relancer la dernière étape en échec
+    /// diverge de ce que le workflow avait mémorisé. Contrairement à <see cref="Fail"/>, l'opération reste
+    /// figée jusqu'à ce qu'un opérateur habilité examine l'écart via <see cref="AcknowledgeReconciliation"/> —
+    /// aucune étape n'est modifiée entre-temps.
+    /// </summary>
+    public void FlagReconciliationRequired(string reason)
+    {
+        EnsureStatus(OperationRunStatus.Failed);
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            throw new DomainRuleException("Le motif de la réconciliation requise est obligatoire (FR-024).");
+        }
+
+        Status = OperationRunStatus.ReconciliationRequired;
+    }
+
+    /// <summary>
+    /// Referme la réconciliation (FR-024) une fois l'écart examiné par un opérateur habilité, en remettant
+    /// l'opération à Failed pour qu'une reprise ou un contournement normal puisse ensuite être tenté.
+    /// </summary>
+    public void AcknowledgeReconciliation(string acknowledgedByUserId)
+    {
+        EnsureStatus(OperationRunStatus.ReconciliationRequired);
+
+        if (string.IsNullOrWhiteSpace(acknowledgedByUserId))
+        {
+            throw new DomainRuleException("L'utilisateur examinant la réconciliation est obligatoire.");
+        }
+
+        Status = OperationRunStatus.Failed;
+    }
+
     /// <summary>Prochaine étape à traiter dans l'ordre (Pending), ou null si toutes les étapes sont terminées.</summary>
     public OperationStepExecution? NextPendingStep =>
         StepExecutions.FirstOrDefault(s => s.Status == OperationStepExecutionStatus.Pending);

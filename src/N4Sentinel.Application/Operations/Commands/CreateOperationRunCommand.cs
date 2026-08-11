@@ -2,7 +2,9 @@ using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
 using N4Sentinel.Application.Common;
+using N4Sentinel.Application.Operations.Queries;
 using N4Sentinel.Domain.Entities;
+using N4Sentinel.Domain.Exceptions;
 
 namespace N4Sentinel.Application.Operations.Commands;
 
@@ -42,6 +44,7 @@ public sealed class CreateOperationRunCommandHandler(
     IWorkflowRepository workflows,
     IComponentRepository components,
     IOperationRunRepository operationRuns,
+    CheckOperationPrerequisitesQueryHandler prerequisiteChecks,
     IUnitOfWork unitOfWork) : IRequestHandler<CreateOperationRunCommand, Guid>
 {
     public async Task<Guid> Handle(CreateOperationRunCommand request, CancellationToken cancellationToken)
@@ -59,6 +62,23 @@ public sealed class CreateOperationRunCommandHandler(
         {
             throw new ValidationException(
                 $"Seule une version Validée ou Active peut faire l'objet d'une opération (statut actuel : '{version.Status}').");
+        }
+
+        // FR-012 : pré-check automatique. Couvre notamment FR-015 (opération concurrente) et FR-036
+        // (démarrage complet : tous les composants ciblés doivent être constatés arrêtés). Aucun de ces
+        // contrôles n'est actuellement déclaré contournable : ce sont des règles de sécurité absolues du
+        // cahier des charges (référentiel, exclusivité mutuelle, double-actif), pas des risques à accepter au
+        // cas par cas — la mécanique de contournement audité (FR-027) reste réservée aux étapes de workflow.
+        var prerequisites = await prerequisiteChecks.Handle(
+            new CheckOperationPrerequisitesQuery(request.EnvironmentId, request.WorkflowId, request.WorkflowVersionId),
+            cancellationToken);
+
+        if (prerequisites.HasBlockingCheck)
+        {
+            var blockingDetails = string.Join(
+                " | ", prerequisites.Checks.Where(c => c.Status == PrerequisiteCheckStatus.Blocking).Select(c => $"{c.Name} : {c.Detail}"));
+            throw new DomainRuleException(
+                $"Le pré-check automatique bloque le lancement de cette opération (FR-012). {blockingDetails}");
         }
 
         var steps = new List<(Guid StepId, int Position, string Name, WorkflowStepAction Action, Guid? ComponentId, string? ComponentName)>();

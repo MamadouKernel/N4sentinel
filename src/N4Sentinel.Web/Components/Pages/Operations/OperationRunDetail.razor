@@ -83,8 +83,51 @@ else
         </Authorized>
     </AuthorizeView>
 
+    @if (run.Status == OperationRunStatus.ReconciliationRequired)
+    {
+        <div class="alert alert-warning">
+            <strong>Réconciliation requise (FR-024).</strong> L'état réel constaté avant la reprise diverge de
+            l'état mémorisé par le workflow : la reprise est suspendue tant qu'un opérateur habilité n'a pas
+            examiné l'écart, pour éviter de rejouer aveuglément une action déjà réalisée.
+            <AuthorizeView Roles="@($"{Roles.Administrateur},{Roles.Operateur}")" Context="reconciliationContext">
+                <Authorized>
+                    <div class="mt-2">
+                        <button class="btn btn-warning btn-sm" @onclick="AcknowledgeReconciliationAsync" disabled="@isExecuting">
+                            Écart examiné — refermer la réconciliation
+                        </button>
+                    </div>
+                </Authorized>
+            </AuthorizeView>
+        </div>
+    }
+
     <AuthorizeView Roles="@($"{Roles.Administrateur},{Roles.Operateur}")" Context="executionContext">
         <Authorized>
+            @if (run.Status is OperationRunStatus.PendingApproval or OperationRunStatus.Approved or OperationRunStatus.Running)
+            {
+                <div class="mb-3">
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => showCancelForm = !showCancelForm">
+                        Annuler l'opération (FR-025)
+                    </button>
+                    @if (showCancelForm)
+                    {
+                        <div class="card p-3 mt-2">
+                            <p class="text-muted text-sm">
+                                N'interrompt jamais une commande technique déjà engagée : seules les étapes
+                                encore en attente ou en attente de confirmation sont écartées. Le motif reste
+                                visible dans le journal d'audit.
+                            </p>
+                            <div class="mb-2">
+                                <label class="form-label">Motif de l'annulation</label>
+                                <textarea class="form-control" @bind="cancelReason"></textarea>
+                            </div>
+                            <button class="btn btn-danger btn-sm" @onclick="CancelAsync" disabled="@isExecuting">
+                                Confirmer l'annulation
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
             @if (AwaitingConfirmationStep is { } gatedStep)
             {
                 <div class="alert alert-warning">
@@ -112,7 +155,7 @@ else
                 @if (showOverrideForm)
                 {
                     <div class="card p-3 mb-3">
-                        <p class="text-muted small">
+                        <p class="text-muted text-sm">
                             Le contournement n'est possible que pour un contrôle déclaré contournable (politique
                             "Nécessite une décision manuelle"). Le motif et le risque accepté sont obligatoires et
                             resteront visibles dans le rapport et le journal d'audit.
@@ -167,7 +210,7 @@ else
                         @step.ResultMessage
                         @if (step.Status == OperationStepExecutionStatus.Overridden)
                         {
-                            <div class="small text-warning-emphasis mt-1">
+                            <div class="mt-1 text-sm text-amber-700">
                                 <strong>Contourné</strong> par @step.OverriddenByUserId
                                 @if (step.OverrideApprovedByUserId is not null)
                                 {
@@ -205,6 +248,8 @@ else
     private string overrideReason = string.Empty;
     private string overrideAcceptedRisk = string.Empty;
     private string overrideApprovedByUserId = string.Empty;
+    private bool showCancelForm;
+    private string cancelReason = string.Empty;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -341,6 +386,46 @@ else
         }
     }
 
+    private async Task CancelAsync()
+    {
+        errorMessage = null;
+        isExecuting = true;
+        try
+        {
+            await Mediator.Send(new CancelOperationRunCommand(OperationRunId, currentUserId ?? "inconnu", cancelReason));
+            showCancelForm = false;
+            cancelReason = string.Empty;
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isExecuting = false;
+        }
+    }
+
+    private async Task AcknowledgeReconciliationAsync()
+    {
+        errorMessage = null;
+        isExecuting = true;
+        try
+        {
+            await Mediator.Send(new AcknowledgeReconciliationCommand(OperationRunId, currentUserId ?? "inconnu"));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isExecuting = false;
+        }
+    }
+
     private static string StepRowClass(OperationStepExecutionStatus status) => status switch
     {
         OperationStepExecutionStatus.Succeeded => "table-success",
@@ -349,6 +434,7 @@ else
         OperationStepExecutionStatus.Skipped => "table-warning",
         OperationStepExecutionStatus.AwaitingConfirmation => "table-warning",
         OperationStepExecutionStatus.Overridden => "table-warning",
+        OperationStepExecutionStatus.Cancelled => "table-secondary",
         _ => "",
     };
 
@@ -361,6 +447,7 @@ else
         OperationStepExecutionStatus.Failed => "Échouée",
         OperationStepExecutionStatus.Skipped => "Ignorée",
         OperationStepExecutionStatus.Overridden => "Contournée",
+        OperationStepExecutionStatus.Cancelled => "Annulée",
         _ => "",
     };
 }

@@ -27,13 +27,15 @@ public class RevokeRoleCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SelfRevokingOtherRole_Succeeds()
+    public async Task Handle_SelfRevokingOtherRole_Throws()
     {
         var handler = CreateHandler();
 
-        await handler.Handle(new RevokeRoleCommand("user-1", Roles.Lecteur, "user-1"), CancellationToken.None);
+        var act = () => handler.Handle(
+            new RevokeRoleCommand("user-1", Roles.Lecteur, "user-1"), CancellationToken.None);
 
-        await userRoles.Received(1).RevokeRoleAsync("user-1", Roles.Lecteur, Arg.Any<CancellationToken>());
+        await act.Should().ThrowAsync<DomainRuleException>();
+        await userRoles.DidNotReceiveWithAnyArgs().RevokeRoleAsync(default!, default!, default);
     }
 
     [Fact]

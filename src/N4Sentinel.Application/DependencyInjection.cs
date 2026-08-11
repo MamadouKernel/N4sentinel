@@ -18,6 +18,7 @@ public static class DependencyInjection
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
         services.AddTransient(typeof(IPipelineBehavior<,>), typeof(AuditBehavior<,>));
         services.AddScoped<OperationStepExecutionService>();
+        services.AddScoped<Operations.Queries.CheckOperationPrerequisitesQueryHandler>();
         services.AddTransient<Diagnostics.DiagnosticEngineService>();
         services.AddScoped<Sequences.ISequenceComplianceChecker, Sequences.SequenceComplianceChecker>();
 

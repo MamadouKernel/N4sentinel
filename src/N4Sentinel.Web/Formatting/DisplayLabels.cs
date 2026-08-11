@@ -95,6 +95,8 @@ public static class DisplayLabels
         OperationRunStatus.Running => "En cours",
         OperationRunStatus.Completed => "Terminée",
         OperationRunStatus.Failed => "Échouée",
+        OperationRunStatus.Cancelled => "Annulée",
+        OperationRunStatus.ReconciliationRequired => "Réconciliation requise",
         _ => status.ToString(),
     };
 
@@ -106,6 +108,8 @@ public static class DisplayLabels
         OperationRunStatus.Running => "bg-primary",
         OperationRunStatus.Completed => "bg-success",
         OperationRunStatus.Failed => "bg-danger",
+        OperationRunStatus.Cancelled => "bg-secondary",
+        OperationRunStatus.ReconciliationRequired => "bg-warning text-dark",
         _ => "bg-secondary",
     };
 
@@ -445,5 +449,29 @@ public static class DisplayLabels
         ComponentHealthStatus.Inactive => "INACTIVE",
         ComponentHealthStatus.Disconnected => "DISCONNECTED",
         _ => status.ToString(),
+    };
+
+    public static string ToLabel(this ConsolidatedComponentStatus status) => status switch
+    {
+        ConsolidatedComponentStatus.Disponible => "Disponible",
+        ConsolidatedComponentStatus.Degrade => "Dégradé",
+        ConsolidatedComponentStatus.Indisponible => "Indisponible",
+        ConsolidatedComponentStatus.Demarrage => "Démarrage",
+        ConsolidatedComponentStatus.Arret => "Arrêt",
+        ConsolidatedComponentStatus.Inconnu => "Inconnu",
+        ConsolidatedComponentStatus.Maintenance => "Maintenance",
+        ConsolidatedComponentStatus.NonSupervise => "Non supervisé",
+        _ => status.ToString(),
+    };
+
+    public static string ToBadgeClass(this ConsolidatedComponentStatus status) => status switch
+    {
+        ConsolidatedComponentStatus.Disponible => "bg-success",
+        ConsolidatedComponentStatus.Degrade or ConsolidatedComponentStatus.Demarrage => "bg-warning",
+        ConsolidatedComponentStatus.Indisponible => "bg-danger",
+        ConsolidatedComponentStatus.Arret or ConsolidatedComponentStatus.NonSupervise => "bg-secondary",
+        ConsolidatedComponentStatus.Maintenance => "bg-info text-dark",
+        ConsolidatedComponentStatus.Inconnu => "bg-secondary",
+        _ => "bg-secondary",
     };
 }

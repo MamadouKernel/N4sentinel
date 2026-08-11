@@ -12,10 +12,21 @@ public class OperationRunTests
         (Guid.NewGuid(), 0, "Démarrer le Bridge", WorkflowStepAction.Start, Guid.NewGuid(), "Bridge"),
     ];
 
+    private static readonly (Guid StepId, int Position, string Name, WorkflowStepAction Action, Guid? ComponentId, string? ComponentName)[] TwoSteps =
+    [
+        (Guid.NewGuid(), 0, "Démarrer le Bridge", WorkflowStepAction.Start, Guid.NewGuid(), "Bridge"),
+        (Guid.NewGuid(), 1, "Démarrer XPS", WorkflowStepAction.Start, Guid.NewGuid(), "XPS"),
+    ];
+
     private static OperationRun CreateNonProductionRun() => new(
         Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, isProductionEnvironment: false,
         motif: null, interventionWindowDescription: null, impact: null, incidentOrChangeReference: null,
         requestedByUserId: "operateur@n4sentinel.local", steps: OneStep);
+
+    private static OperationRun CreateNonProductionRunWithTwoSteps() => new(
+        Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, isProductionEnvironment: false,
+        motif: null, interventionWindowDescription: null, impact: null, incidentOrChangeReference: null,
+        requestedByUserId: "operateur@n4sentinel.local", steps: TwoSteps);
 
     private static OperationRun CreateProductionRun() => new(
         Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, isProductionEnvironment: true,
@@ -275,5 +286,114 @@ public class OperationRunTests
 
         run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.Overridden);
         run.StepExecutions[0].OverrideApprovedByUserId.Should().Be("approbateur@n4sentinel.local");
+    }
+
+    [Fact]
+    public void Cancel_PendingApprovalRun_CancelsAllStepsAndRun()
+    {
+        var run = CreateProductionRun();
+
+        run.Cancel("operateur@n4sentinel.local", "Fenêtre d'intervention annulée");
+
+        run.Status.Should().Be(OperationRunStatus.Cancelled);
+        run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.Cancelled);
+        run.CompletedAtUtc.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void Cancel_RunningWithAwaitingConfirmationStep_CancelsThatStepOnly()
+    {
+        var run = CreateNonProductionRun();
+        run.StartExecution();
+        var stepId = run.StepExecutions[0].StepId;
+        run.RecordStepAwaitingConfirmation(stepId);
+
+        run.Cancel("operateur@n4sentinel.local", "Fenêtre d'intervention annulée");
+
+        run.Status.Should().Be(OperationRunStatus.Cancelled);
+        run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.Cancelled);
+    }
+
+    [Fact]
+    public void Cancel_AlreadyCompleted_Throws()
+    {
+        var run = CreateNonProductionRun();
+        run.StartExecution();
+        var stepId = run.StepExecutions[0].StepId;
+        run.RecordStepStarted(stepId);
+        run.RecordStepSucceeded(stepId, "OK");
+        run.Complete();
+
+        var act = () => run.Cancel("operateur@n4sentinel.local", "Motif");
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void Cancel_DoesNotOverwriteAlreadySucceededStep()
+    {
+        var run = CreateNonProductionRunWithTwoSteps();
+        run.StartExecution();
+        var firstStepId = run.StepExecutions[0].StepId;
+        run.RecordStepStarted(firstStepId);
+        run.RecordStepSucceeded(firstStepId, "OK");
+
+        run.Cancel("operateur@n4sentinel.local", "Fenêtre d'intervention annulée");
+
+        run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.Succeeded);
+        run.StepExecutions[1].Status.Should().Be(OperationStepExecutionStatus.Cancelled);
+    }
+
+    [Fact]
+    public void Cancel_MissingReason_Throws()
+    {
+        var run = CreateNonProductionRun();
+
+        var act = () => run.Cancel("operateur@n4sentinel.local", "");
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void FlagReconciliationRequired_WhenNotFailed_Throws()
+    {
+        var run = CreateNonProductionRun();
+
+        var act = () => run.FlagReconciliationRequired("Écart constaté");
+
+        act.Should().Throw<DomainRuleException>();
+    }
+
+    [Fact]
+    public void FlagReconciliationRequired_AfterFailedStep_TransitionsStatus()
+    {
+        var run = CreateFailedNonProductionRun();
+
+        run.FlagReconciliationRequired("L'état réel du composant diverge de l'état mémorisé.");
+
+        run.Status.Should().Be(OperationRunStatus.ReconciliationRequired);
+    }
+
+    [Fact]
+    public void AcknowledgeReconciliation_ReturnsToFailedForNormalResume()
+    {
+        var run = CreateFailedNonProductionRun();
+        run.FlagReconciliationRequired("Écart constaté");
+
+        run.AcknowledgeReconciliation("operateur@n4sentinel.local");
+
+        run.Status.Should().Be(OperationRunStatus.Failed);
+        run.Resume();
+        run.Status.Should().Be(OperationRunStatus.Running);
+    }
+
+    [Fact]
+    public void AcknowledgeReconciliation_WhenNotFlagged_Throws()
+    {
+        var run = CreateFailedNonProductionRun();
+
+        var act = () => run.AcknowledgeReconciliation("operateur@n4sentinel.local");
+
+        act.Should().Throw<DomainRuleException>();
     }
 }

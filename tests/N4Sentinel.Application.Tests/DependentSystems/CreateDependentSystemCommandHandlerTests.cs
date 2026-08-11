@@ -23,7 +23,7 @@ public class CreateDependentSystemCommandHandlerTests
         var handler = CreateHandler();
 
         var act = () => handler.Handle(
-            new CreateDependentSystemCommand(Guid.NewGuid(), "EDI", null, ComponentGovernance.NotSupervised),
+            new CreateDependentSystemCommand(Guid.NewGuid(), "EDI", null, ComponentGovernance.NotSupervised, "admin1"),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<KeyNotFoundException>();
@@ -38,7 +38,7 @@ public class CreateDependentSystemCommandHandlerTests
 
         var id = await handler.Handle(
             new CreateDependentSystemCommand(
-                environment.Id, "CAMCO/GOS", "OCR et contrôle d'accès portail", ComponentGovernance.SupervisedOnly),
+                environment.Id, "CAMCO/GOS", "OCR et contrôle d'accès portail", ComponentGovernance.SupervisedOnly, "admin1"),
             CancellationToken.None);
 
         id.Should().NotBeEmpty();

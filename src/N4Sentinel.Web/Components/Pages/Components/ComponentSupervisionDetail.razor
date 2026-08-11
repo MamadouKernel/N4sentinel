@@ -1,0 +1,123 @@
+@page "/environments/{EnvironmentId:guid}/components/{ComponentId:guid}/supervision"
+@attribute [Authorize]
+@inject IMediator Mediator
+
+<PageTitle>@(detail?.Name ?? "Composant") - N4 Sentinel</PageTitle>
+
+<p><a href="environments/@EnvironmentId">← Retour à l'environnement</a></p>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (detail is null)
+{
+    <p><em>Chargement...</em></p>
+}
+else
+{
+    <h1>
+        @detail.Name
+        <span class="badge @detail.ConsolidatedStatus.ToBadgeClass() ms-2">@detail.ConsolidatedStatus.ToLabel()</span>
+    </h1>
+    <p class="text-muted">@detail.Role @(detail.Kind == N4ComponentKind.Unspecified ? "" : $"— {detail.Kind.ToLabel()}")</p>
+
+    @if (!string.IsNullOrEmpty(detail.UnavailableReason))
+    {
+        <div class="alert alert-warning">@detail.UnavailableReason — état déclaré Inconnu plutôt que supposé (FR-016).</div>
+    }
+
+    <dl class="row">
+        <dt class="col-sm-3">Criticité</dt>
+        <dd class="col-sm-9">@detail.Criticality.ToLabel()</dd>
+
+        <dt class="col-sm-3">Gouvernance</dt>
+        <dd class="col-sm-9">@detail.Governance.ToLabel()</dd>
+
+        @if (detail.ObservedHealth is { } health)
+        {
+            <dt class="col-sm-3">État technique observé</dt>
+            <dd class="col-sm-9"><span class="badge @health.ToBadgeClass()">@health.ToLabel()</span></dd>
+        }
+
+        <dt class="col-sm-3">Dernière vérification</dt>
+        <dd class="col-sm-9">@(detail.CheckedAtUtc is { } checkedAt ? checkedAt.ToLocalTime().ToString("f") : "—")</dd>
+
+        @if (!string.IsNullOrEmpty(detail.HostName))
+        {
+            <dt class="col-sm-3">Serveur / VM</dt>
+            <dd class="col-sm-9">@detail.HostName</dd>
+        }
+        @if (!string.IsNullOrEmpty(detail.IpAddress) || !string.IsNullOrEmpty(detail.DnsName))
+        {
+            <dt class="col-sm-3">Réseau</dt>
+            <dd class="col-sm-9">@detail.IpAddress @detail.DnsName</dd>
+        }
+        @if (!string.IsNullOrEmpty(detail.ServiceOrProcessName))
+        {
+            <dt class="col-sm-3">Service / processus</dt>
+            <dd class="col-sm-9">@detail.ServiceOrProcessName</dd>
+        }
+    </dl>
+
+    <h2 class="h5">Dépendances</h2>
+    <div class="row">
+        <div class="col-md-6">
+            <p class="text-muted mb-1">Ce composant dépend de :</p>
+            @if (detail.DependsOnComponentNames.Count == 0)
+            {
+                <p class="mb-0">Aucune dépendance déclarée.</p>
+            }
+            else
+            {
+                <ul>
+                    @foreach (var name in detail.DependsOnComponentNames)
+                    {
+                        <li>@name</li>
+                    }
+                </ul>
+            }
+        </div>
+        <div class="col-md-6">
+            <p class="text-muted mb-1">Composants dépendants (impact d'une action, FR-041) :</p>
+            @if (detail.DependentComponentNames.Count == 0)
+            {
+                <p class="mb-0">Aucun composant ne dépend de celui-ci.</p>
+            }
+            else
+            {
+                <ul>
+                    @foreach (var name in detail.DependentComponentNames)
+                    {
+                        <li>@name</li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid EnvironmentId { get; set; }
+
+    [Parameter]
+    public Guid ComponentId { get; set; }
+
+    private ComponentSupervisionDetailDto? detail;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        errorMessage = null;
+        try
+        {
+            detail = await Mediator.Send(new GetComponentSupervisionDetailQuery(ComponentId));
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+    }
+}

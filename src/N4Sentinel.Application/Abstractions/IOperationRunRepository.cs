@@ -10,5 +10,12 @@ public interface IOperationRunRepository
 
     Task<IReadOnlyList<OperationRun>> ListAllAsync(CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Une opération mutative est "en vol" tant qu'elle n'a pas atteint un état terminal (Completed, Failed,
+    /// Rejected, Cancelled) — PendingApproval, Approved, Running et ReconciliationRequired comptent tous comme
+    /// en cours (FR-015 : une seule opération mutative autorisée simultanément par environnement).
+    /// </summary>
+    Task<bool> HasInFlightOperationAsync(Guid environmentId, CancellationToken cancellationToken);
+
     void Add(OperationRun operationRun);
 }

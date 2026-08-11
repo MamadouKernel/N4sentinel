@@ -8,6 +8,53 @@
 <p><a href="dashboard">← Retour au tableau de bord</a></p>
 <p class="text-muted">Toutes les opérations, tous environnements confondus (E4.2).</p>
 
+@if (indicators is not null && indicators.TotalOperations > 0)
+{
+    <div class="card p-3 mb-3">
+        <h2 class="h5">Indicateurs (FR-094)</h2>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="text-muted text-sm">Taux de réussite</div>
+                <div class="h4 mb-0">@(indicators.SuccessRatePercent is { } rate ? $"{rate:0.#} %" : "—")</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted text-sm">Durée moyenne</div>
+                <div class="h4 mb-0">@(indicators.AverageDurationSeconds is { } avg ? FormatDuration(avg) : "—")</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted text-sm">Terminées / Échouées / Annulées</div>
+                <div class="h4 mb-0">@indicators.CompletedCount / @indicators.FailedCount / @indicators.CancelledCount</div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-muted text-sm">Total</div>
+                <div class="h4 mb-0">@indicators.TotalOperations</div>
+            </div>
+        </div>
+
+        @if (indicators.SlowestSteps.Count > 0)
+        {
+            <h3 class="h6 mt-3">Étapes les plus lentes</h3>
+            <ul class="mb-0">
+                @foreach (var step in indicators.SlowestSteps)
+                {
+                    <li>@step.StepName (@(step.ComponentName ?? "—")) — @FormatDuration(step.DurationSeconds)</li>
+                }
+            </ul>
+        }
+
+        @if (indicators.RecurringErrors.Count > 0)
+        {
+            <h3 class="h6 mt-3">Erreurs récurrentes</h3>
+            <ul class="mb-0">
+                @foreach (var error in indicators.RecurringErrors)
+                {
+                    <li>@error.StepName — "@error.Message" (@error.Occurrences occurrence(s))</li>
+                }
+            </ul>
+        }
+    </div>
+}
+
 @if (runs is null)
 {
     <p><em>Chargement...</em></p>
@@ -49,9 +96,14 @@ else
 
 @code {
     private IReadOnlyList<OperationRunSummaryDto>? runs;
+    private OperationIndicatorsDto? indicators;
 
     protected override async Task OnInitializedAsync()
     {
         runs = await Mediator.Send(new ListAllOperationRunsQuery());
+        indicators = await Mediator.Send(new GetOperationIndicatorsQuery(null));
     }
+
+    private static string FormatDuration(double seconds) =>
+        seconds < 60 ? $"{seconds:0} s" : $"{TimeSpan.FromSeconds(seconds):mm\\:ss}";
 }

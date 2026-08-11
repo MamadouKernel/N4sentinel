@@ -13,4 +13,13 @@ public enum OperationRunStatus
     Running,
     Completed,
     Failed,
+
+    /// <summary>Annulée par un opérateur habilité avant d'atteindre un état terminal (FR-025).</summary>
+    Cancelled,
+
+    /// <summary>
+    /// L'état réel constaté avant une reprise diverge de l'état mémorisé par le workflow (FR-024) : la reprise
+    /// est suspendue tant qu'un opérateur habilité n'a pas examiné l'écart.
+    /// </summary>
+    ReconciliationRequired,
 }

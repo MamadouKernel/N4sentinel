@@ -5,12 +5,17 @@
 
 <PageTitle>Comptes - N4 Sentinel</PageTitle>
 
-<h1>Gestion des comptes</h1>
-<p class="text-muted">
-    Attribution des rôles et verrouillage de compte (E11.1). Un Administrateur ne peut ni retirer son propre
-    rôle Administrateur, ni verrouiller son propre compte, pour éviter un auto-blocage. Toute
-    attribution/révocation de rôle est journalisée dans le journal d'audit (E11.3).
-</p>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Gestion des comptes</h1>
+        <p class="text-muted">
+            Attribution des rôles et verrouillage de compte (E11.1). Un Administrateur ne peut ni modifier son
+            propre rôle, ni verrouiller son propre compte, pour éviter un auto-blocage. Toute
+            attribution/révocation de rôle est journalisée dans le journal d'audit (E11.3).
+        </p>
+    </div>
+    <a href="admin/users/new" class="btn btn-primary">Nouveau compte</a>
+</div>
 
 @if (!string.IsNullOrEmpty(errorMessage))
 {
@@ -49,7 +54,7 @@ else
                         @foreach (var role in Roles.All)
                         {
                             var isInRole = row.Roles.Contains(role);
-                            var disableToggle = isSelf && role == Roles.Administrateur && isInRole;
+                            var disableToggle = isSelf;
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="@(row.UserId + "-" + role)"
                                        checked="@isInRole" disabled="@disableToggle"

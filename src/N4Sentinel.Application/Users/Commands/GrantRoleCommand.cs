@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using N4Sentinel.Application.Abstractions;
 using N4Sentinel.Application.Common;
+using N4Sentinel.Domain.Exceptions;
 
 namespace N4Sentinel.Application.Users.Commands;
 
@@ -24,6 +25,13 @@ public sealed class GrantRoleCommandValidator : AbstractValidator<GrantRoleComma
 
 public sealed class GrantRoleCommandHandler(IUserRoleService userRoles) : IRequestHandler<GrantRoleCommand>
 {
-    public Task Handle(GrantRoleCommand request, CancellationToken cancellationToken) =>
-        userRoles.GrantRoleAsync(request.UserId, request.Role, cancellationToken);
+    public Task Handle(GrantRoleCommand request, CancellationToken cancellationToken)
+    {
+        if (string.Equals(request.UserId, request.GrantedByUserId, StringComparison.Ordinal))
+        {
+            throw new DomainRuleException("Vous ne pouvez pas modifier votre propre rôle.");
+        }
+
+        return userRoles.GrantRoleAsync(request.UserId, request.Role, cancellationToken);
+    }
 }
