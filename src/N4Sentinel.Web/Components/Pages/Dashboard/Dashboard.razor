@@ -173,6 +173,43 @@ else
         </div>
     }
 
+    @if (summary.ReconciliationRequiredAlert.Count > 0)
+    {
+        <div class="mb-8 overflow-hidden rounded-xl border border-amber-200 bg-white shadow-sm">
+            <div class="flex items-center gap-2 border-b border-amber-100 bg-amber-50 px-5 py-3 text-amber-900">
+                <span class="pulse-warning"></span>
+                <h2 class="text-base font-semibold">Alertes — réconciliation requise (FR-024)</h2>
+            </div>
+            <p class="px-5 py-2 text-sm text-slate-600">
+                L'état réel constaté avant une reprise divergeait de l'état mémorisé par le workflow : ces
+                opérations attendent qu'un opérateur habilité examine l'écart avant de continuer.
+            </p>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Environnement</th>
+                            <th>Demandeur</th>
+                            <th>Demandée le</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var run in summary.ReconciliationRequiredAlert)
+                        {
+                            <tr class="bg-amber-50/40 hover:bg-amber-50/70">
+                                <td class="font-medium text-slate-900">@run.EnvironmentName</td>
+                                <td class="text-slate-700">@run.RequestedByUserId</td>
+                                <td class="text-slate-600">@run.RequestedAtUtc.ToLocalTime().ToString("g")</td>
+                                <td><a class="btn btn-sm btn-outline-warning" href="environments/@run.EnvironmentId/operations/@run.Id">Détail</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
     @if (summary.SupervisionAlerts.Count > 0)
     {
         <div class="mb-8 overflow-hidden rounded-xl border border-amber-200 bg-white shadow-sm">

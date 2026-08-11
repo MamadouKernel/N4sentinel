@@ -20,7 +20,10 @@ public sealed class GetDashboardSummaryQueryHandler(
     IEdiFileRepository ediFiles) : IRequestHandler<GetDashboardSummaryQuery, DashboardDto>
 {
     private static readonly OperationRunStatus[] ActiveStatuses =
-        [OperationRunStatus.PendingApproval, OperationRunStatus.Approved, OperationRunStatus.Running];
+    [
+        OperationRunStatus.PendingApproval, OperationRunStatus.Approved, OperationRunStatus.Running,
+        OperationRunStatus.ReconciliationRequired,
+    ];
 
     public async Task<DashboardDto> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
     {
@@ -52,6 +55,14 @@ public sealed class GetDashboardSummaryQueryHandler(
             .Select(r => ToSummary(r, environmentNames))
             .ToList();
 
+        // FR-054/FR-024 : une réconciliation requise est une incohérence d'état constatée — l'un des
+        // déclencheurs d'alerte explicitement listés par le cahier des charges.
+        var reconciliationRequiredOperations = allRuns
+            .Where(r => r.Status == OperationRunStatus.ReconciliationRequired)
+            .OrderByDescending(r => r.RequestedAtUtc)
+            .Select(r => ToSummary(r, environmentNames))
+            .ToList();
+
         var supervisionAlerts = allSharedFolders
             .Where(f => f.HasAnomaly)
             .Select(f => new SupervisionAlertDto(
@@ -70,8 +81,8 @@ public sealed class GetDashboardSummaryQueryHandler(
             .ToList();
 
         return new DashboardDto(
-            environmentSummaries, activeOperations, failedOperations, supervisionAlerts,
-            allRuns.Count(r => r.Status == OperationRunStatus.PendingApproval));
+            environmentSummaries, activeOperations, failedOperations, reconciliationRequiredOperations,
+            supervisionAlerts, allRuns.Count(r => r.Status == OperationRunStatus.PendingApproval));
     }
 
     private static OperationRunSummaryDto ToSummary(OperationRun run, IReadOnlyDictionary<Guid, string> environmentNames) =>

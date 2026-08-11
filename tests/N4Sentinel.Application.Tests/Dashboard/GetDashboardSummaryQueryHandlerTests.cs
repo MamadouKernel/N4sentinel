@@ -47,6 +47,14 @@ public class GetDashboardSummaryQueryHandlerTests
                 run.RecordStepFailed(stepId, "Erreur");
                 run.Fail();
                 break;
+            case OperationRunStatus.ReconciliationRequired:
+                run.StartExecution();
+                var reconciliationStepId = run.StepExecutions[0].StepId;
+                run.RecordStepStarted(reconciliationStepId);
+                run.RecordStepFailed(reconciliationStepId, "Erreur");
+                run.Fail();
+                run.FlagReconciliationRequired("Écart constaté");
+                break;
         }
 
         return run;
@@ -71,6 +79,23 @@ public class GetDashboardSummaryQueryHandlerTests
         result.FailedOperationsAlert.Should().ContainSingle().Which.Id.Should().Be(failed.Id);
         result.PendingApprovalsCount.Should().Be(1);
         result.Environments.Should().ContainSingle().Which.ActiveOperationsCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Handle_ReconciliationRequiredRun_CountsAsActiveAndSurfacesAlert()
+    {
+        var environment = new N4Environment("Production", "PROD", EnvironmentKind.Production, null);
+        environments.ListAllAsync(Arg.Any<CancellationToken>()).Returns([environment]);
+
+        var reconciliation = CreateRunWithStatus(environment.Id, OperationRunStatus.ReconciliationRequired);
+        operationRuns.ListAllAsync(Arg.Any<CancellationToken>()).Returns([reconciliation]);
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(new GetDashboardSummaryQuery(), CancellationToken.None);
+
+        result.ActiveOperations.Should().ContainSingle().Which.Id.Should().Be(reconciliation.Id);
+        result.ReconciliationRequiredAlert.Should().ContainSingle().Which.Id.Should().Be(reconciliation.Id);
+        result.FailedOperationsAlert.Should().BeEmpty();
     }
 
     [Fact]

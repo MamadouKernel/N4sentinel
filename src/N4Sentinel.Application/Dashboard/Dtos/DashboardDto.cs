@@ -23,5 +23,6 @@ public sealed record DashboardDto(
     IReadOnlyList<DashboardEnvironmentSummaryDto> Environments,
     IReadOnlyList<OperationRunSummaryDto> ActiveOperations,
     IReadOnlyList<OperationRunSummaryDto> FailedOperationsAlert,
+    IReadOnlyList<OperationRunSummaryDto> ReconciliationRequiredAlert,
     IReadOnlyList<SupervisionAlertDto> SupervisionAlerts,
     int PendingApprovalsCount);
