@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 using N4Sentinel.Domain.Exceptions;
+using N4Sentinel.Domain.Services;
 
 namespace N4Sentinel.Domain.Entities;
 
@@ -40,22 +40,6 @@ public class ImportedLogFile
         ("initializing", "Démarrage incomplet"),
     ];
 
-    private static readonly Regex SecretPattern = new(
-        @"(password|pwd|token|secret|apikey|api_key|access_key|private_key)\s*[=:]\s*\S+",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex BearerPattern = new(
-        @"(Authorization\s*:\s*)?Bearer\s+[A-Za-z0-9\-._~+/]+=*",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    private static readonly Regex JwtPattern = new(
-        @"\beyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*\b",
-        RegexOptions.Compiled);
-
-    private static readonly Regex PemKeyPattern = new(
-        @"-----BEGIN[ A-Z0-9_-]+PRIVATE KEY-----[^-]*-----END[ A-Z0-9_-]+PRIVATE KEY-----",
-        RegexOptions.Singleline | RegexOptions.Compiled);
-
     private ImportedLogFile()
     {
         FileName = string.Empty;
@@ -80,7 +64,7 @@ public class ImportedLogFile
         FileName = fileName.Trim();
         Source = source?.Trim();
         CorrelationReference = correlationReference?.Trim();
-        Content = RedactSecrets(content);
+        Content = SecretRedactor.Redact(content);
         ContentHash = ComputeHash(Content);
         RetentionDays = retentionDays;
         AnalysisStatus = LogFileAnalysisStatus.Pending;
@@ -146,14 +130,6 @@ public class ImportedLogFile
 
         AnalysisStatus = LogFileAnalysisStatus.Analyzed;
         AnalyzedAtUtc = DateTime.UtcNow;
-    }
-
-    private static string RedactSecrets(string content)
-    {
-        var redacted = SecretPattern.Replace(content, m => $"{m.Groups[1].Value}=***REDACTED***");
-        redacted = BearerPattern.Replace(redacted, "Bearer ***REDACTED***");
-        redacted = PemKeyPattern.Replace(redacted, "-----BEGIN PRIVATE KEY-----\n***REDACTED PRIVATE KEY***\n-----END PRIVATE KEY-----");
-        return JwtPattern.Replace(redacted, "***REDACTED_JWT***");
     }
 
     private static string ComputeHash(string content) =>

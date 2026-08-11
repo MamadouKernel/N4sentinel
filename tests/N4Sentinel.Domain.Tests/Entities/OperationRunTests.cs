@@ -119,6 +119,20 @@ public class OperationRunTests
     }
 
     [Fact]
+    public void RecordStepFailed_RedactsSecretsInMessage_BeforeStoring()
+    {
+        var run = CreateNonProductionRun();
+        run.StartExecution();
+        var stepId = run.StepExecutions[0].StepId;
+        run.RecordStepStarted(stepId);
+
+        run.RecordStepFailed(stepId, "Connexion refusée : password=Sup3rSecret!");
+
+        run.StepExecutions[0].ResultMessage.Should().NotContain("Sup3rSecret!");
+        run.StepExecutions[0].ResultMessage.Should().Contain("***REDACTED***");
+    }
+
+    [Fact]
     public void StartExecution_WhenNotApproved_Throws()
     {
         var run = CreateProductionRun();
@@ -286,6 +300,18 @@ public class OperationRunTests
 
         run.StepExecutions[0].Status.Should().Be(OperationStepExecutionStatus.Overridden);
         run.StepExecutions[0].OverrideApprovedByUserId.Should().Be("approbateur@n4sentinel.local");
+    }
+
+    [Fact]
+    public void OverrideFailedStep_RedactsSecretsInReasonAndAcceptedRisk()
+    {
+        var run = CreateFailedNonProductionRun();
+
+        run.OverrideFailedStep(
+            true, "Vu le log : token=abc123XYZ", "Accepté malgré secret=hunter2", "operateur@n4sentinel.local", null);
+
+        run.StepExecutions[0].OverrideReason.Should().NotContain("abc123XYZ").And.Contain("***REDACTED***");
+        run.StepExecutions[0].OverrideAcceptedRisk.Should().NotContain("hunter2").And.Contain("***REDACTED***");
     }
 
     [Fact]

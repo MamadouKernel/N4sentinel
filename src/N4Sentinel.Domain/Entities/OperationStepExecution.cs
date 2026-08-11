@@ -1,4 +1,5 @@
 using N4Sentinel.Domain.Exceptions;
+using N4Sentinel.Domain.Services;
 
 namespace N4Sentinel.Domain.Entities;
 
@@ -85,11 +86,12 @@ public class OperationStepExecution
         StartedAtUtc = DateTime.UtcNow;
     }
 
+    /// <summary>Le message de résultat provient du connecteur (commande réelle une fois branché) : masqué avant stockage (FR-021).</summary>
     internal void MarkSucceeded(string? message)
     {
         EnsureStatus(OperationStepExecutionStatus.Running);
         Status = OperationStepExecutionStatus.Succeeded;
-        ResultMessage = message?.Trim();
+        ResultMessage = Redact(message);
         CompletedAtUtc = DateTime.UtcNow;
     }
 
@@ -97,7 +99,7 @@ public class OperationStepExecution
     {
         EnsureStatus(OperationStepExecutionStatus.Running);
         Status = OperationStepExecutionStatus.Failed;
-        ResultMessage = message?.Trim();
+        ResultMessage = Redact(message);
         CompletedAtUtc = DateTime.UtcNow;
     }
 
@@ -105,7 +107,7 @@ public class OperationStepExecution
     {
         EnsureStatus(OperationStepExecutionStatus.Pending);
         Status = OperationStepExecutionStatus.Skipped;
-        ResultMessage = reason?.Trim();
+        ResultMessage = Redact(reason);
         CompletedAtUtc = DateTime.UtcNow;
     }
 
@@ -114,12 +116,14 @@ public class OperationStepExecution
     {
         EnsureStatus(OperationStepExecutionStatus.Failed);
         Status = OperationStepExecutionStatus.Overridden;
-        OverrideReason = reason;
-        OverrideAcceptedRisk = acceptedRisk;
+        OverrideReason = Redact(reason)!;
+        OverrideAcceptedRisk = Redact(acceptedRisk)!;
         OverriddenByUserId = overriddenByUserId;
         OverrideApprovedByUserId = approvedByUserId;
         OverriddenAtUtc = DateTime.UtcNow;
     }
+
+    private static string? Redact(string? text) => text is null ? null : SecretRedactor.Redact(text.Trim());
 
     /// <summary>
     /// Écarte l'étape suite à une annulation d'opération (FR-025). Autorisée depuis Pending ou
