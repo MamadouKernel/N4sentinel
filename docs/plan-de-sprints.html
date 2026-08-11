@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>N4 Sentinel — Plan de sprints</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body, h1, h2, h3, h4, p, ul, ol, li, figure, table { margin: 0; padding: 0; }
+  ul, ol { list-style: none; }
+  table { border-collapse: collapse; }
+
+  :root {
+    --ground:#F4F6F8; --surface:#FFFFFF; --surface-2:#EDF1F4;
+    --ink:#0E1B2A; --ink-2:#43566C; --ink-3:#6B7E93;
+    --rule:#D6DEE6; --rule-2:#E7ECF1;
+    --accent:#0A6C74; --accent-soft:#E2F0F1;
+    --ok:#16704A; --ok-soft:#E1F0E8;
+    --warn:#9A5B0B; --warn-soft:#F8EEDD;
+    --crit:#A8261C; --crit-soft:#F9E6E4;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", "JetBrains Mono", Consolas, "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:#0A121C; --surface:#111D2A; --surface-2:#182634;
+      --ink:#E6ECF2; --ink-2:#A9BACB; --ink-3:#7C8EA1;
+      --rule:#23303F; --rule-2:#1B2836;
+      --accent:#45AEB6; --accent-soft:#0E2E31;
+      --ok:#55B98A; --ok-soft:#12291F;
+      --warn:#D69B47; --warn-soft:#2A2113;
+      --crit:#E1756B; --crit-soft:#2C1614;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0A121C; --surface:#111D2A; --surface-2:#182634;
+    --ink:#E6ECF2; --ink-2:#A9BACB; --ink-3:#7C8EA1;
+    --rule:#23303F; --rule-2:#1B2836; --accent:#45AEB6; --accent-soft:#0E2E31;
+    --ok:#55B98A; --ok-soft:#12291F; --warn:#D69B47; --warn-soft:#2A2113;
+    --crit:#E1756B; --crit-soft:#2C1614;
+  }
+  :root[data-theme="light"] {
+    --ground:#F4F6F8; --surface:#FFFFFF; --surface-2:#EDF1F4;
+    --ink:#0E1B2A; --ink-2:#43566C; --ink-3:#6B7E93;
+    --rule:#D6DEE6; --rule-2:#E7ECF1; --accent:#0A6C74; --accent-soft:#E2F0F1;
+    --ok:#16704A; --ok-soft:#E1F0E8; --warn:#9A5B0B; --warn-soft:#F8EEDD;
+    --crit:#A8261C; --crit-soft:#F9E6E4;
+  }
+
+  body {
+    background: var(--ground); color: var(--ink); font-family: var(--sans);
+    font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 64rem; margin: 0 auto; padding: 0 1.5rem 6rem; }
+
+  /* masthead */
+  header.top { padding: 4rem 0 2rem; border-bottom: 2px solid var(--ink); }
+  .eyebrow { font-family: var(--mono); font-size: .69rem; letter-spacing: .16em;
+             text-transform: uppercase; color: var(--accent); margin-bottom: 1.2rem; }
+  h1 { font-size: clamp(2rem, 5vw, 3rem); line-height: 1.04; font-weight: 700;
+       letter-spacing: -.03em; text-wrap: balance; margin-bottom: .8rem; }
+  .standfirst { font-size: 1.08rem; color: var(--ink-2); max-width: 42rem; }
+  .facts { display: flex; flex-wrap: wrap; gap: .4rem 2rem; margin-top: 1.8rem;
+           font-family: var(--mono); font-size: .74rem; color: var(--ink-3); }
+  .facts b { color: var(--ink-2); font-weight: 500; }
+
+  section { padding-top: 3.25rem; }
+  h2 { font-size: clamp(1.35rem, 3vw, 1.7rem); font-weight: 700; letter-spacing: -.022em;
+       line-height: 1.15; padding-bottom: .65rem; border-bottom: 1px solid var(--rule);
+       margin-bottom: 1.1rem; text-wrap: balance; }
+  .lede { color: var(--ink-2); margin-bottom: 1.5rem; max-width: 42rem; }
+  p { max-width: 42rem; }
+
+  /* overview table */
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px;
+            background: var(--surface); margin-bottom: 1.25rem; }
+  table { width: 100%; font-size: .875rem; min-width: 42rem; }
+  th, td { text-align: left; padding: .6rem .9rem; border-bottom: 1px solid var(--rule-2);
+           vertical-align: top; }
+  thead th { font-family: var(--mono); font-size: .67rem; letter-spacing: .1em;
+             text-transform: uppercase; color: var(--ink-3); font-weight: 500;
+             background: var(--surface-2); border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums;
+         color: var(--accent); font-weight: 600; white-space: nowrap; }
+  td.w { font-family: var(--mono); font-variant-numeric: tabular-nums;
+         color: var(--ink-3); white-space: nowrap; }
+  tr.lot-row td { background: var(--surface-2); font-family: var(--mono); font-size: .69rem;
+                  letter-spacing: .11em; text-transform: uppercase; color: var(--ink-2);
+                  font-weight: 600; }
+
+  /* lot heading */
+  .lot { margin-top: 2.75rem; }
+  .lot-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1rem;
+              padding-bottom: .55rem; border-bottom: 2px solid var(--ink); }
+  .lot-head h3 { font-size: 1.18rem; font-weight: 700; letter-spacing: -.017em; }
+  .lot-head .span { font-family: var(--mono); font-size: .73rem; color: var(--ink-3); margin-left: auto; }
+  .lot-goal { color: var(--ink-2); font-size: .95rem; margin: .9rem 0 1.35rem; max-width: 42rem; }
+
+  /* sprint card */
+  .sprint { background: var(--surface); border: 1px solid var(--rule); border-radius: 7px;
+            padding: 1.35rem 1.45rem 1.4rem; margin-bottom: 1rem; }
+  .sprint-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem .8rem;
+                 margin-bottom: .2rem; }
+  .sprint-head .id { font-family: var(--mono); font-size: .78rem; font-weight: 700;
+                     color: var(--accent); background: var(--accent-soft);
+                     padding: .18em .5em; border-radius: 3px; letter-spacing: .03em; }
+  .sprint-head h4 { font-size: 1.06rem; font-weight: 650; letter-spacing: -.013em; }
+  .sprint-head .wk { font-family: var(--mono); font-size: .71rem; color: var(--ink-3); margin-left: auto; }
+  .objectif { color: var(--ink-2); font-size: .95rem; margin: .65rem 0 1rem;
+              padding-left: .85rem; border-left: 2px solid var(--rule); max-width: none; }
+
+  .block { margin-top: .95rem; }
+  .block > .cap { font-family: var(--mono); font-size: .66rem; letter-spacing: .13em;
+                  text-transform: uppercase; color: var(--ink-3); display: block; margin-bottom: .45rem; }
+  .block ul { display: grid; gap: .3rem; }
+  .block li { position: relative; padding-left: 1rem; font-size: .925rem; line-height: 1.5; }
+  .block li::before { content: ""; position: absolute; left: 0; top: .62em;
+                      width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+  .block p { font-size: .925rem; color: var(--ink-2); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: .95rem 1.6rem; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } }
+
+  .frs { display: flex; flex-wrap: wrap; gap: .28rem; margin-top: .4rem; }
+  .fr { font-family: var(--mono); font-size: .67rem; color: var(--ink-3);
+        background: var(--surface-2); padding: .16em .45em; border-radius: 3px; white-space: nowrap; }
+  .fr.ac { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+
+  .dep { font-size: .875rem; color: var(--ink-2); }
+  .dep.blocked { color: var(--crit); }
+
+  .pill { display: inline-block; font-family: var(--mono); font-size: .65rem; font-weight: 700;
+          letter-spacing: .07em; text-transform: uppercase; padding: .17em .5em; border-radius: 3px; }
+  .pill.crit { background: var(--crit-soft); color: var(--crit); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.ok   { background: var(--ok-soft);   color: var(--ok); }
+
+  .note { background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--accent);
+          border-radius: 0 5px 5px 0; padding: 1.1rem 1.3rem; margin: 1.5rem 0; }
+  .note.alert { border-left-color: var(--crit); }
+  .note > .cap { font-family: var(--mono); font-size: .67rem; letter-spacing: .13em;
+                 text-transform: uppercase; color: var(--ink-3); display: block; margin-bottom: .45rem; }
+  .note p { font-size: .935rem; }
+
+  footer.end { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--rule);
+               font-size: .84rem; color: var(--ink-3); }
+  code { font-family: var(--mono); font-size: .86em; background: var(--surface-2);
+         padding: .1em .35em; border-radius: 3px; }
+  a { color: var(--accent); }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  @media print {
+    :root { --ground:#fff; --surface:#fff; --surface-2:#f2f4f6;
+            --ink:#000; --ink-2:#333; --ink-3:#666; --rule:#bbb; --rule-2:#ddd;
+            --accent:#0A6C74; --accent-soft:#eef5f5; }
+    body { font-size: 10.5pt; }
+    .wrap { max-width: none; padding: 0; }
+    .sprint, .note { break-inside: avoid; page-break-inside: avoid; }
+    .lot { break-before: page; page-break-before: always; }
+    header.top { padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="eyebrow">CIT-CIV-DSI-RFP-0010 · Plan de réalisation</div>
+  <h1>N4&nbsp;Sentinel — Plan de sprints</h1>
+  <p class="standfirst">
+    Les 25 itérations du projet, du socle technique à l'application mobile. Chaque sprint porte un
+    objectif unique, un livrable démontrable en revue, et les exigences du cahier des charges qu'il solde.
+  </p>
+  <div class="facts">
+    <span><b>Cadence</b> 2 semaines</span>
+    <span><b>Durée</b> 50 semaines ≈ 12 mois</span>
+    <span><b>Lots</b> 4</span>
+    <span><b>Exigences couvertes</b> 148 / 148</span>
+  </div>
+</header>
+
+<section>
+  <h2>Vue d'ensemble</h2>
+  <p class="lede">
+    Les semaines sont comptées à partir du démarrage effectif, qui reste à fixer. L'ordre suit la
+    recommandation du cahier des charges : livrer d'abord la valeur la moins risquée — lecture, référentiel,
+    supervision — et n'ouvrir le pilotage actif qu'une fois la preuve technique fiable.
+  </p>
+
+  <div class="scroll">
+    <table>
+      <thead>
+        <tr><th>Sprint</th><th>Objet</th><th>Semaines</th><th>Livrable démontrable en revue</th></tr>
+      </thead>
+      <tbody>
+        <tr class="lot-row"><td colspan="4">Lot 1 — V1 : pilotage, supervision, diagnostic</td></tr>
+        <tr><td class="n">S0</td><td>Cadrage, socle technique et accès</td><td class="w">1–2</td><td>Application vide mais déployée automatiquement ; dossier d'architecture validé</td></tr>
+        <tr><td class="n">S1</td><td>Identités, profils et journal d'audit</td><td class="w">3–4</td><td>Connexion avec MFA, 8 profils, tentative non autorisée tracée</td></tr>
+        <tr><td class="n">S2</td><td>Référentiel : environnements et composants</td><td class="w">5–6</td><td>Écosystème N4 de CIT saisi et validé, dépendances visualisées</td></tr>
+        <tr><td class="n">S3</td><td>Connecteurs et preuve technique</td><td class="w">7–8</td><td>État réel d'un vrai serveur N4 lu par cinq signaux croisés</td></tr>
+        <tr><td class="n">S4</td><td>Supervision et tableau de bord</td><td class="w">9–10</td><td>Cartographie temps réel d'un environnement complet</td></tr>
+        <tr><td class="n">S5</td><td>Moteur d'orchestration</td><td class="w">11–12</td><td>Exécution reprise après arrêt brutal du serveur applicatif</td></tr>
+        <tr><td class="n">S6</td><td>Préparation d'une opération et simulation</td><td class="w">13–14</td><td>Simulation d'un redémarrage complet, sans action réelle</td></tr>
+        <tr><td class="n">S7</td><td>Exécution réelle et arrêt complet</td><td class="w">15–16</td><td>Arrêt complet piloté d'un environnement UAT</td></tr>
+        <tr><td class="n">S8</td><td>Démarrage complet</td><td class="w">17–18</td><td>Démarrage complet piloté, blocage prouvé si Bridge absent</td></tr>
+        <tr><td class="n">S9</td><td>Opérations partielles et unitaires</td><td class="w">19–20</td><td>Redémarrage roulant sans interruption de service</td></tr>
+        <tr><td class="n">S10</td><td>Analyse des fichiers de logs</td><td class="w">21–22</td><td>Analyse d'un journal réel, secrets masqués</td></tr>
+        <tr><td class="n">S11</td><td>Moteur de diagnostic</td><td class="w">23–24</td><td>Diagnostic d'un incident réel, avec preuves et limites</td></tr>
+        <tr><td class="n">S12</td><td>Assistant, rapports et recette V1</td><td class="w">25–26</td><td>Recette AC-01 à AC-14 et décision de mise en production</td></tr>
+
+        <tr class="lot-row"><td colspan="4">Lot 2 — Capitalisation et couverture étendue</td></tr>
+        <tr><td class="n">S13</td><td>Dossiers partagés et ActiveMQ / KahaDB</td><td class="w">27–28</td><td>Suspicion de corruption détectée et qualifiée</td></tr>
+        <tr><td class="n">S14</td><td>Reconstitution sécurisée et mode guidé</td><td class="w">29–30</td><td>Reconstitution approuvée, sauvegarde vérifiée, tout tracé</td></tr>
+        <tr><td class="n">S15</td><td>Suivi des intégrations EDI</td><td class="w">31–32</td><td>Alerte sur fichier non consommé, cause probable affichée</td></tr>
+        <tr><td class="n">S16</td><td>Procédures opératoires standardisées</td><td class="w">33–34</td><td>SOP généré depuis une exécution réussie, puis validé</td></tr>
+        <tr><td class="n">S17</td><td>Indicateurs, notifications et recette Lot 2</td><td class="w">35–36</td><td>Recette AC-19 à AC-23 ; tableau d'indicateurs alimenté</td></tr>
+
+        <tr class="lot-row"><td colspan="4">Lot 3 — Automatisation de bout en bout (palier 2)</td></tr>
+        <tr><td class="n">S18</td><td>Instrumentation et fiabilisation</td><td class="w">37–38</td><td>Dossier de preuve chiffré par workflow</td></tr>
+        <tr><td class="n">S19</td><td>Exécution sans confirmation par étape</td><td class="w">39–40</td><td>Workflow validé exécuté de bout en bout en UAT</td></tr>
+        <tr><td class="n">S20</td><td>Garde-fous, retour arrière et recette</td><td class="w">41–42</td><td>Retour au semi-automatique en cours d'exécution</td></tr>
+
+        <tr class="lot-row"><td colspan="4">Lot 4 — Évolutions et extensions</td></tr>
+        <tr><td class="n">S21</td><td>Azure AD, SSO et ticketing</td><td class="w">43–44</td><td>Connexion par l'annuaire CIT ; incident créé depuis l'outil</td></tr>
+        <tr><td class="n">S22</td><td>Supervision JMX temps réel</td><td class="w">45–46</td><td>Files et JVM en direct sur le tableau de bord</td></tr>
+        <tr><td class="n">S23</td><td>Mobile — consultation et alertes</td><td class="w">47–48</td><td>Suivi d'une opération en cours depuis un téléphone</td></tr>
+        <tr><td class="n">S24</td><td>Approbation mobile et transfert de compétences</td><td class="w">49–50</td><td>Approbation d'une opération critique depuis mobile</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note alert">
+    <span class="cap">Deux conditions préalables au plan</span>
+    <p>
+      Les accès techniques aux serveurs N4 doivent être ouverts avant le Sprint 3, et un environnement UAT
+      représentatif disponible avant le Sprint 7. Sans eux, le Lot 1 n'est pas livrable : le cahier des
+      charges exige l'exécution réelle des commandes en V1, pas une simulation.
+    </p>
+  </div>
+</section>
+
+<section>
+  <h2>Détail des sprints</h2>
+
+  <!-- ============ LOT 1 ============ -->
+  <div class="lot">
+    <div class="lot-head">
+      <h3>Lot 1 — V1 : pilotage, supervision, diagnostic</h3>
+      <span class="span">S0 → S12 · semaines 1 à 26</span>
+    </div>
+    <p class="lot-goal">
+      Le cœur fonctionnel. À l'issue du lot, N4 Sentinel pilote réellement l'écosystème N4 en mode
+      semi-automatique, avec pré-checks, approbations et traçabilité complète.
+    </p>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S0</span><h4>Cadrage, socle technique et accès</h4><span class="wk">Semaines 1–2</span></div>
+      <p class="objectif">Poser une application déployable et une architecture validée, et lancer les demandes qui conditionnent tout le reste.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Dossier d'architecture fonctionnelle et technique, soumis à la DSI</li>
+          <li>Squelette applicatif en couches : interface, domaine, orchestrateur, connecteurs, diagnostic, connaissance, données</li>
+          <li>Modèle de données couvrant les 15 entités du §3.18</li>
+          <li>Intégration continue : build, tests, déploiement automatisés</li>
+          <li>Chiffrement des communications et des données sensibles au repos</li>
+        </ul></div>
+        <div class="block"><span class="cap">Hors code, même sprint</span><ul>
+          <li>Atelier de validation des séquences réelles avec l'équipe Infrastructure</li>
+          <li>Recensement du périmètre exact : nombre de Cluster Nodes, présence d'ECN4, Billing, Bento</li>
+          <li>Demande formelle des accès techniques, avec date d'engagement</li>
+          <li>Arbitrage ActiveMQ ou Kafka</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">§3.15</span><span class="fr">§3.18</span><span class="fr">SEC-005</span><span class="fr">NFR-006</span><span class="fr">NFR-007</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">Aucune. Ce sprint peut démarrer immédiatement.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S1</span><h4>Identités, profils et journal d'audit</h4><span class="wk">Semaines 3–4</span></div>
+      <p class="objectif">Rendre impossible toute action non authentifiée, non autorisée ou non tracée — avant même qu'une action existe.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Authentification applicative avec double facteur par e-mail</li>
+          <li>Les 8 profils du §2.3.2, du Lecteur à l'Auditeur</li>
+          <li>Droits séparés : lecture, diagnostic, exécution, approbation, administration</li>
+          <li>Droits différenciés par environnement, UAT distinct de Production</li>
+          <li>Journal d'audit horodaté, non modifiable par les opérateurs</li>
+          <li>Traçage des échecs d'autorisation, pas seulement des succès</li>
+        </ul></div>
+        <div class="block"><span class="cap">Règles de séparation</span><ul>
+          <li>Lancement et approbation d'une opération critique par deux personnes distinctes</li>
+          <li>Un Administrateur N4 ne peut pas approuver seul son propre contournement</li>
+          <li>Toute attribution ou révocation de rôle est elle-même auditée</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">SEC-001</span><span class="fr">SEC-002</span><span class="fr">SEC-004</span><span class="fr">SEC-008</span><span class="fr">FR-091</span><span class="fr">FR-092</span><span class="fr ac">AC-07</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S0 — socle applicatif.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S2</span><h4>Référentiel : environnements et composants</h4><span class="wk">Semaines 5–6</span></div>
+      <p class="objectif">Décrire l'écosystème N4 de CIT dans l'application, pour qu'aucune action ne puisse viser un composant inconnu.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Environnements Production, UAT et techniques ; Production identifiée en permanence</li>
+          <li>Inventaire des composants avec leurs 11 attributs : rôle, hôte, adresses, service, dépendances, contrôles, criticité, responsable, caractère pilotable</li>
+          <li>Typage N4 : Cluster Node, Center, Standby, Bridge daemon, XPS, ECN4, ECN4Web, base, ActiveMQ, dossier partagé, composant conditionnel, système dépendant</li>
+          <li>Graphe de dépendances et distinction pilotable / supervisé / non supervisé</li>
+          <li>Cycle Brouillon → À valider → Validé → Actif → Désactivé</li>
+        </ul></div>
+        <div class="block"><span class="cap">Point d'attention</span>
+          <p>Le typage des composants est la clé de tout le séquencement : sans lui, aucune règle d'ordre n'est
+             calculable et FR-044 ne peut pas être appliqué. C'est aussi ici que le Bridge daemon, absent de
+             la maquette, entre dans le modèle.</p></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-001</span><span class="fr">FR-002</span><span class="fr">FR-006</span><span class="fr">§2.4</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S1 pour les droits d'administration ; atelier Infrastructure du S0 pour le périmètre réel.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S3</span><h4>Connecteurs et preuve technique</h4><span class="wk">Semaines 7–8</span> <span class="pill crit">Sprint le plus risqué</span></div>
+      <p class="objectif">Établir l'état réel d'un composant à partir de plusieurs signaux — et savoir dire « je ne sais pas » quand ils manquent.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Connecteurs</span><ul>
+          <li>Services Windows et commandes approuvées, sans console libre</li>
+          <li>SQL Server en lecture seule : disponibilité, sessions, verrous, requêtes lentes</li>
+          <li>HTTP et TCP : ports, endpoints, latences</li>
+          <li>Fichiers et dossiers partagés en chemin UNC</li>
+          <li>Lecture des Cluster Services N4 et de leurs 8 statuts</li>
+        </ul></div>
+        <div class="block"><span class="cap">Règles</span><ul>
+          <li>Secrets en coffre, jamais affichés, journalisés ni intégrés au code</li>
+          <li>Collecte en lecture seule chaque fois que possible</li>
+          <li>Test de configuration sans aucune action mutative</li>
+          <li>Un service <code>Running</code> ne suffit pas : état <em>Inconnu</em> ou <em>À confirmer</em> si les signaux manquent ou se contredisent</li>
+          <li>L'absence d'un signal n'est jamais interprétée comme une absence d'anomalie</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-007</span><span class="fr">FR-016</span><span class="fr">SEC-003</span><span class="fr">SEC-006</span><span class="fr">§3.10.2</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep blocked">Bloqué sans les accès techniques CIT : comptes de service, ouvertures réseau, lecture SQL, accès UNC.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S4</span><h4>Supervision et tableau de bord</h4><span class="wk">Semaines 9–10</span></div>
+      <p class="objectif">Donner à la DSI une vue temps réel exploitable de l'état de chaque environnement.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Cartographie dynamique des composants, rôles et dépendances</li>
+          <li>Vue détaillée : service, processus, CPU, mémoire, disque, port, heartbeat, log récent, files</li>
+          <li>8 états consolidés, de Disponible à Non supervisé</li>
+          <li>Rafraîchissement automatique et à la demande, date de dernière donnée toujours visible</li>
+          <li>Alertes sur timeout, échec, incohérence d'état, file qui croît, heartbeat ancien, ressource critique</li>
+          <li>Nouveaux nœuds détectés : signalés à valider, aucune action autorisée avant confirmation</li>
+        </ul></div>
+        <div class="block"><span class="cap">Trois vues transverses</span><ul>
+          <li>Synchronisation N4-XPS : état, retards de messages, incohérences, date du dernier échange normal</li>
+          <li>Réseau et base : disponibilité, latence, requêtes lentes ou bloquées</li>
+          <li>Lenteurs vues par N4 : nœud lent, initialisation anormale, traitement dégradé</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-050</span><span class="fr">FR-051</span><span class="fr">FR-052</span><span class="fr">FR-053</span><span class="fr">FR-054</span><span class="fr">FR-055</span><span class="fr">FR-056</span><span class="fr">FR-057</span><span class="fr">FR-058</span><span class="fr">NFR-003</span><span class="fr">NFR-004</span><span class="fr">NFR-009</span><span class="fr ac">AC-15</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S3 — sans connecteurs, le tableau de bord n'affiche rien de réel.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S5</span><h4>Moteur d'orchestration</h4><span class="wk">Semaines 11–12</span></div>
+      <p class="objectif">Un moteur d'exécution persistant, qui survit à sa propre panne sans rejouer aveuglément une action déjà faite.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Workflows configurables et versionnés, sans modification du code source</li>
+          <li>Seuils par étape : durée normale, avertissement, timeout, tentatives, politique d'échec</li>
+          <li>Machine à états persistante, reprenable après perte du serveur applicatif</li>
+          <li>Vue pas-à-pas : 10 états d'étape, 10 états de workflow</li>
+          <li>Pause au prochain point sûr, reprise, nouvelle tentative, annulation sûre</li>
+          <li>Verrou : une seule opération mutative à la fois par environnement</li>
+        </ul></div>
+        <div class="block"><span class="cap">Règles dures</span><ul>
+          <li>Avant toute reprise, l'état réel est recollecté et comparé à l'état mémorisé</li>
+          <li>En cas de divergence, le workflow passe en <em>Réconciliation requise</em></li>
+          <li>Une annulation n'interrompt jamais brutalement une commande engagée</li>
+          <li>Exécution parallèle réservée aux étapes déclarées indépendantes ; Cluster, Center, Bridge et XPS restent séquentiels</li>
+          <li>Nouvelles tentatives automatiques interdites sur action critique ou destructrice</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-003</span><span class="fr">FR-004</span><span class="fr">FR-015</span><span class="fr">FR-020</span><span class="fr">FR-022</span><span class="fr">FR-023</span><span class="fr">FR-024</span><span class="fr">FR-025</span><span class="fr">NFR-002</span><span class="fr ac">AC-06</span><span class="fr ac">AC-12</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S2 pour le référentiel, S3 pour la recollecte d'état à la reprise.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S6</span><h4>Préparation d'une opération et mode simulation</h4><span class="wk">Semaines 13–14</span></div>
+      <p class="objectif">Tout ce qui précède la première commande réelle : simuler, contrôler, justifier, faire approuver.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Mode simulation : composants, étapes, dépendances, contrôles, approbations, risques et prérequis non satisfaits — sans aucune commande</li>
+          <li>Sélection d'un scénario compatible avec les habilitations, parmi les seuls scénarios validés et actifs</li>
+          <li>Motif, fenêtre d'intervention, périmètre, impact et référence d'incident obligatoires en Production</li>
+          <li>Pré-check automatique avec 5 statuts : Satisfait, Avertissement, Bloquant, Non applicable, Impossible à vérifier</li>
+          <li>Circuit d'approbation configurable, simple ou double, avec approbateurs distincts</li>
+          <li>Écran d'avertissement final et confirmation explicite</li>
+        </ul></div>
+        <div class="block"><span class="cap">Point d'attention</span>
+          <p>La simulation est obligatoire dès la V1 et sert de base à la recette des workflows. Son résultat
+             est conservé et rattaché à la demande d'opération : c'est une pièce du dossier, pas un aperçu
+             jetable.</p></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-005</span><span class="fr">FR-010</span><span class="fr">FR-011</span><span class="fr">FR-012</span><span class="fr">FR-013</span><span class="fr">FR-014</span><span class="fr ac">AC-01</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S5 pour les workflows, S1 pour les circuits d'approbation.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S7</span><h4>Exécution réelle et scénario d'arrêt complet</h4><span class="wk">Semaines 15–16</span> <span class="pill warn">Première action réelle</span></div>
+      <p class="objectif">Arrêter réellement un écosystème N4 complet en UAT, dans l'ordre de l'éditeur, sans rien casser.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Séquence d'arrêt implémentée</span><ul>
+          <li>Postes clients ECN4Web et Billing, puis clients XPS</li>
+          <li>ECN4Web, ECN4, XPS, Bridge daemon</li>
+          <li>Standby Center Node — statut INITIALIZING, arrêt par gestionnaire de tâches</li>
+          <li>Cluster Nodes un par un — sinon timeout Hazelcast de 10 minutes</li>
+          <li>Center Node en dernier</li>
+        </ul></div>
+        <div class="block"><span class="cap">Comportements attendus</span><ul>
+          <li>Composants déjà arrêtés ignorés proprement, ordre recalculé sans rompre les dépendances</li>
+          <li>Service bloqué en <em>Stopping</em> : preuves collectées, arrêt forcé proposé seulement après délai, confirmation et contrôle d'autorisation — jamais automatique</li>
+          <li>Suivi temps réel par étape, avec masquage des informations sensibles</li>
+          <li>Intervention manuelle avec preuve obligatoire quand le workflow l'exige</li>
+          <li>Contournement : rôle habilité, motif, risque accepté, approbation en Production</li>
+          <li>Volet d'aide à la décision quand une étape ralentit ou bloque</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-021</span><span class="fr">FR-026</span><span class="fr">FR-027</span><span class="fr">FR-029</span><span class="fr">FR-029A</span><span class="fr">FR-029B</span><span class="fr ac">AC-05</span><span class="fr ac">AC-13</span><span class="fr ac">AC-17</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep blocked">Environnement UAT représentatif indispensable.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S8</span><h4>Scénario de démarrage complet</h4><span class="wk">Semaines 17–18</span></div>
+      <p class="objectif">Redémarrer l'écosystème, avec les verrous qui empêchent les erreurs de séquence les plus coûteuses.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Séquence de démarrage implémentée</span><ul>
+          <li>Contrôles infrastructure, base, réseau, dossier partagé</li>
+          <li>Cluster Nodes un par un, chacun ACTIVE et pleinement initialisé avant le suivant</li>
+          <li>Center Node, puis Standby</li>
+          <li>Bridge daemon, attendu ACTIVE dans Cluster Services</li>
+          <li>XPS, puis ECN4 et ECN4Web</li>
+          <li>Composants conditionnels, puis tests de bout en bout</li>
+        </ul></div>
+        <div class="block"><span class="cap">Verrous</span><ul>
+          <li>XPS bloqué tant que le Bridge n'est pas confirmé opérationnel</li>
+          <li>Distinction entre un service Center démarré et l'instance qui détient le rôle actif</li>
+          <li>Détection du conflit où deux Center seraient actifs</li>
+          <li>Interdiction de créer ou supprimer des jobs pendant le démarrage des nœuds</li>
+          <li>Démarrage complet impossible si un composant reste actif : la solution le liste et propose son arrêt dans le bon ordre</li>
+          <li>Succès global conditionné à un test métier ou de synchronisation</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-030</span><span class="fr">FR-031</span><span class="fr">FR-032</span><span class="fr">FR-033</span><span class="fr">FR-034</span><span class="fr">FR-035</span><span class="fr">FR-036</span><span class="fr">FR-037</span><span class="fr ac">AC-02</span><span class="fr ac">AC-03</span><span class="fr ac">AC-04</span><span class="fr ac">AC-16</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S7 — l'arrêt doit fonctionner avant de pouvoir démontrer un démarrage complet.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S9</span><h4>Opérations partielles et unitaires</h4><span class="wk">Semaines 19–20</span></div>
+      <p class="objectif">Agir sur un composant ou un groupe sans arrêter tout l'écosystème — le cas d'usage le plus fréquent en exploitation.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Catalogue d'actions autorisées par composant : consulter, tester, démarrer, arrêter, redémarrer, collecter les logs</li>
+          <li>Analyse d'impact avant action : composants dépendants, risque, contrôles nécessaires</li>
+          <li>Redémarrage roulant des Cluster Nodes avec maintien d'un nombre minimal de nœuds disponibles</li>
+          <li>Groupes techniques : Bridge + XPS, ECN4 + ECN4Web, Center / Standby</li>
+          <li>Workflow spécifique par rôle — une action sur XPS n'est pas un redémarrage Windows générique</li>
+        </ul></div>
+        <div class="block"><span class="cap">Continuité du Center</span><ul>
+          <li>Avant action sur le Center primaire, demander si le rôle actif doit y rester</li>
+          <li>Si oui : vérifier puis arrêter le Standby avant le primaire, attendre le retour actif, remettre le Standby en service</li>
+          <li>Si bascule acceptée : vérifier l'aptitude du Standby, afficher en permanence l'instance active, empêcher deux Center actifs</li>
+          <li>Séquences invalides refusées : XPS avant Bridge, Center avant les Cluster Nodes</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-040</span><span class="fr">FR-041</span><span class="fr">FR-042</span><span class="fr">FR-043</span><span class="fr">FR-044</span><span class="fr">FR-045</span><span class="fr">FR-046</span><span class="fr">FR-047</span><span class="fr ac">AC-18</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S8 — les règles de séquencement doivent exister avant de pouvoir les faire respecter à l'unité.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S10</span><h4>Analyse des fichiers de logs</h4><span class="wk">Semaines 21–22</span></div>
+      <p class="objectif">Transformer un journal N4 brut en constat exploitable, sans jamais exposer de secret.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Import contrôlé en taille, type et sécurité ; collecte du dernier journal sans téléchargement manuel</li>
+          <li>Identification automatique du composant, serveur, type de log, période, version, fuseau</li>
+          <li>Parsing de <code>navis-apex.log</code> et des journaux Bridge, XPS, ECN4</li>
+          <li>Résumé : période couverte, volumes par niveau, premières occurrences, répétitions, évolution</li>
+          <li>Contexte affiché autour de chaque occurrence, erreurs identiques regroupées sans perdre les dates extrêmes</li>
+          <li>Recherche par période, niveau, composant, code, texte, identifiant de corrélation</li>
+        </ul></div>
+        <div class="block"><span class="cap">Signatures et verdict</span><ul>
+          <li>Motifs connus : erreurs base, timeouts réseau, connexions Bridge-Center, slow consumers, files, deadlocks, KahaDB, mémoire, disque, cache Hazelcast, démarrage incomplet</li>
+          <li>Verdict nuancé : Aucune anomalie détectée, Avertissements, Anomalies critiques, Analyse incomplète — jamais un simple OK / NOK</li>
+          <li>Masquage des mots de passe, chaînes de connexion, jetons et données personnelles avant indexation et export</li>
+          <li>Rétention et droits de consultation configurables</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-070</span><span class="fr">FR-071</span><span class="fr">FR-072</span><span class="fr">FR-073</span><span class="fr">FR-074</span><span class="fr">FR-075</span><span class="fr">FR-076</span><span class="fr">FR-077</span><span class="fr">FR-078</span><span class="fr">FR-079A</span><span class="fr">FR-079B</span><span class="fr">SEC-007</span><span class="fr ac">AC-09</span><span class="fr ac">AC-11</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S3 pour l'accès aux fichiers ; peut se paralléliser avec S9 si l'équipe le permet.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S11</span><h4>Moteur de diagnostic</h4><span class="wk">Semaines 23–24</span></div>
+      <p class="objectif">Expliquer un incident avec ses preuves, ses contre-preuves et ses limites — sans jamais présenter une hypothèse comme certaine.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Règles administrables et versionnées : signature, domaine, conditions, sources, sévérité, calcul de confiance, statut de validation</li>
+          <li>Amorçage du catalogue depuis les ~180 fiches de dépannage du guide 3.8.25</li>
+          <li>Diagnostic déclenché depuis un symptôme, un composant, une alerte, un incident, une période ou un message d'erreur</li>
+          <li>Corrélation temporelle multi-serveurs, avec décalage d'horloge rendu visible</li>
+          <li>Hypothèses classées sur 12 domaines, du réseau à la configuration</li>
+          <li>Collecte automatique restreinte aux composants candidats et à la fenêtre pertinente</li>
+        </ul></div>
+        <div class="block"><span class="cap">Honnêteté du verdict</span><ul>
+          <li>Chaque hypothèse affiche ce qui la soutient, ce qui la contredit, la règle appliquée et sa version, les informations manquantes</li>
+          <li>5 niveaux de conclusion, dont <em>Informations insuffisantes</em></li>
+          <li><em>Aucune anomalie détectée</em> ne signifie pas que l'incident n'existe pas</li>
+          <li>Comparaison à une période saine, une exécution réussie ou un nœud comparable, avec avertissement si la référence est ancienne</li>
+          <li>Paquet d'escalade vers l'Infrastructure ou Navis, expurgé des secrets et données personnelles</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-060</span><span class="fr">FR-061</span><span class="fr">FR-062</span><span class="fr">FR-063</span><span class="fr">FR-064</span><span class="fr">FR-065</span><span class="fr">FR-066</span><span class="fr">FR-067</span><span class="fr">FR-068</span><span class="fr">FR-069</span><span class="fr ac">AC-08</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S10 pour les signaux issus des logs, S4 pour les signaux de supervision.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S12</span><h4>Assistant documentaire, rapports et recette V1</h4><span class="wk">Semaines 25–26</span> <span class="pill ok">Jalon V1</span></div>
+      <p class="objectif">Compléter la V1, puis la faire valider par les 14 premiers critères d'acceptation en UAT.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Corpus indexable : guide Navis, procédures internes, post-mortems, notes de version — chaque document versionné, daté et validé avant indexation</li>
+          <li>Recherche plein texte et question en langage naturel</li>
+          <li>Réponse citant document, section et page ; signalement explicite quand la source est insuffisante</li>
+          <li>Séparation stricte conseil / action : l'assistant ne déclenche jamais rien</li>
+          <li>Rapport automatique d'exécution et historique complet des opérations</li>
+          <li>Export PDF ou Word, synthèse et détail technique</li>
+          <li>Sauvegarde et restauration effectivement rejouées ; cible de disponibilité arrêtée avec la DSI</li>
+        </ul></div>
+        <div class="block"><span class="cap">Recette du Lot 1</span>
+          <p>Les critères AC-01 à AC-14 sont rejoués en UAT de façon reproductible : simulation, démarrage
+             nominal, nœud non ACTIVE, Bridge indisponible, arrêt complet, perte du serveur applicatif,
+             action non approuvée, import de log, verdict nuancé, question documentaire, secret masqué,
+             opérations simultanées, contournement, rapport final. Le passage en production est une décision
+             de la DSI, pas une conséquence automatique de la recette.</p></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-028</span><span class="fr">FR-080</span><span class="fr">FR-081</span><span class="fr">FR-082</span><span class="fr">FR-083</span><span class="fr">FR-084</span><span class="fr">FR-085</span><span class="fr">FR-090</span><span class="fr">FR-093</span><span class="fr">NFR-001</span><span class="fr">NFR-010</span><span class="fr ac">AC-10</span><span class="fr ac">AC-14</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">Tous les sprints précédents ; la recette exige un UAT stable.</p></div>
+    </article>
+  </div>
+
+  <!-- ============ LOT 2 ============ -->
+  <div class="lot">
+    <div class="lot-head">
+      <h3>Lot 2 — Capitalisation et couverture étendue</h3>
+      <span class="span">S13 → S17 · semaines 27 à 36</span>
+    </div>
+    <p class="lot-goal">
+      Ce que la V1 laisse de côté : dossiers partagés, persistance ActiveMQ, EDI, procédures capitalisées
+      et pilotage par indicateurs.
+    </p>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S13</span><h4>Dossiers partagés et supervision ActiveMQ / KahaDB</h4><span class="wk">Semaines 27–28</span></div>
+      <p class="objectif">Détecter une dégradation de la persistance avant qu'elle ne devienne un incident P1 — l'une des dix premières causes identifiées par l'éditeur.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Catégorisation : dossier de configuration N4, stockage KahaDB, répertoires EDI, archives, dossiers d'erreur</li>
+          <li>Contrôles non destructifs : accessibilité, droits, espace, latence, structure attendue, fichiers obligatoires, ancienneté, croissance anormale</li>
+          <li>Consommation : fichiers reçus, consommés, en attente, bloqués, en erreur, avec leur ancienneté</li>
+          <li>Supervision ActiveMQ : files, consommateurs, compteurs, débit, mémoire du broker, erreurs de persistance</li>
+        </ul></div>
+        <div class="block"><span class="cap">Détection de corruption</span><ul>
+          <li>Indices croisés : logs, incohérences de structure, erreurs KahaDB, fichiers manquants, stockage plein, accès instable</li>
+          <li>Distinction nette entre <em>suspicion</em> et <em>corruption confirmée</em></li>
+          <li>Aucune correction destructive proposée à ce stade</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-059A</span><span class="fr">FR-059B</span><span class="fr">FR-059C</span><span class="fr">FR-059D</span><span class="fr ac">AC-20</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">V1 en production ou en pré-production stable.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S14</span><h4>Reconstitution sécurisée et mode guidé</h4><span class="wk">Semaines 29–30</span> <span class="pill crit">Le plus sensible du Lot 2</span></div>
+      <p class="objectif">Réparer une persistance corrompue sans perdre de message ni de preuve — ou reconnaître qu'il faut escalader.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Workflow approuvé</span><ul>
+          <li>Arrêt des composants requis, contrôlé et vérifié</li>
+          <li>Sauvegarde préalable, puis vérification de l'intégrité de cette sauvegarde</li>
+          <li>Reconstitution, redémarrage contrôlé, tests finaux</li>
+          <li>Chaque étape validée par un utilisateur habilité</li>
+        </ul></div>
+        <div class="block"><span class="cap">Garde-fous</span><ul>
+          <li>Repli en procédure guidée pas-à-pas si l'automatisation n'est pas autorisée ou si le cas dépasse les règles validées</li>
+          <li>Aucune suppression ni reconstruction sans sauvegarde exploitable, confirmation explicite, contrôle des services arrêtés et journal d'audit</li>
+          <li>Corruptions de journaux KahaDB et cas incertains : escalade, pas correction</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-059E</span><span class="fr">FR-059F</span><span class="fr">FR-059G</span><span class="fr ac">AC-21</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S13 pour la détection ; S5 pour le moteur de workflow.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S15</span><h4>Suivi des intégrations EDI</h4><span class="wk">Semaines 31–32</span></div>
+      <p class="objectif">Voir qu'un fichier partenaire n'est pas passé, et savoir pourquoi, avant que l'exploitation ne le découvre.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Tableau des fichiers reçus, intégrés, en attente, rejetés, non consommés — par type de message, partenaire et environnement</li>
+          <li>Alertes sur dépassement de délai, non-consommation, échecs répétés, ou absence d'intégration réussie sur une période définie</li>
+          <li>Diagnostic rattachant le fichier, les logs d'intégration, le message d'erreur, la chronologie et les contrôles réseau, dossier et base</li>
+        </ul></div>
+        <div class="block"><span class="cap">Point d'attention</span>
+          <p>Le guide signale la publication d'un gros fichier BAPLIE comme cause connue de dégradation
+             générale. Le suivi EDI et le moteur de diagnostic doivent partager le même identifiant de
+             corrélation pour que ce lien apparaisse.</p></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-059H</span><span class="fr">FR-059I</span><span class="fr">FR-059J</span><span class="fr ac">AC-19</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S11 pour le rattachement au diagnostic.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S16</span><h4>Procédures opératoires standardisées</h4><span class="wk">Semaines 33–34</span></div>
+      <p class="objectif">Capitaliser ce qui a marché, pour que la prochaine intervention ne reparte pas de zéro.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Réponse au format SOP : objectif, périmètre, prérequis, risques, étapes, contrôles, résultat attendu, retour arrière, escalade</li>
+          <li>Exécution guidée pas-à-pas avec confirmation, preuve, commentaire d'écart et retour en arrière possible</li>
+          <li>Génération d'un brouillon à partir des étapes réellement exécutées lors d'une résolution réussie</li>
+          <li>Validation par un utilisateur habilité avant réutilisation ; versionnement</li>
+          <li>Rattachement à l'incident, l'opération, le composant, le message d'erreur, la version N4 et les logs</li>
+        </ul></div>
+        <div class="block"><span class="cap">Réutilisation</span>
+          <p>Sur incident similaire, les SOP validés correspondants sont proposés avec leur date, leur version
+             et leur <strong>taux de réussite historique réel</strong> — calculé sur les exécutions
+             enregistrées, jamais estimé.</p></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-088</span><span class="fr">FR-089</span><span class="fr">FR-089A</span><span class="fr">FR-089B</span><span class="fr">FR-089C</span><span class="fr">FR-089D</span><span class="fr">FR-097</span><span class="fr ac">AC-22</span><span class="fr ac">AC-23</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S12 pour la base documentaire, S11 pour le rattachement aux incidents.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S17</span><h4>Indicateurs, notifications, rapport d'incident et recette Lot 2</h4><span class="wk">Semaines 35–36</span> <span class="pill ok">Jalon Lot 2</span></div>
+      <p class="objectif">Donner à la DSI de quoi piloter l'exploitation par les chiffres, et clore le lot.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Indicateurs : taux de réussite, durée moyenne, étapes les plus lentes, incidents par cause, erreurs récurrentes, temps de diagnostic</li>
+          <li>Notifications aux acteurs au lancement, au blocage et à la clôture, par les canaux validés</li>
+          <li>Rapport d'incident automatique : chronologie complète, services impactés, cause retenue, preuves, actions, intervenants, SOP associé</li>
+          <li>Retour utilisateur sur une réponse incorrecte de l'assistant, soumis à validation</li>
+          <li>Durées de rétention distinctes pour logs, rapports et audits</li>
+        </ul></div>
+        <div class="block"><span class="cap">Recette du Lot 2</span>
+          <p>AC-19 à AC-23 rejoués en UAT : fichier EDI non consommé, suspicion de corruption, reconstitution
+             approuvée, SOP suivi avec succès, SOP validé proposé sur incident similaire.</p></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-079</span><span class="fr">FR-086</span><span class="fr">FR-087</span><span class="fr">FR-094</span><span class="fr">FR-095</span><span class="fr">FR-096</span><span class="fr">SEC-009</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S13 à S16.</p></div>
+    </article>
+  </div>
+
+  <!-- ============ LOT 3 ============ -->
+  <div class="lot">
+    <div class="lot-head">
+      <h3>Lot 3 — Automatisation de bout en bout (palier 2)</h3>
+      <span class="span">S18 → S20 · semaines 37 à 42</span>
+    </div>
+    <p class="lot-goal">
+      Le cahier des charges conditionne ce lot à une période de fiabilisation réelle. Il ne peut pas démarrer
+      tant que plusieurs exécutions semi-automatiques n'ont pas réussi en production et que le responsable
+      habilité n'a pas donné son approbation formelle.
+    </p>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S18</span><h4>Instrumentation et fiabilisation</h4><span class="wk">Semaines 37–38</span></div>
+      <p class="objectif">Constituer le dossier de preuve chiffré qui autorise — ou non — à retirer la confirmation humaine.</p>
+      <div class="block"><span class="cap">Contenu</span><ul>
+        <li>Mesure par workflow et par étape : taux de réussite, dispersion des durées, fréquence des contournements et des interventions manuelles</li>
+        <li>Identification des étapes systématiquement en avertissement</li>
+        <li>Restitution sous forme de dossier présentable à la DSI</li>
+      </ul></div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">§2.2.3</span><span class="fr">NFR-008</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep blocked">Exige plusieurs mois d'exploitation réelle du Lot 1 en production.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S19</span><h4>Exécution sans confirmation à chaque étape</h4><span class="wk">Semaines 39–40</span></div>
+      <p class="objectif">Automatiser les seuls workflows dont la fiabilité est démontrée, sans jamais rendre l'automatisation globale.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Niveau d'automatisation configurable par environnement, par workflow et par type d'action</li>
+          <li>Activation conditionnée : workflow validé, recette UAT réussie, exécutions semi-automatiques réussies, critères de reprise validés, approbation formelle</li>
+        </ul></div>
+        <div class="block"><span class="cap">Restent sous validation humaine</span><ul>
+          <li>Les actions destructrices</li>
+          <li>Les situations non couvertes par un workflow validé</li>
+          <li>Les opérations nécessitant l'intervention du support Navis</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">§2.2.3</span><span class="fr">FR-004</span><span class="fr">FR-027</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S18 — sans dossier de preuve, l'activation n'est pas justifiable.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S20</span><h4>Garde-fous, retour arrière immédiat et recette</h4><span class="wk">Semaines 41–42</span> <span class="pill ok">Jalon Lot 3</span></div>
+      <p class="objectif">Garantir que la DSI peut reprendre la main à tout instant.</p>
+      <div class="block"><span class="cap">Contenu</span><ul>
+        <li>Désactivation de l'automatisation à tout moment, avec retour immédiat au mode semi-automatique</li>
+        <li>Critères d'arrêt sur erreur, de reprise et de retour arrière explicites par workflow</li>
+        <li>Différenciation des erreurs : connecteur, commande, timeout, prérequis non satisfait, état inattendu</li>
+        <li>Une panne de N4 Sentinel ne bloque jamais les procédures manuelles d'urgence</li>
+        <li>Recette en UAT, puis période probatoire encadrée en production</li>
+      </ul></div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-025</span><span class="fr">SEC-010</span><span class="fr">§3.19</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S19.</p></div>
+    </article>
+  </div>
+
+  <!-- ============ LOT 4 ============ -->
+  <div class="lot">
+    <div class="lot-head">
+      <h3>Lot 4 — Évolutions et extensions</h3>
+      <span class="span">S21 → S24 · semaines 43 à 50</span>
+    </div>
+    <p class="lot-goal">
+      Les intégrations que le cahier des charges renvoie explicitement en V2, plus la mobilité et le
+      transfert de compétences.
+    </p>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S21</span><h4>Azure AD, authentification unique et ticketing</h4><span class="wk">Semaines 43–44</span></div>
+      <p class="objectif">Raccorder N4 Sentinel au système d'information de CIT.</p>
+      <div class="block"><span class="cap">Contenu</span><ul>
+        <li>Bascule de l'authentification applicative vers l'annuaire CIT, selon ses règles</li>
+        <li>Conservation du modèle de rôles et des droits par environnement</li>
+        <li>Interfaçage avec l'outil de gestion des incidents : création et rattachement automatiques</li>
+      </ul></div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">SEC-001</span><span class="fr">§3.15</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">Décision et accès annuaire côté Infrastructure.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S22</span><h4>Supervision JMX temps réel</h4><span class="wk">Semaines 45–46</span></div>
+      <p class="objectif">Passer du relevé périodique à la métrique en continu sur les composants Java.</p>
+      <div class="block"><span class="cap">Contenu</span><ul>
+        <li>Métriques de broker, de files et de JVM en direct</li>
+        <li>Intégration au tableau de bord et aux règles de diagnostic existantes</li>
+        <li>Fréquence et volumétrie configurables pour ne pas perturber les composants supervisés</li>
+      </ul></div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-051</span><span class="fr">NFR-004</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">Ouverture des ports JMX par l'Infrastructure.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S23</span><h4>Application mobile — consultation et alertes</h4><span class="wk">Semaines 47–48</span></div>
+      <p class="objectif">Permettre le suivi hors du poste de travail, sans ouvrir de surface d'action.</p>
+      <div class="block"><span class="cap">Contenu</span><ul>
+        <li>États des environnements, alertes, opérations en cours</li>
+        <li>Notifications poussées sur blocage et sur fin d'opération</li>
+        <li>Aucune action mutative en première version mobile</li>
+      </ul></div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-053</span><span class="fr">FR-054</span><span class="fr">§3.15</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S21 pour l'authentification unique.</p></div>
+    </article>
+
+    <article class="sprint">
+      <div class="sprint-head"><span class="id">S24</span><h4>Approbation mobile, nouveaux environnements et transfert de compétences</h4><span class="wk">Semaines 49–50</span> <span class="pill ok">Clôture du programme</span></div>
+      <p class="objectif">Fermer le programme et le rendre autonome pour les équipes de CIT.</p>
+      <div class="grid2">
+        <div class="block"><span class="cap">Contenu</span><ul>
+          <li>Approbation d'une opération critique depuis mobile, avec exactement les mêmes contrôles qu'en poste fixe</li>
+          <li>Ajout de composants, de nœuds et d'environnements sans refonte</li>
+        </ul></div>
+        <div class="block"><span class="cap">Livrables de clôture (§4.3)</span><ul>
+          <li>Guide d'administration, guide opérateur, procédure de retour arrière</li>
+          <li>Dossier d'exploitation : supervision, sauvegarde, restauration, capacité, support</li>
+          <li>Catalogue des workflows, contrôles et règles de diagnostic</li>
+          <li>Transfert de compétences aux équipes Solutions IT et Infrastructure</li>
+        </ul></div>
+      </div>
+      <div class="block"><span class="cap">Exigences</span>
+        <div class="frs"><span class="fr">FR-013</span><span class="fr">NFR-005</span><span class="fr">§4.3</span></div></div>
+      <div class="block"><span class="cap">Dépendances</span><p class="dep">S23.</p></div>
+    </article>
+  </div>
+</section>
+
+<section>
+  <h2>Définition de terminé</h2>
+  <p class="lede">
+    Six exigences ne se livrent pas dans un sprint : elles se vérifient à chacun, en revue.
+  </p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Exigence</th><th>Contrôle à chaque revue de sprint</th></tr></thead>
+      <tbody>
+        <tr><td><code>NFR-001</code> Disponibilité</td><td>Cible arrêtée avec la DSI au Sprint 12, puis mesurée sur les fenêtres d'exploitation et de maintenance.</td></tr>
+        <tr><td><code>NFR-003</code> Performance</td><td>Écrans usuels sous 3 s hors collecte technique longue ; toute opération plus lente affiche une progression.</td></tr>
+        <tr><td><code>NFR-006</code> Maintenabilité</td><td>Tests automatisés, configuration externalisée, journalisation structurée, code documenté.</td></tr>
+        <tr><td><code>NFR-007</code> Compatibilité</td><td>Navigateurs et plateformes serveur conformes aux standards CIT, vérifiés sur le poste de référence.</td></tr>
+        <tr><td><code>NFR-008</code> Observabilité</td><td>Identifiant de corrélation sur chaque opération, chaque signal et chaque entrée de journal.</td></tr>
+        <tr><td><code>NFR-010</code> Sauvegarde</td><td>Restauration effectivement rejouée — pas seulement la sauvegarde — sur configuration, historique et base documentaire.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <span class="cap">Les neuf principes directeurs priment sur ce plan</span>
+    <p>
+      Sécurité avant rapidité, séquençage explicite, preuve technique, prudence en cas d'incertitude,
+      supervision humaine, diagnostic explicable, configuration sans recompilation, traçabilité systématique,
+      maintien du mode manuel. Le cahier des charges les déclare non négociables et prévalant sur toute
+      exigence qui entrerait en conflit avec eux. Ils ne sont pas numérotés et n'appartiennent donc à aucun
+      sprint : ils s'appliquent à tous.
+    </p>
+  </div>
+</section>
+
+<footer class="end">
+  <p>
+    Plan établi le 11 août 2026 à partir du cahier des charges N4 Sentinel v3 (CIT-CIV-DSI-RFP-0010-Rév.01),
+    du support Kaleris « N4 IT Administrator — Day 1 » et du guide « Navis N4 3.8.25 : Setup, Maintenance and
+    System Diagnostics ». Les 148 exigences du cahier des charges — 105 FR, 10 SEC, 10 NFR, 23 AC — sont
+    rattachées à un sprint ou à la définition de terminé.
+  </p>
+  <p style="margin-top:.7rem">
+    Rattacher une exigence à un sprint n'est pas l'avoir estimée. Les charges ne pourront être posées qu'après
+    le Sprint 0, une fois l'architecture arrêtée et la vélocité réelle observée sur deux itérations. Les
+    semaines sont relatives à un démarrage qui reste à fixer.
+  </p>
+</footer>
+
+</div>
+</body>
+</html>

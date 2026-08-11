@@ -1,41 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <ItemGroup>
+    <ProjectReference Include="..\N4Sentinel.Domain\N4Sentinel.Domain.csproj" />
+    <ProjectReference Include="..\N4Sentinel.Application\N4Sentinel.Application.csproj" />
+    <ProjectReference Include="..\N4Sentinel.Orchestration\N4Sentinel.Orchestration.csproj" />
+    <ProjectReference Include="..\N4Sentinel.Connectors\N4Sentinel.Connectors.csproj" />
+    <ProjectReference Include="..\N4Sentinel.Diagnostics\N4Sentinel.Diagnostics.csproj" />
+    <ProjectReference Include="..\N4Sentinel.Knowledge\N4Sentinel.Knowledge.csproj" />
+    <ProjectReference Include="..\N4Sentinel.Data\N4Sentinel.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>aspnet-N4Sentinel_Web-5f60f8e4-0ccf-4587-ad6e-80e6d320b728</UserSecretsId>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="10.0.4" />
-    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.4" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.4" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.10" />
-    <PackageReference Include="QuestPDF" Version="2026.7.2" />
-    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
-    <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
-    <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.1" />
-    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
-    <PackageReference Include="Serilog.Sinks.EventLog" Version="4.0.0" />
-    <PackageReference Include="Serilog.Sinks.MSSqlServer" Version="10.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\N4Sentinel.Application\N4Sentinel.Application.csproj" />
-    <ProjectReference Include="..\N4Sentinel.Infrastructure\N4Sentinel.Infrastructure.csproj" />
-  </ItemGroup>
-
-  <!--
-    Recompile la feuille de style Tailwind (Styles/app.css -> wwwroot/app.css) si Node.js est
-    disponible. wwwroot/app.css est committé dans le dépôt : ce target est une commodité pour le
-    développement, jamais un prérequis de build — un poste sans Node.js compile et exécute
-    l'application normalement avec le CSS déjà présent.
-  -->
-  <Target Name="BuildTailwindCss" BeforeTargets="BeforeBuild">
-    <Exec Command="npm run build:css" WorkingDirectory="$(MSBuildProjectDirectory)" Condition="Exists('$(MSBuildProjectDirectory)\node_modules') And '$(Configuration)' == 'Debug'" ContinueOnError="WarnAndContinue" />
-  </Target>
 
 </Project>

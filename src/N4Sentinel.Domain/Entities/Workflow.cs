@@ -1,115 +1,81 @@
-using N4Sentinel.Domain.Exceptions;
+using N4Sentinel.Domain.Common;
 
 namespace N4Sentinel.Domain.Entities;
 
 /// <summary>
-/// Conteneur nommé et versionné pour un scénario opérationnel N4 (FR-003). Chaque modification substantielle
-/// crée une nouvelle <see cref="WorkflowVersion"/> plutôt que de modifier une version déjà sortie de Brouillon
-/// — une exécution passée reste ainsi rattachée à la version exacte utilisée à l'époque.
+/// §3.18 — Workflow / Version : type, étapes, conditions, timeouts, retries, validations.
+/// Le workflow porte l'identité stable ; le contenu exécutable vit dans ses versions.
 /// </summary>
-public class Workflow
+public class Workflow : Entity
 {
-    private readonly List<WorkflowVersion> _versions = [];
-    private readonly List<Guid> _targetComponentIds = [];
+    public Guid EnvironmentId { get; set; }
 
-    private Workflow()
-    {
-        Name = string.Empty;
-    }
+    public required string Nom { get; set; }
 
-    public Workflow(
-        Guid environmentId, string name, WorkflowType type, WorkflowScope scope,
-        IEnumerable<Guid> targetComponentIds)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new DomainRuleException("Le nom du workflow est obligatoire.");
-        }
+    public required WorkflowType Type { get; set; }
 
-        var targets = targetComponentIds.Distinct().ToList();
-        if (scope != WorkflowScope.Full && targets.Count == 0)
-        {
-            throw new DomainRuleException(
-                "Un workflow partiel ou unitaire doit désigner au moins un composant cible.");
-        }
+    public string? Description { get; set; }
 
-        Id = Guid.NewGuid();
-        EnvironmentId = environmentId;
-        Name = name.Trim();
-        Type = type;
-        Scope = scope;
-        _targetComponentIds.AddRange(targets);
-        CreatedAtUtc = DateTime.UtcNow;
+    public List<WorkflowVersion> Versions { get; set; } = [];
+}
 
-        _versions.Add(new WorkflowVersion(Id, versionNumber: 1));
-    }
+/// <summary>
+/// Version figée d'un workflow. Une version Active est exécutable ; toute modification
+/// passe par une nouvelle version, jamais par l'édition d'une version déjà validée.
+/// </summary>
+public class WorkflowVersion : Entity
+{
+    public Guid WorkflowId { get; set; }
 
-    public Guid Id { get; private set; }
+    public int NumeroDeVersion { get; set; } = 1;
 
-    public Guid EnvironmentId { get; private set; }
+    public ValidationStatus Statut { get; set; } = ValidationStatus.Brouillon;
 
-    public string Name { get; private set; }
+    public string? CommentaireDeVersion { get; set; }
 
-    public WorkflowType Type { get; private set; }
+    public DateTimeOffset CreeLe { get; set; } = DateTimeOffset.UtcNow;
 
-    public WorkflowScope Scope { get; private set; }
+    public required string CreePar { get; set; }
 
-    public DateTime CreatedAtUtc { get; private set; }
+    public DateTimeOffset? ValideLe { get; set; }
 
-    public IReadOnlyCollection<Guid> TargetComponentIds => _targetComponentIds;
+    public string? ValidePar { get; set; }
 
-    public IReadOnlyCollection<WorkflowVersion> Versions => _versions;
+    public List<WorkflowStepDefinition> Etapes { get; set; } = [];
+}
 
-    public WorkflowVersion LatestVersion => _versions.OrderByDescending(v => v.VersionNumber).First();
+/// <summary>Définition d'une étape : ce que le moteur exécutera, et sous quelles garanties.</summary>
+public class WorkflowStepDefinition : Entity
+{
+    public Guid WorkflowVersionId { get; set; }
 
-    public WorkflowVersion? ActiveVersion => _versions.FirstOrDefault(v => v.Status == WorkflowVersionStatus.Active);
+    public int Ordre { get; set; }
 
-    public void Rename(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new DomainRuleException("Le nom du workflow est obligatoire.");
-        }
+    public required string Libelle { get; set; }
 
-        Name = name.Trim();
-    }
+    /// <summary>Action approuvée à exécuter. Aucune console libre n'est exposée (SEC-006).</summary>
+    public required string Action { get; set; }
+
+    public Guid? ComposantCibleId { get; set; }
+
+    /// <summary>Condition d'exécution évaluée avant l'étape ; l'étape est ignorée si elle est fausse.</summary>
+    public string? Condition { get; set; }
+
+    public int TimeoutSecondes { get; set; } = 300;
+
+    public int NombreDeReessais { get; set; }
+
+    public int DelaiEntreReessaisSecondes { get; set; } = 10;
+
+    /// <summary>L'étape exige une confirmation humaine avant d'être lancée.</summary>
+    public bool ConfirmationRequise { get; set; }
+
+    /// <summary>L'étape exige une approbation par un acteur distinct du demandeur.</summary>
+    public bool ApprobationRequise { get; set; }
 
     /// <summary>
-    /// Crée une nouvelle version Brouillon en clonant les étapes de la dernière version, pour permettre sa
-    /// modification (FR-003 : "toute modification doit créer une nouvelle version"). Refuse s'il existe déjà
-    /// une version Brouillon en cours (elle doit être modifiée directement, pas dupliquée).
+    /// L'étape peut s'exécuter en parallèle d'autres étapes explicitement déclarées indépendantes.
+    /// Le parallélisme n'est jamais déduit : il est déclaré dans la version validée.
     /// </summary>
-    public WorkflowVersion CreateNewDraftVersion()
-    {
-        var latest = LatestVersion;
-        if (latest.Status == WorkflowVersionStatus.Draft)
-        {
-            throw new DomainRuleException(
-                "Une version Brouillon existe déjà pour ce workflow ; modifiez-la au lieu d'en créer une nouvelle.");
-        }
-
-        var draft = latest.CloneAsNewDraft(latest.VersionNumber + 1);
-        _versions.Add(draft);
-        return draft;
-    }
-
-    public void SubmitVersionForValidation(Guid versionId) => GetVersion(versionId).SubmitForValidation();
-
-    public void ValidateVersion(Guid versionId) => GetVersion(versionId).Validate();
-
-    /// <summary>Active la version indiquée et désactive automatiquement l'ancienne version Active du même workflow, s'il y en a une.</summary>
-    public void ActivateVersion(Guid versionId)
-    {
-        var version = GetVersion(versionId);
-        var previousActive = _versions.FirstOrDefault(v => v.Id != versionId && v.Status == WorkflowVersionStatus.Active);
-
-        version.Activate();
-        previousActive?.Disable();
-    }
-
-    public void DisableVersion(Guid versionId) => GetVersion(versionId).Disable();
-
-    private WorkflowVersion GetVersion(Guid versionId) =>
-        _versions.FirstOrDefault(v => v.Id == versionId)
-        ?? throw new KeyNotFoundException($"Version '{versionId}' introuvable pour ce workflow.");
+    public bool IndependanteDesEtapesVoisines { get; set; }
 }

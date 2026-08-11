@@ -1,188 +1,90 @@
-using N4Sentinel.Domain.Exceptions;
+using N4Sentinel.Domain.Common;
 
 namespace N4Sentinel.Domain.Entities;
 
 /// <summary>
-/// Un composant de l'écosystème N4 rattaché à un environnement (nœud applicatif, Center Node, Bridge,
-/// XPS, ECN4, base de données, file de messages, dossier partagé...). Champs minimaux définis par FR-002.
+/// §3.18 — Composant : rôle, serveur, service, endpoints, dépendances, contrôles.
+/// Un composant est une cible pilotable (arrêt, démarrage, redémarrage) de l'écosystème N4.
 /// </summary>
-public class N4Component
+public class N4Component : Entity
 {
-    private readonly List<Guid> _dependsOnComponentIds = [];
+    public Guid EnvironmentId { get; set; }
 
-    private N4Component()
-    {
-        Name = string.Empty;
-        Role = string.Empty;
-    }
+    public required string Nom { get; set; }
 
-    public N4Component(
-        Guid environmentId,
-        string name,
-        string role,
-        ComponentCriticality criticality,
-        ComponentGovernance governance,
-        string? hostName = null,
-        string? ipAddress = null,
-        string? dnsName = null,
-        string? operatingSystem = null,
-        string? serviceOrProcessName = null,
-        string? healthCheckDescription = null,
-        string? technicalOwner = null,
-        string? functionalOwner = null,
-        N4ComponentKind kind = N4ComponentKind.Unspecified)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new DomainRuleException("Le nom logique du composant est obligatoire.");
-        }
-
-        if (string.IsNullOrWhiteSpace(role))
-        {
-            throw new DomainRuleException("Le rôle du composant est obligatoire.");
-        }
-
-        Id = Guid.NewGuid();
-        EnvironmentId = environmentId;
-        Name = name.Trim();
-        Role = role.Trim();
-        Kind = kind;
-        Criticality = criticality;
-        Governance = governance;
-        HostName = hostName?.Trim();
-        IpAddress = ipAddress?.Trim();
-        DnsName = dnsName?.Trim();
-        OperatingSystem = operatingSystem?.Trim();
-        ServiceOrProcessName = serviceOrProcessName?.Trim();
-        HealthCheckDescription = healthCheckDescription?.Trim();
-        TechnicalOwner = technicalOwner?.Trim();
-        FunctionalOwner = functionalOwner?.Trim();
-        CreatedAtUtc = DateTime.UtcNow;
-        UpdatedAtUtc = CreatedAtUtc;
-    }
-
-    public Guid Id { get; private set; }
-
-    public Guid EnvironmentId { get; private set; }
-
-    public N4Environment? Environment { get; private set; }
-
-    public string Name { get; private set; }
-
-    public string Role { get; private set; }
+    /// <summary>Rôle fonctionnel en texte libre, tel que nommé par l'exploitation CIT.</summary>
+    public required string Role { get; set; }
 
     /// <summary>
-    /// Nature technique du composant. <see cref="Role"/> reste un libellé libre à destination des humains ;
-    /// <see cref="Kind"/> est ce sur quoi les règles automatiques s'appuient — notamment le séquencement
-    /// d'arrêt/démarrage, qui doit savoir qu'un composant est un Cluster Node sans dépendre de son
-    /// orthographe.
+    /// Nature technique typée. Indispensable au calcul des séquences d'arrêt et de démarrage :
+    /// un composant NonSpecifie reste invisible des séquences tant qu'il n'est pas typé.
     /// </summary>
-    public N4ComponentKind Kind { get; private set; }
+    public N4ComponentKind Kind { get; set; } = N4ComponentKind.NonSpecifie;
 
-    public string? HostName { get; private set; }
+    public required string Serveur { get; set; }
 
-    public string? IpAddress { get; private set; }
+    /// <summary>Nom du service Windows hébergeant le composant, lorsqu'il en existe un.</summary>
+    public string? NomDuService { get; set; }
 
-    public string? DnsName { get; private set; }
+    public Criticality Criticite { get; set; } = Criticality.Moyenne;
 
-    public string? OperatingSystem { get; private set; }
+    public ComponentHealth Sante { get; set; } = ComponentHealth.Inconnu;
 
-    public string? ServiceOrProcessName { get; private set; }
+    public DateTimeOffset? DernierControle { get; set; }
 
-    public string? HealthCheckDescription { get; private set; }
+    public ValidationStatus Statut { get; set; } = ValidationStatus.Brouillon;
 
-    public ComponentCriticality Criticality { get; private set; }
+    public List<ComponentEndpoint> Endpoints { get; set; } = [];
 
-    public ComponentGovernance Governance { get; private set; }
+    /// <summary>Composants dont celui-ci dépend pour démarrer ou fonctionner.</summary>
+    public List<ComponentDependency> Dependances { get; set; } = [];
 
-    public string? TechnicalOwner { get; private set; }
+    /// <summary>Contrôles de santé à exécuter pour établir l'état réel du composant.</summary>
+    public List<ComponentCheck> Controles { get; set; } = [];
+}
 
-    public string? FunctionalOwner { get; private set; }
+/// <summary>Point d'accès technique d'un composant (HTTP, TCP, JMX, base de données).</summary>
+public class ComponentEndpoint : Entity
+{
+    public Guid ComponentId { get; set; }
 
-    public DateTime CreatedAtUtc { get; private set; }
+    public required string Libelle { get; set; }
 
-    public DateTime UpdatedAtUtc { get; private set; }
+    public required string Protocole { get; set; }
 
-    /// <summary>Composants dont ce composant dépend (doivent être opérationnels avant lui dans un workflow).</summary>
-    public IReadOnlyCollection<Guid> DependsOnComponentIds => _dependsOnComponentIds;
+    public required string Hote { get; set; }
 
-    public void UpdateDetails(
-        string name,
-        string role,
-        string? hostName,
-        string? ipAddress,
-        string? dnsName,
-        string? operatingSystem,
-        string? serviceOrProcessName,
-        string? healthCheckDescription,
-        ComponentCriticality criticality,
-        ComponentGovernance governance,
-        string? technicalOwner,
-        string? functionalOwner,
-        N4ComponentKind kind = N4ComponentKind.Unspecified)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new DomainRuleException("Le nom logique du composant est obligatoire.");
-        }
+    public int? Port { get; set; }
 
-        if (string.IsNullOrWhiteSpace(role))
-        {
-            throw new DomainRuleException("Le rôle du composant est obligatoire.");
-        }
+    public string? Chemin { get; set; }
+}
 
-        Name = name.Trim();
-        Role = role.Trim();
-        Kind = kind;
-        HostName = hostName?.Trim();
-        IpAddress = ipAddress?.Trim();
-        DnsName = dnsName?.Trim();
-        OperatingSystem = operatingSystem?.Trim();
-        ServiceOrProcessName = serviceOrProcessName?.Trim();
-        HealthCheckDescription = healthCheckDescription?.Trim();
-        Criticality = criticality;
-        Governance = governance;
-        TechnicalOwner = technicalOwner?.Trim();
-        FunctionalOwner = functionalOwner?.Trim();
-        UpdatedAtUtc = DateTime.UtcNow;
-    }
+/// <summary>Dépendance déclarée entre deux composants, orientée du dépendant vers le prérequis.</summary>
+public class ComponentDependency : Entity
+{
+    public Guid ComponentId { get; set; }
 
-    /// <summary>
-    /// Déclare que ce composant dépend d'un autre. Le contrôle complet de cycles dans le graphe de
-    /// dépendances (au-delà du cas trivial A&lt;-&gt;B) relève du moteur de séquencement des workflows
-    /// (FR-003/FR-004, épopée ultérieure) ; ici on ne garde que les garde-fous immédiats.
-    /// </summary>
-    public void AddDependency(Guid dependsOnComponentId)
-    {
-        if (dependsOnComponentId == Id)
-        {
-            throw new DomainRuleException("Un composant ne peut pas dépendre de lui-même.");
-        }
+    public Guid ComposantRequisId { get; set; }
 
-        if (_dependsOnComponentIds.Contains(dependsOnComponentId))
-        {
-            return;
-        }
+    /// <summary>Une dépendance bloquante interdit le démarrage tant que le prérequis n'est pas opérationnel.</summary>
+    public bool Bloquante { get; set; } = true;
 
-        _dependsOnComponentIds.Add(dependsOnComponentId);
-        UpdatedAtUtc = DateTime.UtcNow;
-    }
+    public string? Justification { get; set; }
+}
 
-    public void RemoveDependency(Guid dependsOnComponentId)
-    {
-        if (_dependsOnComponentIds.Remove(dependsOnComponentId))
-        {
-            UpdatedAtUtc = DateTime.UtcNow;
-        }
-    }
+/// <summary>Contrôle de santé rattaché à un composant (service Windows, port, requête, log).</summary>
+public class ComponentCheck : Entity
+{
+    public Guid ComponentId { get; set; }
 
-    /// <summary>Reconstruit la liste des dépendances (utilisé par la couche de persistance).</summary>
-    public void ReplaceDependencies(IEnumerable<Guid> dependsOnComponentIds)
-    {
-        _dependsOnComponentIds.Clear();
-        foreach (var id in dependsOnComponentIds.Distinct())
-        {
-            AddDependency(id);
-        }
-    }
+    public required string Libelle { get; set; }
+
+    public required string TypeDeControle { get; set; }
+
+    /// <summary>Paramètres du contrôle, sérialisés. Ne contient jamais de secret (SEC-003).</summary>
+    public string? Parametres { get; set; }
+
+    public int TimeoutSecondes { get; set; } = 30;
+
+    public bool Actif { get; set; } = true;
 }

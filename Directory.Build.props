@@ -1,0 +1,20 @@
+<Project>
+
+  <!--
+    Réglages communs à tous les projets. Les avertissements sont traités comme des erreurs :
+    sur un socle destiné à vivre vingt-cinq sprints, un avertissement toléré une fois ne
+    disparaît jamais.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <Deterministic>true</Deterministic>
+    <NeutralLanguage>fr-FR</NeutralLanguage>
+  </PropertyGroup>
+
+</Project>

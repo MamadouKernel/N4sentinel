@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\N4Sentinel.Domain\N4Sentinel.Domain.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Application\N4Sentinel.Application.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Orchestration\N4Sentinel.Orchestration.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Connectors\N4Sentinel.Connectors.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Diagnostics\N4Sentinel.Diagnostics.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Knowledge\N4Sentinel.Knowledge.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Data\N4Sentinel.Data.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Web\N4Sentinel.Web.csproj" />
+  </ItemGroup>
+
+</Project>

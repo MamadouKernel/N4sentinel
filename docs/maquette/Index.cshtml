@@ -1,0 +1,415 @@
+@page
+@model N4Sentinel.Pages.IndexModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N4 Sentinel — Tour de Contrôle N4 | Côte d'Ivoire Terminal</title>
+  <link rel="stylesheet" href="/css/site.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- SignalR Client Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <img src="/images/logo.png" alt="CIT Logo" class="brand-logo" id="appLogo">
+      <div class="brand-title">
+        <h1>N4 SENTINEL</h1>
+        <p>Tour de Contrôle Temps Réel Navis N4 — Côte d'Ivoire Terminal (DSI)</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Theme Switcher Button -->
+      <button class="theme-toggle-btn" id="themeToggleBtn">🌙 Mode Sombre</button>
+
+      <!-- Simulation Controls -->
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-danger" style="font-size:0.75rem; padding:6px 10px;" id="btnSimulateAmq">⚡ Simuler Panne ActiveMQ</button>
+        <button class="btn btn-secondary" style="font-size:0.75rem; padding:6px 10px; background:var(--color-warning); color:#000;" id="btnSimulateCpu">🔥 Simuler Surcharge CPU</button>
+        <button class="btn" style="font-size:0.75rem; padding:6px 10px; background:var(--color-success);" id="btnRestoreAll">💚 Restaurer Santé</button>
+      </div>
+
+      <div class="env-selector">
+        <select id="envSelect">
+          <option value="PROD">🔴 PRODUCTION Terminal (CIT)</option>
+          <option value="UAT">🟠 UAT & Recette DSI</option>
+          <option value="STAGING">🟡 STAGING Technique</option>
+        </select>
+      </div>
+
+      <div class="user-badge">
+        <div class="user-avatar">AG</div>
+        <div>
+          <strong style="display:block; font-size:0.8rem;">Aldric GNAMIAN</strong>
+          <span style="font-size:0.7rem; color:var(--text-muted);">Administrateur DSI</span>
+        </div>
+      </div>
+
+      <div id="serverClock" style="font-family:var(--font-family-mono); font-size:0.85rem; color:var(--color-primary); background:rgba(0,0,0,0.1); padding:6px 12px; border-radius:4px; border:1px solid var(--border-color);">
+        UTC 17:56:00 (NTP Sync)
+      </div>
+    </div>
+  </header>
+
+  <!-- KPI Banner -->
+  <div class="kpi-banner">
+    <div class="kpi-card">
+      <div>
+        <div class="kpi-title">Center Node Master</div>
+        <div class="kpi-value" id="kpiCenterNode">ONLINE</div>
+      </div>
+      <span class="badge-status healthy" id="kpiCenterNodeBadge"><span class="dot-pulse"></span> OK</span>
+    </div>
+
+    <div class="kpi-card">
+      <div>
+        <div class="kpi-title">ActiveMQ KahaDB</div>
+        <div class="kpi-value" id="kpiActiveMq">14.2 GB / 50 GB</div>
+      </div>
+      <span class="badge-status healthy" id="kpiActiveMqBadge">NORMAL</span>
+    </div>
+
+    <div class="kpi-card">
+      <div>
+        <div class="kpi-title">Pont Bridge XPS</div>
+        <div class="kpi-value" id="kpiBridge">42 ms (Latence)</div>
+      </div>
+      <span class="badge-status healthy" id="kpiBridgeBadge">SYNCHRO</span>
+    </div>
+
+    <div class="kpi-card">
+      <div>
+        <div class="kpi-title">Flux EDI Traités</div>
+        <div class="kpi-value" id="kpiEdi">5,988 Fichiers</div>
+      </div>
+      <span class="badge-status healthy" id="kpiEdiBadge">100% OK</span>
+    </div>
+
+    <div class="kpi-card">
+      <div>
+        <div class="kpi-title">Incidents Actifs</div>
+        <div class="kpi-value" id="kpiIncidents">0 Majeurs</div>
+      </div>
+      <span class="badge-status healthy" id="kpiIncidentsBadge">AUCUN</span>
+    </div>
+  </div>
+
+  <!-- Main Navigation -->
+  <nav class="app-nav">
+    <button class="nav-tab active" data-tab="topology">🖼️ Diagramme d'Architecture Navis N4 (Dynamic 1:1)</button>
+    <button class="nav-tab" data-tab="supervision">🎛️ Supervision 360° Temps Réel</button>
+    <button class="nav-tab" data-tab="pilotage">🚀 Pilotage & Workflows</button>
+    <button class="nav-tab" data-tab="diagnostic">🔍 Moteur de Diagnostic</button>
+    <button class="nav-tab" data-tab="logs">📜 Analyseur de Logs</button>
+    <button class="nav-tab" data-tab="assistant">🤖 Assistant N4 (RAG)</button>
+    <button class="nav-tab" data-tab="edi">📁 Dossiers Partagés & EDI</button>
+    <button class="nav-tab" data-tab="audit">🛡️ Registre d'Audit</button>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="app-content">
+
+    <!-- View 1: Topologie Schéma Architecture Navis N4 (Identique 1:1 à l'image) -->
+    <section id="view-topology" class="view-section active">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2>Reproduction Visuelle 1:1 du Diagramme d'Architecture N4 (Temps Réel)</h2>
+        <span style="font-size:0.85rem; color:var(--color-primary); background:var(--color-primary-glow); padding:4px 12px; border-radius:6px; border:1px solid var(--border-color);">⚡ Métriques et couleurs mises à jour en temps réel par SignalR</span>
+      </div>
+
+      <div class="n4-diagram-canvas">
+        <div style="display:flex; gap:30px; align-items:center; position:relative;">
+
+          <!-- LEFT PERIMETER CYLINDERS (Grey) -->
+          <div style="display:flex; flex-direction:column; gap:40px; justify-content:center;">
+            <div class="cylinder-node cylinder-grey" id="node-GOS">
+              Gate Operating System
+            </div>
+            <div class="cylinder-node cylinder-grey" id="node-SFTP">
+              Server SFTP (for sending/receiving EDI)
+            </div>
+            <div class="cylinder-node cylinder-grey" id="node-BILLING">
+              Billing System (PASS)
+            </div>
+          </div>
+
+          <!-- MAIN NAVIS N4 ECOSYSTEM CONTAINER -->
+          <div class="diagram-outer-box" style="flex:1;">
+            <div class="diagram-navis-logo">
+              navis <span>N4</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 200px 280px; gap:20px; align-items:start; margin-top:20px;">
+              
+              <!-- LEFT COLUMN: Load Balancer + Cluster Nodes + Cluster Database -->
+              <div>
+                <!-- Load Balancer & Clients -->
+                <div style="display:flex; flex-direction:column; align-items:center; margin-bottom:15px;">
+                  <div style="display:flex; gap:30px; font-size:0.75rem; color:#475569; margin-bottom:6px;">
+                    <span>📱 N4 Mobile</span>
+                    <span>💻 N4 HTML Client</span>
+                  </div>
+                  <div class="oval-orange" id="node-LB">Load Balancer</div>
+                </div>
+
+                <!-- Cluster Nodes Box -->
+                <div class="cluster-blue-border">
+                  <div class="cluster-label">Cluster Nodes</div>
+
+                  <!-- Row 1: Green Cylinders -->
+                  <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:12px;">
+                    <div class="cylinder-node cylinder-green" id="node-CN1">Cluster Node 1</div>
+                    <div class="cylinder-node cylinder-green" id="node-CN2">Cluster Node 2</div>
+                    <div class="cylinder-node cylinder-green" id="node-CN3">Cluster Node 3</div>
+                    <div class="cylinder-node cylinder-green" id="node-CN4">Cluster Node 4</div>
+                    <div class="cylinder-node cylinder-green" id="node-GATE">Gate</div>
+                    <div class="cylinder-node cylinder-green" id="node-EDI">EDI</div>
+                  </div>
+
+                  <!-- Row 2: Green Rectangles -->
+                  <div style="display:flex; gap:20px; justify-content:center;">
+                    <div class="cylinder-node cylinder-green" style="border-radius:6px;" id="node-SA">SmartAccess Node</div>
+                    <div class="cylinder-node cylinder-green" style="border-radius:6px;" id="node-PE">Partenaire Externe</div>
+                  </div>
+                </div>
+
+                <!-- Cluster Database Box -->
+                <div class="cluster-blue-border" style="margin-top:24px;">
+                  <div class="cluster-label">CLUSTER DATABASE</div>
+                  <div style="display:flex; gap:30px; justify-content:center;">
+                    <div class="cylinder-node cylinder-green" style="height:90px; width:100px;" id="node-DB-HOST">Database Host</div>
+                    <div style="display:flex; align-items:center; font-size:1.2rem; color:#16a34a;">↔</div>
+                    <div class="cylinder-node cylinder-green" style="height:90px; width:100px;" id="node-DB-REP">Database Host (Replicated)</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- MIDDLE COLUMN: Center Node & Standby & Share Folder -->
+              <div style="display:flex; flex-direction:column; align-items:center; gap:20px; margin-top:80px;">
+                <div class="cylinder-node cylinder-green" style="height:70px; width:90px;" id="node-CN">Center Node</div>
+                <div style="font-size:1rem; color:#15803d;">↕</div>
+                <div class="cylinder-node cylinder-green" style="height:70px; width:90px;" id="node-SBY">Standby</div>
+                <div style="font-size:1rem; color:#64748b;">↕</div>
+                <div class="cylinder-node cylinder-white" style="height:60px; width:100px;" id="node-SF">Share Folder</div>
+              </div>
+
+              <!-- RIGHT COLUMN: XPS + ECN4 + VMT -->
+              <div style="display:flex; flex-direction:column; gap:20px; margin-top:30px;">
+                
+                <!-- XPS Blue Box -->
+                <div class="box-blue">
+                  <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#1d4ed8; font-weight:700; margin-bottom:10px;">
+                    <span>XPS Client</span>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px;">
+                    <div style="background:#2563eb; color:#fff; padding:8px; border-radius:4px; font-size:0.7rem; font-weight:700; text-align:center;">Bento</div>
+                    <div style="background:#2563eb; color:#fff; padding:8px; border-radius:4px; font-size:0.7rem; font-weight:700; text-align:center;">Dispatcher</div>
+                  </div>
+                  <div style="background:#1d4ed8; color:#fff; padding:10px; border-radius:4px; font-size:0.75rem; font-weight:700; text-align:center;" id="node-XPS">XPS S/B Server</div>
+                </div>
+
+                <!-- ECN4 & ECN4-Web Orange Boxes -->
+                <div style="display:flex; gap:10px; align-items:center; justify-content:center;">
+                  <div class="box-orange" id="node-ECN4">ECN4</div>
+                  <div style="color:#f57c00; font-weight:800;">↔</div>
+                  <div class="box-orange" id="node-ECN4WEB">ECN4-Web</div>
+                </div>
+
+                <!-- VMT Icon -->
+                <div style="text-align:center; font-size:0.75rem; color:#475569; font-weight:700;">
+                  🚚 VMT (Engins Portiques/RTG)
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
+          <!-- RIGHT PERIMETER CYLINDERS (Grey) -->
+          <div style="display:flex; flex-direction:column; gap:40px; justify-content:center;">
+            <div class="cylinder-node cylinder-grey" id="node-DGPS">
+              DGPS
+            </div>
+          </div>
+
+        </div>
+
+        <!-- BOTTOM PERIMETER CYLINDERS (Grey) -->
+        <div style="display:flex; gap:60px; justify-content:center; margin-top:30px;">
+          <div class="cylinder-node cylinder-grey" id="node-VBS">
+            Vehicle Booking System
+          </div>
+          <div class="cylinder-node cylinder-grey" id="node-HYPERION">
+            Hyperion
+          </div>
+          <div class="cylinder-node cylinder-grey" id="node-REEFER">
+            Reefer Runner
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- View 2: Supervision 360° -->
+    <section id="view-supervision" class="view-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2>Cartographie & Santé des 22 Composants N4</h2>
+        <button class="btn btn-secondary" id="btnRefreshComponents">🔄 Actualiser les Signaux</button>
+      </div>
+
+      <div class="component-grid" id="componentGrid">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- View 3: Pilotage & Workflows -->
+    <section id="view-pilotage" class="view-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2>Pilotage Contrôle des Scénarios d'Arrêt & Démarrage</h2>
+        <div style="display:flex; gap:12px;">
+          <button class="btn btn-danger" id="btnNewShutdown">🛑 Scénario Arrêt Complet</button>
+          <button class="btn" id="btnNewStartup">▶️ Scénario Démarrage complet</button>
+        </div>
+      </div>
+
+      <div id="activeWorkflowContainer">
+        <!-- Rendered by JS: Active Stepper or Empty State -->
+      </div>
+    </section>
+
+    <!-- View 4: Moteur de Diagnostic -->
+    <section id="view-diagnostic" class="view-section">
+      <h2 style="margin-bottom:20px;">Moteur de Diagnostic Automatisé d'Incidents</h2>
+      
+      <div class="card" style="margin-bottom:24px;">
+        <h3 style="font-size:1.1rem; margin-bottom:12px;">Déclencher une Analyse de Symptôme</h3>
+        <div style="display:grid; grid-template-columns:1fr 200px; gap:16px; align-items:end;">
+          <div>
+            <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:6px;">Sélectionner le symptôme constaté :</label>
+            <select id="diagSymptomSelect" style="width:100%; padding:12px; background:var(--bg-dark); color:var(--text-main); border:1px solid var(--border-color); border-radius:6px; font-weight:600;">
+              <option value="KAHADB_CORRUPTION">⚠️ ActiveMQ / Soupçon de corruption KahaDB (Queue bloquée)</option>
+              <option value="BRIDGE_DESYNC">⚡ Pont Bridge XPS / Latence ACK élevée & desync Work Assignments</option>
+              <option value="WEBSERVICE_SATURATION">🌐 WebServices REST N4 / Saturation des threads & requêtes lentes</option>
+            </select>
+          </div>
+          <button class="btn" id="btnRunDiag" style="height:46px;">🔬 Lancer le Diagnostic</button>
+        </div>
+      </div>
+
+      <div id="diagnosticResultsContainer">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- View 5: Analyseur de Logs -->
+    <section id="view-logs" class="view-section">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <h2>Analyseur de Fichiers de Logs N4 (argo.log, argo-webservices.log)</h2>
+        <div style="display:flex; gap:12px;">
+          <input type="text" id="logSearchInput" placeholder="Rechercher une exception, classe, container ID..." style="padding:8px 16px; background:var(--bg-card); border:1px solid var(--border-color); color:var(--text-main); border-radius:6px; width:300px;">
+          <select id="logLevelSelect" style="padding:8px 12px; background:var(--bg-card); border:1px solid var(--border-color); color:var(--text-main); border-radius:6px;">
+            <option value="ALL">Tous les niveaux</option>
+            <option value="FATAL">FATAL uniquement</option>
+            <option value="ERROR">ERROR / Exceptions</option>
+            <option value="WARN">WARN</option>
+            <option value="INFO">INFO</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="log-console" id="logConsole">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- View 6: Assistant N4 RAG -->
+    <section id="view-assistant" class="view-section">
+      <h2 style="margin-bottom:20px;">Assistant Documentaire Intelligent N4 (Guide 3.8.25 & SOPs DSI)</h2>
+
+      <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-bubble assistant">
+            Bonjour ! Je suis l'assistant N4 Sentinel. Je suis alimenté par la base documentaire éditeur Navis N4 3.8.25 et les procédures internes validées par la DSI de Côte d'Ivoire Terminal.<br><br>
+            Vous pouvez me poser des questions sur les causes d'incidents P1, la maintenance ActiveMQ, la configuration <code>ARGOCORE</code>, ou les procédures d'arrêt/démarrage.
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <input type="text" id="chatInput" placeholder="Posez une question technique sur Navis N4 ou les procédures (ex: 'Comment récupérer un journal KahaDB corrompu ?')...">
+          <button class="btn" id="btnSendChat">Envoyer</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- View 7: Shared Folders & EDI -->
+    <section id="view-edi" class="view-section">
+      <h2 style="margin-bottom:20px;">Supervision des Dossiers Partagés & Intégrations EDI</h2>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+        <div class="card">
+          <h3 style="font-size:1.1rem; margin-bottom:16px;">📁 Santé des Dossiers Partagés (UNC)</h3>
+          <div id="sharedFoldersContainer"></div>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:1.1rem; margin-bottom:16px;">🔄 Interfaces & Fichiers EDI</h3>
+          <div id="ediContainer"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- View 8: Registre d'Audit -->
+    <section id="view-audit" class="view-section">
+      <h2 style="margin-bottom:20px;">Journal d'Audit & Traçabilité des Opérations</h2>
+
+      <div class="card">
+        <table style="width:100%; border-collapse:collapse; text-align:left; font-size:0.85rem;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border-color); color:var(--text-muted);">
+              <th style="padding:12px;">Horodatage (UTC)</th>
+              <th style="padding:12px;">Utilisateur</th>
+              <th style="padding:12px;">Action</th>
+              <th style="padding:12px;">Catégorie</th>
+              <th style="padding:12px;">Cible</th>
+              <th style="padding:12px;">Risque</th>
+              <th style="padding:12px;">Détails</th>
+            </tr>
+          </thead>
+          <tbody id="auditTableBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal for Dual Validation -->
+  <div class="modal-backdrop" id="overrideModal" style="display:none;">
+    <div class="modal-card">
+      <h3 style="color:var(--color-warning); margin-bottom:12px;">⚠️ Validation de Dérogation Requise</h3>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;" id="overrideModalText">
+        Vous vous préparez à exécuter une étape critique sur le Center Node Master de Production.
+      </p>
+      <label style="font-size:0.8rem; color:var(--text-main); display:block; margin-bottom:6px;">Justification obligatoire pour l'audit :</label>
+      <textarea id="overrideJustificationInput" style="width:100%; height:80px; background:var(--bg-dark); border:1px solid var(--border-color); color:var(--text-main); border-radius:6px; padding:10px; font-size:0.85rem; outline:none; margin-bottom:16px;" placeholder="Expliquez la raison technique du contournement..."></textarea>
+      
+      <div style="display:flex; justify-content:flex-end; gap:12px;">
+        <button class="btn btn-secondary" id="btnCancelOverride">Annuler</button>
+        <button class="btn btn-danger" id="btnConfirmOverride">Confirmer & Exécuter</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

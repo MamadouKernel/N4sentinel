@@ -1,151 +1,79 @@
-using N4Sentinel.Domain.Exceptions;
+using N4Sentinel.Domain.Common;
 
 namespace N4Sentinel.Domain.Entities;
 
 /// <summary>
-/// Un diagnostic lancé sur un symptôme, un composant, une alerte ou une période (FR-060, E7.2). Reprend
-/// l'entité "Incident / Diagnostic" du modèle de données minimal du cahier des charges (symptôme, période,
-/// hypothèses, preuves, confiance, conclusion). Comme pour <see cref="DiagnosticSignal"/> (Sprint 12),
-/// <see cref="CorrelationReference"/> est une référence libre — aucune entité "Incident" séparée n'existe dans
-/// ce domaine, donc un cas de diagnostic peut être relié aux signaux déjà collectés sous la même référence
-/// sans intégrité référentielle imposée.
-///
-/// Décisions de cadrage (Sprint 13) : le moteur (<see cref="N4Sentinel.Application.Diagnostics.DiagnosticEngineService"/>)
-/// classe les hypothèses par domaine (FR-062) en confrontant, pour chaque <see cref="DiagnosticRule"/> Active,
-/// les <see cref="DiagnosticSignal"/> et <see cref="ImportedLogFile"/> déjà réunis sous la même
-/// <see cref="CorrelationReference"/> — un calcul déterministe sur des données réelles déjà présentes dans
-/// l'application (signaux collectés/importés, journaux analysés, règles administrées), pas un score simulé ou
-/// arbitraire. Un utilisateur habilité peut aussi ajouter une hypothèse manuelle en s'appuyant sur son propre
-/// jugement (FR-060 : "message d'erreur ou signature connue"). FR-066 (comparaison avec une période saine
-/// validée/référence historique) et FR-067 (génération d'un paquet d'escalade avec empreintes de fichiers et
-/// masquage de secrets) restent hors périmètre de ce sprint : le premier suppose des données de référence
-/// réelles qui n'existent pas encore, le second suppose une couche de stockage de fichiers/archives qui
-/// n'existe pas encore dans l'application — deux candidats naturels pour un sprint ultérieur une fois ces
-/// fondations posées.
+/// §3.18 — Incident / Diagnostic : symptôme, période, hypothèses, preuves, confiance, conclusion.
 /// </summary>
-public class DiagnosticCase
+public class DiagnosticCase : Entity
 {
-    private readonly List<DiagnosticHypothesis> _hypotheses = [];
+    public Guid EnvironmentId { get; set; }
 
-    private DiagnosticCase()
-    {
-        Symptom = string.Empty;
-        CorrelationReference = string.Empty;
-        RequestedByUserId = string.Empty;
-    }
+    public required string Reference { get; set; }
 
-    public DiagnosticCase(
-        Guid environmentId,
-        string symptom,
-        DateTime periodStartUtc,
-        DateTime periodEndUtc,
-        string correlationReference,
-        string requestedByUserId)
-    {
-        if (string.IsNullOrWhiteSpace(symptom))
-        {
-            throw new DomainRuleException("Le symptôme est obligatoire (FR-060).");
-        }
+    public required string Symptome { get; set; }
 
-        if (periodEndUtc <= periodStartUtc)
-        {
-            throw new DomainRuleException("La période d'analyse doit avoir une fin postérieure au début.");
-        }
+    public DateTimeOffset PeriodeDebut { get; set; }
 
-        if (string.IsNullOrWhiteSpace(correlationReference))
-        {
-            throw new DomainRuleException("La référence de corrélation est obligatoire.");
-        }
+    public DateTimeOffset PeriodeFin { get; set; }
 
-        if (string.IsNullOrWhiteSpace(requestedByUserId))
-        {
-            throw new DomainRuleException("Le demandeur du diagnostic est obligatoire.");
-        }
+    public DiagnosticDomain DomainePresume { get; set; } = DiagnosticDomain.Inconnu;
 
-        Id = Guid.NewGuid();
-        EnvironmentId = environmentId;
-        Symptom = symptom.Trim();
-        PeriodStartUtc = periodStartUtc;
-        PeriodEndUtc = periodEndUtc;
-        CorrelationReference = correlationReference.Trim();
-        RequestedByUserId = requestedByUserId.Trim();
-        CreatedAtUtc = DateTime.UtcNow;
-    }
+    public required string OuvertPar { get; set; }
 
-    public Guid Id { get; private set; }
+    public DateTimeOffset OuvertLe { get; set; } = DateTimeOffset.UtcNow;
 
-    public Guid EnvironmentId { get; private set; }
+    /// <summary>Conclusion retenue par l'opérateur, distincte des hypothèses proposées par le moteur.</summary>
+    public string? Conclusion { get; set; }
 
-    public string Symptom { get; private set; }
+    public string? ConcluPar { get; set; }
 
-    public DateTime PeriodStartUtc { get; private set; }
+    public DateTimeOffset? ConcluLe { get; set; }
 
-    public DateTime PeriodEndUtc { get; private set; }
+    /// <summary>Identifiant reliant l'incident aux signaux, logs et exécutions de la même fenêtre.</summary>
+    public required string ReferenceDeCorrelation { get; set; }
 
-    public string CorrelationReference { get; private set; }
+    public List<DiagnosticHypothesis> Hypotheses { get; set; } = [];
+}
 
-    public string RequestedByUserId { get; private set; }
+/// <summary>
+/// Hypothèse produite par le moteur de diagnostic. Le score de confiance n'est publié
+/// que s'il est calculé sur des preuves réellement collectées, jamais estimé à vide.
+/// </summary>
+public class DiagnosticHypothesis : Entity
+{
+    public Guid DiagnosticCaseId { get; set; }
 
-    public DateTime CreatedAtUtc { get; private set; }
+    public Guid? RegleAppliqueeId { get; set; }
 
-    public ConclusionLevel? ConclusionLevel { get; private set; }
+    public required string Enonce { get; set; }
 
-    public string? ConclusionSummary { get; private set; }
+    public DiagnosticDomain Domaine { get; set; } = DiagnosticDomain.Inconnu;
 
-    public DateTime? ConcludedAtUtc { get; private set; }
+    public Severity Severite { get; set; } = Severity.Mineure;
 
-    public IReadOnlyList<DiagnosticHypothesis> Hypotheses => _hypotheses;
+    /// <summary>Confiance en pourcentage, nulle tant qu'aucune preuve n'a été rattachée.</summary>
+    public int? Confiance { get; set; }
 
-    /// <summary>Ajoute une hypothèse classée par domaine (FR-062), expliquée (FR-063). Refusé une fois le diagnostic conclu.</summary>
-    public DiagnosticHypothesis AddHypothesis(
-        DiagnosticDomain domain,
-        Guid? appliedRuleId,
-        string? appliedRuleKey,
-        int? appliedRuleVersion,
-        string causeDescription,
-        DiagnosticConfidenceLevel confidenceLevel,
-        string? supportingEvidence,
-        string? contradictingEvidence,
-        string? missingInformation,
-        string? recommendedChecks,
-        string? safeActionsOrEscalation)
-    {
-        EnsureNotConcluded();
+    /// <summary>Explication du raisonnement, exigée par le §3.15 : le score seul ne suffit pas.</summary>
+    public string? Explication { get; set; }
 
-        var hypothesis = new DiagnosticHypothesis(
-            Id, domain, appliedRuleId, appliedRuleKey, appliedRuleVersion, causeDescription, confidenceLevel,
-            supportingEvidence, contradictingEvidence, missingInformation, recommendedChecks, safeActionsOrEscalation);
+    public string? Recommandation { get; set; }
 
-        _hypotheses.Add(hypothesis);
-        return hypothesis;
-    }
+    public List<DiagnosticEvidence> Preuves { get; set; } = [];
+}
 
-    /// <summary>
-    /// FR-069 : qualifie le diagnostic selon l'un des cinq niveaux de conclusion. "Aucune anomalie détectée"
-    /// ne signifie pas que l'incident n'existe pas — seulement qu'aucune anomalie n'a été mise en évidence
-    /// dans le périmètre effectivement analysé, d'où l'obligation d'une synthèse précisant ce périmètre.
-    /// </summary>
-    public void Conclude(ConclusionLevel conclusionLevel, string summary)
-    {
-        EnsureNotConcluded();
+/// <summary>Preuve rattachée à une hypothèse : signal relevé, extrait de log ou étape en échec.</summary>
+public class DiagnosticEvidence : Entity
+{
+    public Guid DiagnosticHypothesisId { get; set; }
 
-        if (string.IsNullOrWhiteSpace(summary))
-        {
-            throw new DomainRuleException(
-                "La synthèse de conclusion doit préciser le périmètre, les preuves utilisées et les limites " +
-                "de l'analyse (FR-069).");
-        }
+    public required string TypeDeSource { get; set; }
 
-        ConclusionLevel = conclusionLevel;
-        ConclusionSummary = summary.Trim();
-        ConcludedAtUtc = DateTime.UtcNow;
-    }
+    public Guid? SourceId { get; set; }
 
-    public void EnsureNotConcluded()
-    {
-        if (ConclusionLevel is not null)
-        {
-            throw new DomainRuleException("Ce diagnostic est déjà conclu.");
-        }
-    }
+    /// <summary>Extrait cité, déjà expurgé de tout secret.</summary>
+    public required string Extrait { get; set; }
+
+    public DateTimeOffset? HorodatageSource { get; set; }
 }

@@ -1,50 +1,128 @@
-# Sprint 0 — Fondations techniques
+# Sprint 0 — Cadrage, socle technique et accès
 
-**Objectif de sprint** : disposer d'une solution .NET 10 / Clean Architecture compilable, testable, avec
-authentification par rôles et journalisation structurée, prête à accueillir les premières stories métier.
+**Semaines 1–2 · Lot 1 · Statut : livré**
 
-## Sprint Backlog
+**Objectif** — poser une application déployable et une architecture validée, et lancer les
+demandes qui conditionnent tout le reste.
 
-| Story | Résultat |
-|---|---|
-| E12.1 — Architecture Clean Architecture .NET + solution scaffoldée | Fait |
-| E12.2 — Authentification par rôles (ASP.NET Core Identity) | Fait |
-| E12.3 — Journalisation structurée centralisée (Serilog, sinks Console + SQL Server) | Fait |
-| E11.1 (partiel) — Les 4 rôles applicatifs sont créés (Lecteur, Opérateur, Approbateur, Administrateur) et un compte Administrateur de démonstration est seedé en développement | Fait |
+**Livrable démontrable en revue** — une application vide mais déployée automatiquement, et le
+dossier d'architecture soumis à la DSI.
 
-## Ce qui a été livré
+---
 
-- Solution `N4Sentinel.sln` (format `.slnx`), 7 projets : Domain, Application, Infrastructure, Web (Blazor
-  Server), Domain.Tests, Application.Tests, IntegrationTests.
-- Deux `DbContext` distincts sur la même base SQL Server (`ApplicationDbContext` pour Identity,
-  `AppDbContext` pour le référentiel métier), chacun avec son propre historique de migrations
-  (`__EFMigrationsHistory_Identity` / `__EFMigrationsHistory_App`) pour éviter tout conflit.
-- Pipeline MediatR avec comportement de validation FluentValidation automatique sur toutes les commandes/
-  requêtes (`ValidationBehavior<TRequest,TResponse>`).
-- Dépôt Git local initialisé.
+## Contexte : reprise à zéro
 
-## Décisions techniques notables (à valider en rétrospective avec la DSI)
+Ce sprint repart d'un dépôt vide sur la branche `v2`. Le contenu précédent de `main` — vingt
+sprints construits sur un backlog antérieur — reste intégralement consultable dans l'historique
+git ; rien n'a été supprimé du dépôt distant. Le nouveau plan repose sur le cahier des charges
+v3 et sur la maquette validée avec la DSI, dont le rendu devient contraignant.
 
-- **FluentAssertions figé en version 7.x** (et non la dernière 8.x) : la version 8 est passée sous licence
-  commerciale payante pour un usage en entreprise. La 7.x reste sous licence Apache 2.0 libre.
-- **SignalR non ajouté explicitement** : Blazor Server repose déjà nativement sur SignalR pour son circuit de
-  rendu ; ajouter un Hub dédié sans consommateur aurait été de la sur-ingénierie prématurée. À réévaluer au
-  Sprint où le tableau de bord temps réel multi-utilisateurs (Epic 4) sera construit.
-- **Seed du compte Administrateur limité à l'environnement de développement** (`app.Environment.IsDevelopment()`)
-  : la création automatique d'un compte à privilèges élevés ne doit jamais être un comportement par défaut en
-  Production.
-- **Collection de dépendances de composant stockée via le support natif EF Core 8+ "primitive collections"**
-  (colonne JSON générée automatiquement) plutôt qu'une table de jointure ou un convertisseur manuel — moins de
-  code, suffisant pour le besoin actuel (FR-002). Une table de jointure dédiée sera envisagée si le moteur de
-  séquencement (Epic 1, E1.4) a besoin de requêtes relationnelles sur ce graphe.
+## Contenu livré
 
-## Rétrospective
+### Squelette applicatif en couches
 
-- **Ce qui a bien fonctionné** : le template `dotnet new blazor --auth Individual` fournit un socle Identity
-  complet (comptes, 2FA, passkeys, gestion de profil) qu'il aurait été coûteux de récrire — conservé tel
-  quel dans `Web/Data`, seul le provider de base de données a été changé (SQLite → SQL Server).
-- **Point de vigilance** : `dotnet remove package` a échoué avec un chemin relatif depuis la racine de la
-  solution (bug/quirk de l'outil avec le nouveau format `.slnx`) ; contournement systématique en se plaçant
-  dans le dossier du projet avant d'appeler les commandes `dotnet add/remove package`.
-- **Action pour le sprint suivant** : dès que le moteur de workflows (Epic 1, E1.4) démarrera, prévoir les
-  connecteurs serveurs (E12.4) en amont, car E3.x (pilotage réel) en dépend entièrement.
+Huit projets, un par couche du §3.15, plus trois projets de tests :
+
+```
+src/N4Sentinel.Web            Interface
+src/N4Sentinel.Application    API / Domaine — contrats et règles applicatives
+src/N4Sentinel.Domain         API / Domaine — entités et invariants
+src/N4Sentinel.Orchestration  Orchestrateur
+src/N4Sentinel.Connectors     Connecteurs
+src/N4Sentinel.Diagnostics    Diagnostic
+src/N4Sentinel.Knowledge      Connaissance
+src/N4Sentinel.Data           Données / Audit
+```
+
+Le respect du découpage n'est pas déclaratif : `tests/N4Sentinel.Architecture.Tests` fait
+échouer la génération si une couche référence une couche qu'elle n'a pas le droit de connaître.
+
+### Modèle de données — les quinze entités du §3.18
+
+Dix-sept types dans `src/N4Sentinel.Domain/Entities` couvrent les quinze lignes du cahier des
+charges ; « Workflow / Version » et « SOP / Version » se traduisent chacune par deux types.
+Chaque entité porte en commentaire la ligne du §3.18 dont elle procède, et le test
+`DataModelCoverageTests` échoue si la couverture régresse.
+
+Trois choix structurants, détaillés dans `docs/architecture.md` :
+
+- versionnement par nouvelle ligne pour les objets scalaires, couple racine / version pour les
+  objets à structure enfant mutable ;
+- `N4ComponentKind` typé — sans lui, aucune séquence d'arrêt ou de démarrage n'est calculable ;
+- `StepErrorKind` distingue les cinq natures d'erreur que le §3.19 impose de ne pas confondre.
+
+### Intégration continue
+
+| Workflow | Déclencheur | Contenu |
+|---|---|---|
+| `ci.yml` | poussée, demande de fusion | Génération et tests sur `windows-latest`, avertissements traités comme erreurs, dépôt des résultats |
+| `ci.yml` | idem | Échec si une dépendance porte une vulnérabilité connue |
+| `publication.yml` | tag `v*` ou déclenchement manuel | Publication autonome `win-x64` après tests, avec scripts de déploiement |
+
+L'installation sur les serveurs CIT reste manuelle : aucun exécuteur GitHub n'atteint le réseau
+du terminal. C'est documenté comme une limite, pas présenté comme automatisé.
+
+### Chiffrement (SEC-005)
+
+- Redirection HTTPS avec port explicite — nécessaire en service Windows, où les variables
+  d'environnement d'IIS n'existent pas.
+- HSTS un an, sous-domaines inclus.
+- Clés de protection persistées hors du répertoire applicatif et chiffrées par DPAPI au niveau
+  machine : une copie du dossier de clés sur un autre serveur est inexploitable.
+- Politique de contenu sans aucune origine externe, cohérente avec un réseau isolé.
+
+Le chiffrement au niveau colonne en base attend que la base existe — Sprint 2.
+
+### Hors code
+
+| Livrable | Fichier | Statut |
+|---|---|---|
+| Atelier de validation des séquences réelles | `docs/cadrage/atelier-sequences.md` | Ordre du jour et grilles prêts, atelier à tenir |
+| Recensement du périmètre exact | `docs/cadrage/recensement-perimetre.md` | Grille prête, à remplir avec l'Infrastructure |
+| Demande formelle des accès techniques | `docs/cadrage/demande-acces-techniques.md` | Rédigée, à adresser à la DSI |
+| Arbitrage ActiveMQ / Kafka | `docs/cadrage/arbitrage-activemq-kafka.md` | Position argumentée, décision DSI attendue |
+
+Ces quatre livrables sont des documents, pas des décisions : leur clôture appartient à la DSI et
+à l'Infrastructure.
+
+## Exigences soldées
+
+| Référence | Objet | État |
+|---|---|---|
+| §3.15 | Architecture cible en couches | Proposée, en attente de validation DSI |
+| §3.18 | Modèle de données minimal | Couvert |
+| SEC-005 | Chiffrement communications et données au repos | Communications faites ; au repos partiel (clés faites, colonnes en S2) |
+| NFR-006, NFR-007 | Exigences non fonctionnelles de socle | Prises en compte dans la CI et la publication |
+
+## Vérification
+
+```
+dotnet build N4Sentinel.slnx   → 0 avertissement, 0 erreur
+dotnet test N4Sentinel.slnx    → 27 tests, 0 échec
+```
+
+Détail : 20 tests de domaine (couverture du §3.18, racine commune, format des identifiants),
+7 tests d'architecture (règles de dépendance entre couches).
+
+## Ce qui n'est pas fait, et pourquoi
+
+- **Aucune authentification** — Sprint 1. En attendant, l'application n'expose aucune donnée :
+  il n'y a rien à protéger.
+- **Aucune persistance** — Sprint 2. Le modèle existe, la base n'est pas branchée.
+- **Aucun connecteur** — Sprint 3. Rien ne parle à un serveur N4.
+- **Aucun écran fonctionnel** — la reprise du rendu de la maquette commence au Sprint 1. Le
+  gabarit Blazor est celui du modèle par défaut.
+- **L'installation sur les serveurs CIT n'est pas automatisée** — voir plus haut.
+
+## Points ouverts pour la revue de sprint
+
+1. Le dossier d'architecture est-il validé par la DSI ? Tout le reste en découle.
+2. Quelle solution de coffre à secrets CIT implémente `ISecretResolver` ?
+3. Date d'engagement sur les accès techniques — le Sprint 3 en dépend entièrement.
+4. Décision ActiveMQ / Kafka.
+
+## Sprint suivant
+
+**Sprint 1 — Identités, profils et journal d'audit** (semaines 3–4). Dépend de ce sprint pour le
+socle applicatif. Objectif : rendre impossible toute action non authentifiée, non autorisée ou
+non tracée, avant même qu'une action existe.

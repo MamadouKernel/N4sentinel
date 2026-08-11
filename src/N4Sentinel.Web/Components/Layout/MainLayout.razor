@@ -1,27 +1,9 @@
-@inherits LayoutComponentBase
+﻿@inherits LayoutComponentBase
 
-@inject IOptions<BrandingOptions> BrandingOptions
+@Body
 
-<div class="flex min-h-screen flex-col bg-slate-50">
-    <NavMenu />
-
-    <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        @Body
-    </main>
-
-    <footer class="border-t border-slate-200 bg-white">
-        <div class="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-            <span>@BrandingOptions.Value.ApplicationName — @BrandingOptions.Value.OrganizationName</span>
-            <span>Supervision, pilotage et diagnostic de l'écosystème Navis N4</span>
-        </div>
-    </footer>
-</div>
-
-<div id="blazor-error-ui" data-nosnippet
-     class="fixed inset-x-0 bottom-0 z-50 hidden items-center justify-between border-t border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-    <span>Une erreur inattendue s'est produite.</span>
-    <span>
-        <a href="." class="reload font-semibold underline">Recharger</a>
-        <span class="dismiss ml-3 cursor-pointer" role="button" aria-label="Fermer">&#10005;</span>
-    </span>
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
 </div>
