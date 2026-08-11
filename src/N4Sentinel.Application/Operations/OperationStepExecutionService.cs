@@ -56,7 +56,16 @@ public sealed class OperationStepExecutionService(IServerConnector connector, IC
         }
     }
 
-    private async Task<ServerActionResult> InvokeConnectorAsync(
+    /// <summary>Résout le composant ciblé par une étape, ou null si l'étape n'en cible aucun.</summary>
+    public Task<N4Component?> ResolveComponentAsync(Guid? componentId, CancellationToken cancellationToken) =>
+        componentId is Guid id ? components.GetByIdAsync(id, cancellationToken) : Task.FromResult<N4Component?>(null);
+
+    /// <summary>
+    /// Appelle le connecteur pour une action donnée, sans toucher à l'agrégat <see cref="OperationRun"/> —
+    /// exposé publiquement pour permettre l'exécution concurrente de plusieurs appels connecteur (FR-023),
+    /// dont l'application des résultats à l'agrégat doit ensuite rester séquentielle.
+    /// </summary>
+    public async Task<ServerActionResult> InvokeConnectorAsync(
         WorkflowStepAction action, N4Component? component, CancellationToken cancellationToken)
     {
         if (component is null)

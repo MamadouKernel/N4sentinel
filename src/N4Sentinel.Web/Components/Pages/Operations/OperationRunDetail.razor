@@ -140,9 +140,18 @@ else
             }
             else if (run.Status is OperationRunStatus.Approved or OperationRunStatus.Running)
             {
-                <button class="btn btn-primary mb-3" @onclick="ExecuteNextStepAsync" disabled="@isExecuting">
-                    @(isExecuting ? "Exécution en cours..." : "Exécuter l'étape suivante")
-                </button>
+                <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                    <button class="btn btn-primary" @onclick="ExecuteNextStepAsync" disabled="@isExecuting">
+                        @(isExecuting ? "Exécution en cours..." : "Exécuter l'étape suivante")
+                    </button>
+                    <button class="btn btn-outline-primary" @onclick="ExecuteReadyStepsAsync" disabled="@isExecuting" title="Exécute en une fois toutes les étapes actuellement prêtes et explicitement indépendantes (FR-023).">
+                        Exécuter les étapes prêtes (parallèle)
+                    </button>
+                </div>
+                @if (!string.IsNullOrEmpty(parallelExecutionMessage))
+                {
+                    <p class="text-muted text-sm">@parallelExecutionMessage</p>
+                }
             }
             @if (run.Status == OperationRunStatus.Failed)
             {
@@ -250,6 +259,7 @@ else
     private string overrideApprovedByUserId = string.Empty;
     private bool showCancelForm;
     private string cancelReason = string.Empty;
+    private string? parallelExecutionMessage;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -305,6 +315,33 @@ else
         try
         {
             await Mediator.Send(new ExecuteNextOperationStepCommand(OperationRunId));
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.Message;
+        }
+        finally
+        {
+            isExecuting = false;
+        }
+    }
+
+    private async Task ExecuteReadyStepsAsync()
+    {
+        errorMessage = null;
+        parallelExecutionMessage = null;
+        isExecuting = true;
+        try
+        {
+            var result = await Mediator.Send(new ExecuteReadyOperationStepsCommand(OperationRunId));
+            parallelExecutionMessage = result.ExecutedCount switch
+            {
+                0 when result.AwaitingConfirmationCount > 0 => "Étape(s) sensible(s) en attente de confirmation — aucune exécutée automatiquement.",
+                0 => "Aucune étape n'était prête à être exécutée (dépendances non satisfaites ou opération terminée).",
+                1 => "1 étape exécutée.",
+                _ => $"{result.ExecutedCount} étapes exécutées en parallèle (FR-023).",
+            };
             await LoadAsync();
         }
         catch (Exception ex)
