@@ -12,6 +12,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/N4Sentinel.Application.Tests/N4Sentinel.Application.Tests.csproj" />
     <Project Path="tests/N4Sentinel.Architecture.Tests/N4Sentinel.Architecture.Tests.csproj" />
+    <Project Path="tests/N4Sentinel.Connectors.Tests/N4Sentinel.Connectors.Tests.csproj" />
     <Project Path="tests/N4Sentinel.Domain.Tests/N4Sentinel.Domain.Tests.csproj" />
   </Folder>
 </Solution>

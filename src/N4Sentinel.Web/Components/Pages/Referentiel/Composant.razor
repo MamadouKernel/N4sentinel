@@ -47,6 +47,13 @@ else
     </div>
 
     <AuthorizeView Policy="Droit:GererLeReferentiel">
+        <h2>Test de configuration</h2>
+        <p class="mention">
+            FR-007 — lecture seule : état des services, ports, endpoints, dossiers et contrôles
+            SQL du catalogue approuvé. Aucune action mutative n'est émise.
+        </p>
+        <p><a class="lien-retour" href="/referentiel/test/@composant.Id">Tester la configuration</a></p>
+
         <h2>Cycle de validation</h2>
         @if (composant.Kind == N4ComponentKind.NonSpecifie)
         {

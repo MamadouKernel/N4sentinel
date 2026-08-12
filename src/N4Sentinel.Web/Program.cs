@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Connectors;
 using N4Sentinel.Data;
 using N4Sentinel.Data.Amorcage;
 using N4Sentinel.Data.Identite;
@@ -33,6 +34,7 @@ if (string.IsNullOrWhiteSpace(chaineDeConnexion))
 }
 
 builder.Services.AjouterLaCoucheDonnees(chaineDeConnexion);
+builder.Services.AjouterLaCoucheConnecteurs();
 
 // — SEC-001 : identité applicative avec second facteur par courriel —
 builder.Services.AddIdentity<UtilisateurApplicatif, IdentityRole>(options =>

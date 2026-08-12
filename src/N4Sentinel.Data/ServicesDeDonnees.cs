@@ -4,6 +4,8 @@ using N4Sentinel.Application.Abstractions;
 using N4Sentinel.Application.Habilitations;
 using N4Sentinel.Data.Audit;
 using N4Sentinel.Data.Habilitations;
+using N4Sentinel.Application.Connecteurs;
+using N4Sentinel.Data.Supervision;
 using N4Sentinel.Data.Temps;
 
 namespace N4Sentinel.Data;
@@ -36,6 +38,7 @@ public static class ServicesDeDonnees
         services.AddSingleton<IClock, HorlogeSysteme>();
         services.AddScoped<IAuditTrail, PisteDAudit>();
         services.AddScoped<IServiceDHabilitations, ServiceDHabilitations>();
+        services.AddScoped<ITesteurDeConfiguration, TesteurDeConfiguration>();
 
         return services;
     }

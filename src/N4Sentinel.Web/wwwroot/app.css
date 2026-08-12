@@ -471,3 +471,19 @@ a.identite-nom:hover {
 .tableau th {
     white-space: nowrap;
 }
+
+/* — État consolidé — le libellé porte l'information, la couleur ne fait que l'appuyer. — */
+
+.etat-consolide {
+    display: inline-block;
+    padding: 7px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--bordure-accentuee);
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.etat-consolide.etat-favorable { border-color: var(--succes); color: var(--succes); }
+.etat-consolide.etat-degrade { border-color: var(--alerte); color: var(--alerte); }
+.etat-consolide.etat-defavorable { border-color: var(--danger); color: var(--danger); }
+.etat-consolide.etat-indetermine { border-color: var(--bordure-accentuee); color: var(--texte-attenue); }

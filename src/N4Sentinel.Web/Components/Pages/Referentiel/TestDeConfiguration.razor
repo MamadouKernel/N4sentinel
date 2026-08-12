@@ -1,0 +1,148 @@
+@page "/referentiel/test/{ComposantId:guid}"
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Application.Abstractions
+@using N4Sentinel.Application.Audit
+@using N4Sentinel.Application.Connecteurs
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Entities
+@using N4Sentinel.Domain.Supervision
+@attribute [Authorize(Policy = "Droit:GererLeReferentiel")]
+@inject ITesteurDeConfiguration Testeur
+@inject IRepartiteurDeConnecteurs Repartiteur
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IUtilisateurCourant Acteur
+@inject IAuditTrail Piste
+
+<PageTitle>Test de configuration — N4 Sentinel</PageTitle>
+
+<h1>Test de configuration — @(composant?.Nom ?? "composant inconnu")</h1>
+<p>
+    FR-007 — ce test n'émet aucune action mutative. Il ne fait que lire : état de services,
+    ports, endpoints, dossiers et contrôles SQL du catalogue approuvé.
+</p>
+
+@if (resultat is null)
+{
+    <p>Composant introuvable.</p>
+}
+else
+{
+    <h2>État consolidé</h2>
+    <p class="etat-consolide @ClasseDEtat(resultat.Etat.Etat)">
+        @LibelleDEtat(resultat.Etat.Etat)
+    </p>
+    <p>@resultat.Etat.Justification</p>
+
+    @if (resultat.Etat.SignauxManquants.Count > 0)
+    {
+        <p class="mention">
+            Signaux non obtenus : @string.Join(", ", resultat.Etat.SignauxManquants).
+            Une absence de signal n'est pas une absence d'anomalie : elle est comptée comme
+            telle dans l'état ci-dessus.
+        </p>
+    }
+
+    <h2>Signaux collectés</h2>
+    @if (resultat.Signaux.Count == 0)
+    {
+        <p>
+            Aucun contrôle de santé actif n'est déclaré sur ce composant. Sans contrôle,
+            l'application ne peut rien affirmer de son état.
+        </p>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead>
+                    <tr><th>Contrôle</th><th>Verdict</th><th>Détail</th><th>Concluant seul</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var signal in resultat.Signaux)
+                    {
+                        <tr>
+                            <td>@signal.Type</td>
+                            <td>@LibelleDeVerdict(signal.Verdict)</td>
+                            <td>@(signal.Detail ?? "—")</td>
+                            <td>@(signal.SuffitSeulAConclure ? "Oui" : "Non")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <h2>Connecteurs disponibles</h2>
+    <p class="mention">
+        Types de contrôle pris en charge sur ce serveur : @string.Join(", ", Repartiteur.TypesPrisEnCharge).
+        Un contrôle dont le type n'y figure pas produit un signal indisponible, jamais un état supposé.
+    </p>
+
+    <p><a class="lien-retour" href="/referentiel/composant/@ComposantId">Revenir au composant</a></p>
+}
+
+@code {
+    [Parameter]
+    public Guid ComposantId { get; set; }
+
+    private ResultatDuTest? resultat;
+    private N4Component? composant;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+        composant = await contexte.Composants.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == ComposantId);
+
+        if (composant is null)
+        {
+            return;
+        }
+
+        resultat = await Testeur.TesterLeComposantAsync(ComposantId);
+
+        // Le test interroge des serveurs : il est tracé, même s'il ne modifie rien.
+        await Piste.EnregistrerAsync(new AuditEntry
+        {
+            Acteur = Acteur.NomAffiche,
+            Action = ActionsAuditees.ConfigurationTestee,
+            TypeDObjet = ObjetsAudites.Composant,
+            IdentifiantDObjet = ComposantId.ToString(),
+            EnvironmentId = composant.EnvironmentId,
+            ValeurApres = $"{resultat.Etat.Etat} — {resultat.Signaux.Count} signal(aux)",
+            AdresseIp = Acteur.AdresseIp,
+            Origine = AuditOrigin.InterfaceWeb
+        });
+    }
+
+    private static string LibelleDEtat(ComponentHealth etat) => etat switch
+    {
+        ComponentHealth.Inconnu => "Inconnu",
+        ComponentHealth.AConfirmer => "À confirmer",
+        ComponentHealth.Operationnel => "Opérationnel",
+        ComponentHealth.Degrade => "Dégradé",
+        ComponentHealth.Arrete => "Arrêté",
+        _ => etat.ToString()
+    };
+
+    // Le libellé porte l'information ; la couleur ne fait que l'appuyer. Le cahier des charges
+    // exige des statuts compréhensibles sans dépendre uniquement des couleurs.
+    private static string ClasseDEtat(ComponentHealth etat) => etat switch
+    {
+        ComponentHealth.Operationnel => "etat-favorable",
+        ComponentHealth.Degrade => "etat-degrade",
+        ComponentHealth.Arrete => "etat-defavorable",
+        _ => "etat-indetermine"
+    };
+
+    private static string LibelleDeVerdict(VerdictDeSignal verdict) => verdict switch
+    {
+        VerdictDeSignal.Favorable => "Favorable",
+        VerdictDeSignal.Defavorable => "Défavorable",
+        VerdictDeSignal.Degrade => "Hors seuils",
+        VerdictDeSignal.Indisponible => "Indisponible",
+        VerdictDeSignal.Perime => "Périmé",
+        _ => verdict.ToString()
+    };
+}

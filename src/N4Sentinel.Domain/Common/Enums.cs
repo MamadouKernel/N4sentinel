@@ -103,10 +103,22 @@ public enum ModeDePilotage
     NonSupervise
 }
 
-/// <summary>État de santé constaté d'un composant.</summary>
+/// <summary>
+/// FR-016 — état de santé consolidé d'un composant. « Un service déclaré Running ne suffit pas
+/// à confirmer qu'un composant est opérationnel. Lorsque les signaux sont indisponibles ou
+/// contradictoires, l'état doit être déclaré Inconnu ou À confirmer. »
+/// </summary>
 public enum ComponentHealth
 {
+    /// <summary>Aucun signal exploitable. On ne sait pas — et on le dit.</summary>
     Inconnu,
+
+    /// <summary>
+    /// Des signaux existent mais ne permettent pas de conclure : ils se contredisent, ou
+    /// certains manquent. À ne jamais confondre avec « opérationnel ».
+    /// </summary>
+    AConfirmer,
+
     Operationnel,
     Degrade,
     Arrete
