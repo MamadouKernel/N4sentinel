@@ -1,9 +1,93 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IHttpContextAccessor Accesseur
 
-@Body
+<header class="bandeau">
+    <span class="bandeau-titre">N4 SENTINEL</span>
+
+    <div class="bandeau-droite">
+        @* SEC-004 — l'environnement courant est visible en permanence, jamais deviné. *@
+        @if (environnements.Count > 0)
+        {
+            <form method="post" action="/environnement">
+                <AntiforgeryToken />
+                <span class="pastille-environnement @ClasseDePastille">@NomDeLEnvironnement</span>
+                <select name="environnementId" aria-label="Environnement">
+                    @foreach (var environnement in environnements)
+                    {
+                        <option value="@environnement.Id"
+                                selected="@(environnement.Id == EnvironnementCourantId)">
+                            @environnement.Nom
+                        </option>
+                    }
+                </select>
+                <button type="submit" class="bouton-discret">Changer</button>
+            </form>
+        }
+
+        <AuthorizeView>
+            <Authorized>
+                <span class="identite">
+                    <span class="identite-nom">@context.User.Identity?.Name</span>
+                    <span class="identite-profils">@Profils(context.User)</span>
+                </span>
+                <form method="post" action="/compte/deconnexion">
+                    <AntiforgeryToken />
+                    <button type="submit" class="bouton-discret">Se déconnecter</button>
+                </form>
+            </Authorized>
+        </AuthorizeView>
+    </div>
+</header>
+
+<main class="contenu">
+    @Body
+</main>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    Une erreur inattendue s'est produite.
+    <a href="." class="reload">Recharger</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private List<Domain.Entities.N4Environment> environnements = [];
+
+    private Guid? EnvironnementCourantId
+    {
+        get
+        {
+            var brut = Accesseur.HttpContext?.Request.Cookies["environnement"];
+            return Guid.TryParse(brut, out var id) ? id : environnements.FirstOrDefault()?.Id;
+        }
+    }
+
+    private Domain.Entities.N4Environment? EnvironnementCourant =>
+        environnements.Find(e => e.Id == EnvironnementCourantId);
+
+    private string NomDeLEnvironnement => EnvironnementCourant?.Nom ?? "—";
+
+    private string ClasseDePastille => EnvironnementCourant?.Type switch
+    {
+        EnvironmentType.Production => "production",
+        EnvironmentType.Uat => "uat",
+        _ => string.Empty
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+        environnements = await contexte.Environnements
+            .AsNoTracking()
+            .OrderBy(e => e.Type)
+            .ToListAsync();
+    }
+
+    private static string Profils(System.Security.Claims.ClaimsPrincipal utilisateur) =>
+        string.Join(", ", utilisateur.Claims
+            .Where(c => c.Type == System.Security.Claims.ClaimTypes.Role)
+            .Select(c => c.Value));
+}

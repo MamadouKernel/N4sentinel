@@ -1,0 +1,143 @@
+@page "/administration/habilitations"
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Data
+@using N4Sentinel.Data.Identite
+@using N4Sentinel.Domain.Habilitations
+@using N4Sentinel.Web.Securite
+@attribute [Authorize(Policy = "Droit:GererLesRoles")]
+@inject UserManager<UtilisateurApplicatif> Utilisateurs
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+
+<PageTitle>Habilitations — N4 Sentinel</PageTitle>
+
+<h1>Habilitations</h1>
+<p>
+    Les profils globaux valent partout sauf pour agir en Production. Une action en Production
+    exige une habilitation posée sur cet environnement précis. Chaque attribution et chaque
+    révocation est écrite au journal d'audit.
+</p>
+
+<div class="defilement">
+    <table class="tableau">
+        <thead>
+            <tr>
+                <th>Utilisateur</th>
+                <th>Profils globaux</th>
+                <th>Habilitations par environnement</th>
+                <th>Accorder un profil global</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var ligne in lignes)
+            {
+                <tr>
+                    <td>
+                        @ligne.Utilisateur.NomComplet<br />
+                        <span class="identite-profils">@ligne.Utilisateur.Email</span>
+                    </td>
+                    <td>@(ligne.ProfilsGlobaux.Count == 0 ? "—" : string.Join(", ", ligne.ProfilsGlobaux))</td>
+                    <td>
+                        @if (ligne.Habilitations.Count == 0)
+                        {
+                            <text>—</text>
+                        }
+                        else
+                        {
+                            @foreach (var habilitation in ligne.Habilitations)
+                            {
+                                <div>@NomDeLEnvironnement(habilitation.EnvironmentId) : @habilitation.Profil</div>
+                            }
+                        }
+                    </td>
+                    <td>
+                        <form method="post" action="/administration/profil-global">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="utilisateurId" value="@ligne.Utilisateur.Id" />
+                            <input type="hidden" name="accorder" value="true" />
+                            <select name="profil" aria-label="Profil à accorder">
+                                @foreach (var profil in DroitsParProfil.TousLesProfils)
+                                {
+                                    <option value="@profil">@profil</option>
+                                }
+                            </select>
+                            <button type="submit" class="bouton-discret">Accorder</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<h2>Habiliter sur un environnement</h2>
+
+<form method="post" action="/administration/habilitation" class="formulaire">
+    <AntiforgeryToken />
+    <input type="hidden" name="accorder" value="true" />
+
+    <label for="utilisateurId">Utilisateur</label>
+    <select id="utilisateurId" name="utilisateurId">
+        @foreach (var ligne in lignes)
+        {
+            <option value="@ligne.Utilisateur.Id">@ligne.Utilisateur.NomComplet</option>
+        }
+    </select>
+
+    <label for="environnementId">Environnement</label>
+    <select id="environnementId" name="environnementId">
+        @foreach (var environnement in environnements)
+        {
+            <option value="@environnement.Id">@environnement.Nom</option>
+        }
+    </select>
+
+    <label for="profil">Profil</label>
+    <select id="profil" name="profil">
+        @foreach (var profil in DroitsParProfil.TousLesProfils)
+        {
+            <option value="@profil">@profil</option>
+        }
+    </select>
+
+    <label for="motif">Motif</label>
+    <input id="motif" name="motif" type="text" maxlength="256" />
+
+    <button type="submit">Habiliter</button>
+</form>
+
+@code {
+    private sealed record Ligne(
+        UtilisateurApplicatif Utilisateur,
+        IReadOnlyList<string> ProfilsGlobaux,
+        IReadOnlyList<Domain.Entities.HabilitationEnvironnement> Habilitations);
+
+    private List<Ligne> lignes = [];
+    private List<Domain.Entities.N4Environment> environnements = [];
+
+    private string NomDeLEnvironnement(Guid id) =>
+        environnements.Find(e => e.Id == id)?.Nom ?? id.ToString();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        environnements = await contexte.Environnements.AsNoTracking().OrderBy(e => e.Type).ToListAsync();
+
+        var comptes = await Utilisateurs.Users.AsNoTracking().OrderBy(u => u.NomComplet).ToListAsync();
+        var habilitations = await contexte.Habilitations
+            .AsNoTracking()
+            .Where(h => h.RevoqueeLe == null)
+            .ToListAsync();
+
+        lignes = [];
+        foreach (var compte in comptes)
+        {
+            var profils = await Utilisateurs.GetRolesAsync(compte);
+            lignes.Add(new Ligne(
+                compte,
+                [.. profils],
+                [.. habilitations.Where(h => h.UtilisateurId == compte.Id)]));
+        }
+    }
+}

@@ -1,0 +1,41 @@
+@page "/compte/acces-refuse"
+@using Microsoft.AspNetCore.Authorization
+@using N4Sentinel.Application.Abstractions
+@using N4Sentinel.Application.Audit
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Entities
+@attribute [AllowAnonymous]
+@inject IAuditTrail Piste
+@inject IUtilisateurCourant Utilisateur
+
+<PageTitle>Accès refusé — N4 Sentinel</PageTitle>
+
+<h1>Accès refusé</h1>
+<p>
+    Votre profil ne vous donne pas accès à cette page. La tentative a été enregistrée dans le
+    journal d'audit, comme l'exige SEC-008.
+</p>
+<p>
+    Si cet accès vous est nécessaire, adressez la demande à l'administrateur de la solution :
+    l'attribution d'un droit est elle-même une opération auditée.
+</p>
+
+@code {
+    [SupplyParameterFromQuery(Name = "ReturnUrl")]
+    private string? RessourceDemandee { get; set; }
+
+    // SEC-008 — « Tracer tout accès et toute action critique, y compris les échecs
+    // d'autorisation. » Le refus est écrit ici parce que c'est ici qu'il devient certain.
+    protected override async Task OnInitializedAsync() =>
+        await Piste.EnregistrerAsync(new AuditEntry
+        {
+            Acteur = Utilisateur.NomAffiche,
+            Action = ActionsAuditees.AccesRefuse,
+            TypeDObjet = ObjetsAudites.Ressource,
+            IdentifiantDObjet = RessourceDemandee,
+            AdresseIp = Utilisateur.AdresseIp,
+            Autorisee = false,
+            MotifDeRefus = "Droits insuffisants pour la ressource demandée.",
+            Origine = AuditOrigin.InterfaceWeb
+        });
+}

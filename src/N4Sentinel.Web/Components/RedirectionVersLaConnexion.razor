@@ -1,0 +1,15 @@
+@inject NavigationManager Navigation
+
+@code {
+    /// <summary>
+    /// Renvoie vers la page de connexion en conservant la ressource demandée, pour y revenir
+    /// une fois l'utilisateur authentifié.
+    /// </summary>
+    protected override void OnInitialized()
+    {
+        var retour = Uri.EscapeDataString(
+            Navigation.ToBaseRelativePath(Navigation.Uri));
+
+        Navigation.NavigateTo($"/compte/connexion?ReturnUrl=/{retour}", forceLoad: true);
+    }
+}

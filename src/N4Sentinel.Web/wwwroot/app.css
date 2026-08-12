@@ -1,38 +1,295 @@
+/*
+  Jetons de thème repris de la maquette de référence (docs/maquette/site.css).
+  Les valeurs sont celles de la maquette, converties en variables réutilisables :
+  le rendu doit rester identique, la feuille de style ne doit pas être recopiée.
+
+  Aucune ressource externe n'est chargée — ni police, ni icône : l'application est
+  destinée à un réseau isolé où un appel à un CDN ne répondrait pas.
+*/
+:root {
+    --fond: #070c18;
+    --fond-carte: #0e172a;
+    --fond-carte-survol: #15223c;
+    --bordure: #1e2d4a;
+    --bordure-accentuee: #2c4268;
+
+    --primaire: #38bdf8;
+    --primaire-halo: rgba(56, 189, 248, 0.25);
+    --succes: #10b981;
+    --alerte: #f59e0b;
+    --danger: #ef4444;
+    --accent: #a855f7;
+
+    --texte: #f8fafc;
+    --texte-attenue: #94a3b8;
+    --texte-efface: #64748b;
+
+    --police: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --police-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background-color: var(--fond);
+    color: var(--texte);
+    font-family: var(--police);
+    min-height: 100vh;
+}
+
 h1:focus {
     outline: none;
 }
 
-.valid.modified:not([type=checkbox]) {
-    outline: 1px solid #26b050;
+/* — Écrans d'authentification — */
+
+.page-auth {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
 }
 
-.invalid {
-    outline: 1px solid #e50000;
+.carte-auth {
+    width: 100%;
+    max-width: 420px;
+    background-color: var(--fond-carte);
+    border: 1px solid var(--bordure);
+    border-radius: 12px;
+    padding: 32px;
 }
 
-.validation-message {
-    color: #e50000;
+.marque {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 28px;
 }
 
-.blazor-error-boundary {
-    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iNDkiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIG92ZXJmbG93PSJoaWRkZW4iPjxkZWZzPjxjbGlwUGF0aCBpZD0iY2xpcDAiPjxyZWN0IHg9IjIzNSIgeT0iNTEiIHdpZHRoPSI1NiIgaGVpZ2h0PSI0OSIvPjwvY2xpcFBhdGg+PC9kZWZzPjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIHRyYW5zZm9ybT0idHJhbnNsYXRlKC0yMzUgLTUxKSI+PHBhdGggZD0iTTI2My41MDYgNTFDMjY0LjcxNyA1MSAyNjUuODEzIDUxLjQ4MzcgMjY2LjYwNiA1Mi4yNjU4TDI2Ny4wNTIgNTIuNzk4NyAyNjcuNTM5IDUzLjYyODMgMjkwLjE4NSA5Mi4xODMxIDI5MC41NDUgOTIuNzk1IDI5MC42NTYgOTIuOTk2QzI5MC44NzcgOTMuNTEzIDI5MSA5NC4wODE1IDI5MSA5NC42NzgyIDI5MSA5Ny4wNjUxIDI4OS4wMzggOTkgMjg2LjYxNyA5OUwyNDAuMzgzIDk5QzIzNy45NjMgOTkgMjM2IDk3LjA2NTEgMjM2IDk0LjY3ODIgMjM2IDk0LjM3OTkgMjM2LjAzMSA5NC4wODg2IDIzNi4wODkgOTMuODA3MkwyMzYuMzM4IDkzLjAxNjIgMjM2Ljg1OCA5Mi4xMzE0IDI1OS40NzMgNTMuNjI5NCAyNTkuOTYxIDUyLjc5ODUgMjYwLjQwNyA1Mi4yNjU4QzI2MS4yIDUxLjQ4MzcgMjYyLjI5NiA1MSAyNjMuNTA2IDUxWk0yNjMuNTg2IDY2LjAxODNDMjYwLjczNyA2Ni4wMTgzIDI1OS4zMTMgNjcuMTI0NSAyNTkuMzEzIDY5LjMzNyAyNTkuMzEzIDY5LjYxMDIgMjU5LjMzMiA2OS44NjA4IDI1OS4zNzEgNzAuMDg4N0wyNjEuNzk1IDg0LjAxNjEgMjY1LjM4IDg0LjAxNjEgMjY3LjgyMSA2OS43NDc1QzI2Ny44NiA2OS43MzA5IDI2Ny44NzkgNjkuNTg3NyAyNjcuODc5IDY5LjMxNzkgMjY3Ljg3OSA2Ny4xMTgyIDI2Ni40NDggNjYuMDE4MyAyNjMuNTg2IDY2LjAxODNaTTI2My41NzYgODYuMDU0N0MyNjEuMDQ5IDg2LjA1NDcgMjU5Ljc4NiA4Ny4zMDA1IDI1OS43ODYgODkuNzkyMSAyNTkuNzg2IDkyLjI4MzcgMjYxLjA0OSA5My41Mjk1IDI2My41NzYgOTMuNTI5NSAyNjYuMTE2IDkzLjUyOTUgMjY3LjM4NyA5Mi4yODM3IDI2Ny4zODcgODkuNzkyMSAyNjcuMzg3IDg3LjMwMDUgMjY2LjExNiA4Ni4wNTQ3IDI2My41NzYgODYuMDU0N1oiIGZpbGw9IiNGRkU1MDAiIGZpbGwtcnVsZT0iZXZlbm9kZCIvPjwvZz48L3N2Zz4=) no-repeat 1rem/1.8rem, #b32121;
-    padding: 1rem 1rem 1rem 3.7rem;
-    color: white;
+.marque-nom {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--primaire);
 }
 
-    .blazor-error-boundary::after {
-        content: "An error has occurred."
-    }
-
-.darker-border-checkbox.form-check-input {
-    border-color: #929292;
+.marque-sous-titre {
+    font-size: 13px;
+    color: var(--texte-attenue);
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-    color: var(--bs-secondary-color);
-    text-align: end;
+.formulaire {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-    text-align: start;
+.formulaire label {
+    font-size: 13px;
+    color: var(--texte-attenue);
+    margin-top: 12px;
+}
+
+.formulaire input {
+    background-color: var(--fond);
+    border: 1px solid var(--bordure);
+    border-radius: 8px;
+    padding: 11px 13px;
+    color: var(--texte);
+    font-family: inherit;
+    font-size: 15px;
+}
+
+.formulaire input:focus {
+    outline: none;
+    border-color: var(--primaire);
+    box-shadow: 0 0 0 3px var(--primaire-halo);
+}
+
+.formulaire button {
+    margin-top: 24px;
+    background-color: var(--primaire);
+    color: #041020;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.formulaire button:hover {
+    filter: brightness(1.08);
+}
+
+.alerte {
+    background-color: rgba(239, 68, 68, 0.12);
+    border: 1px solid var(--danger);
+    border-radius: 8px;
+    padding: 11px 13px;
+    color: var(--texte);
+    font-size: 14px;
+    margin: 0 0 18px;
+}
+
+.mention {
+    margin-top: 22px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--texte-efface);
+}
+
+.lien-retour {
+    display: inline-block;
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--primaire);
+    text-decoration: none;
+}
+
+.lien-retour:hover {
+    text-decoration: underline;
+}
+
+/* — Bandeau applicatif — */
+
+.bandeau {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 14px 24px;
+    background-color: var(--fond-carte);
+    border-bottom: 1px solid var(--bordure);
+}
+
+.bandeau-titre {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--primaire);
+}
+
+.bandeau-droite {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+/* SEC-004 — l'environnement est visible en permanence. */
+.pastille-environnement {
+    border-radius: 999px;
+    padding: 5px 13px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--bordure-accentuee);
+    color: var(--texte-attenue);
+}
+
+.pastille-environnement.production {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.pastille-environnement.uat {
+    border-color: var(--alerte);
+    color: var(--alerte);
+}
+
+.identite {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.35;
+}
+
+.identite-nom {
+    font-size: 14px;
+}
+
+.identite-profils {
+    font-size: 11px;
+    color: var(--texte-efface);
+}
+
+.bouton-discret {
+    background: none;
+    border: 1px solid var(--bordure);
+    border-radius: 8px;
+    color: var(--texte-attenue);
+    padding: 7px 13px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.bouton-discret:hover {
+    border-color: var(--bordure-accentuee);
+    color: var(--texte);
+}
+
+.contenu {
+    padding: 28px 24px;
+}
+
+.contenu h1 {
+    font-size: 22px;
+    margin: 0 0 6px;
+}
+
+.contenu p {
+    color: var(--texte-attenue);
+    line-height: 1.65;
+}
+
+.tableau {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 18px;
+    font-size: 14px;
+}
+
+.tableau th,
+.tableau td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--bordure);
+}
+
+.tableau th {
+    color: var(--texte-attenue);
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+.defilement {
+    overflow-x: auto;
+}
+
+/* — Blazor — */
+
+#blazor-error-ui {
+    background: var(--danger);
+    color: #fff;
+    bottom: 0;
+    display: none;
+    left: 0;
+    padding: 0.7rem 1.2rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 1rem;
+    top: 0.6rem;
 }

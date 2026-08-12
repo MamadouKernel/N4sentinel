@@ -1,7 +1,85 @@
-﻿@page "/"
+@page "/"
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Application.Habilitations
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Habilitations
+@inject IServiceDHabilitations Habilitations
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IHttpContextAccessor Accesseur
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Accueil — N4 Sentinel</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>Bienvenue, @NomAffiche</h1>
+<p>
+    Les écrans de supervision, de pilotage et de diagnostic arrivent aux sprints suivants.
+    Cette page montre ce que le Sprint 1 a rendu vrai : qui vous êtes, et ce que vous avez le
+    droit de faire sur l'environnement sélectionné.
+</p>
 
-Welcome to your new app.
+<h2>Droits effectifs sur @NomDeLEnvironnement</h2>
+
+@if (droits.Count == 0)
+{
+    <p>Aucun droit sur cet environnement.</p>
+}
+else
+{
+    <div class="defilement">
+        <table class="tableau">
+            <thead>
+                <tr><th>Droit</th><th>Nature</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var droit in droits.OrderBy(d => d.ToString(), StringComparer.Ordinal))
+                {
+                    <tr>
+                        <td>@droit</td>
+                        <td>@(Droits.EstUneAction(droit) ? "Action" : "Consultation")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<p class="mention">
+    En Production, un profil global n'accorde que la consultation : toute permission d'action
+    y exige une habilitation explicite sur l'environnement.
+</p>
+
+@code {
+    private IReadOnlyCollection<Droit> droits = [];
+    private string NomDeLEnvironnement = "—";
+
+    private string NomAffiche => Accesseur.HttpContext?.User.Identity?.Name ?? string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var contexteHttp = Accesseur.HttpContext;
+        var identifiant = contexteHttp?.User.FindFirst(
+            System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (identifiant is null)
+        {
+            return;
+        }
+
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        var environnementId = Guid.TryParse(contexteHttp!.Request.Cookies["environnement"], out var id)
+            ? id
+            : await contexte.Environnements.Select(e => e.Id).FirstOrDefaultAsync();
+
+        var environnement = await contexte.Environnements
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == environnementId);
+
+        if (environnement is null)
+        {
+            return;
+        }
+
+        NomDeLEnvironnement = environnement.Nom;
+        droits = [.. await Habilitations.DroitsSurAsync(identifiant, environnement.Id)];
+    }
+}

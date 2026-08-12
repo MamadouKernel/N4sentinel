@@ -17,4 +17,15 @@
     <NeutralLanguage>fr-FR</NeutralLanguage>
   </PropertyGroup>
 
+  <!--
+    Audit des dépendances à la génération. Combiné à TreatWarningsAsErrors, un avis de sécurité
+    publié sur une dépendance — directe ou transitive, quelle que soit sa gravité — casse la
+    build au lieu d'ajouter un avertissement de plus que personne ne lit.
+  -->
+  <PropertyGroup>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+  </PropertyGroup>
+
 </Project>

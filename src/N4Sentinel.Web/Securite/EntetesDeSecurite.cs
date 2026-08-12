@@ -1,4 +1,4 @@
-namespace N4Sentinel.Web.Security;
+namespace N4Sentinel.Web.Securite;
 
 /// <summary>
 /// En-têtes de sécurité appliqués à toute réponse.
@@ -8,7 +8,7 @@ namespace N4Sentinel.Web.Security;
 /// il ne répondrait pas, et la page se dégraderait silencieusement. Polices, feuilles de style
 /// et scripts sont donc servis par l'application elle-même.
 /// </summary>
-public static class SecurityHeadersMiddleware
+public static class EntetesDeSecurite
 {
     private const string PolitiqueDeContenu =
         "default-src 'self'; " +
@@ -21,8 +21,11 @@ public static class SecurityHeadersMiddleware
         "base-uri 'self'; " +
         "form-action 'self'";
 
-    public static IApplicationBuilder UseSecurityHeaders(this IApplicationBuilder app) =>
-        app.Use(async (context, next) =>
+    public static IApplicationBuilder UseSecurityHeaders(this IApplicationBuilder app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        return app.Use(async (context, next) =>
         {
             var entetes = context.Response.Headers;
             entetes["Content-Security-Policy"] = PolitiqueDeContenu;
@@ -34,4 +37,5 @@ public static class SecurityHeadersMiddleware
 
             await next();
         });
+    }
 }

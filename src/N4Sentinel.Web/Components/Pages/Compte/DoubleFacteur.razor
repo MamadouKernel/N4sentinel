@@ -1,0 +1,46 @@
+@page "/compte/double-facteur"
+@using Microsoft.AspNetCore.Authorization
+@attribute [AllowAnonymous]
+@layout Components.Layout.MiseEnPageDAuthentification
+
+<PageTitle>Vérification — N4 Sentinel</PageTitle>
+
+<div class="carte-auth">
+    <div class="marque">
+        <span class="marque-nom">N4 SENTINEL</span>
+        <span class="marque-sous-titre">Vérification en deux étapes</span>
+    </div>
+
+    @if (Erreur is not null)
+    {
+        <p class="alerte" role="alert">@Erreur</p>
+    }
+
+    <p class="mention">
+        Un code à six chiffres vient d'être envoyé à votre adresse professionnelle.
+        Il est valable cinq minutes.
+    </p>
+
+    <form method="post" action="/compte/double-facteur" class="formulaire">
+        <AntiforgeryToken />
+
+        <label for="code">Code reçu par courriel</label>
+        <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+               maxlength="8" required autofocus />
+
+        <button type="submit">Valider</button>
+    </form>
+
+    <a class="lien-retour" href="/compte/connexion">Revenir à la connexion</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    private string? Erreur => CodeErreur switch
+    {
+        "code" => "Code invalide ou expiré.",
+        _ => null
+    };
+}

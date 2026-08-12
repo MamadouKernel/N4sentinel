@@ -8,8 +8,10 @@ Elle remplace des procédures aujourd'hui manuelles, sensibles à l'erreur et no
 
 ## État
 
-**Sprint 0 livré** — socle technique, modèle de données et intégration continue.
-L'application se génère, se teste et se publie ; elle n'expose encore aucun écran fonctionnel.
+**Sprint 1 livré** — socle technique, modèle de données, intégration continue, puis
+authentification avec second facteur, huit profils, droits différenciés par environnement et
+journal d'audit non modifiable. L'application se connecte ; les écrans métier arrivent à partir
+du Sprint 2.
 
 Le plan complet — 25 sprints, 4 lots, 148 exigences — est dans
 [`docs/plan-de-sprints.html`](docs/plan-de-sprints.html).
@@ -26,7 +28,19 @@ dotnet test N4Sentinel.slnx
 dotnet run --project src/N4Sentinel.Web
 ```
 
-Prérequis : SDK .NET 10.
+Prérequis : SDK .NET 10 et SQL Server LocalDB.
+
+Avant le premier démarrage, poser le compte d'amorçage — il n'est jamais versionné (SEC-003) :
+
+```bash
+dotnet user-secrets set "Amorcage:EmailAdministrateur" "prenom.nom@citcotedivoire.com" --project src/N4Sentinel.Web
+```
+
+Le mot de passe se pose de la même façon, sur la clé `Amorcage:MotDePasseAdministrateur`.
+Sans ces deux valeurs, l'application démarre et signale qu'aucun compte n'a été créé.
+
+Faute de relais SMTP configuré, les codes de second facteur sont écrits dans
+`src/N4Sentinel.Web/courriels-sortants/`, avec un avertissement au journal.
 
 ## Organisation du dépôt
 

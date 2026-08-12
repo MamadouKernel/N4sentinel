@@ -1,6 +1,14 @@
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
+using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Data;
+using N4Sentinel.Data.Amorcage;
+using N4Sentinel.Data.Identite;
 using N4Sentinel.Web.Components;
-using N4Sentinel.Web.Security;
+using N4Sentinel.Web.Administration;
+using N4Sentinel.Web.Comptes;
+using N4Sentinel.Web.Courriel;
+using N4Sentinel.Web.Securite;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,10 +19,85 @@ builder.Host.UseWindowsService(options => options.ServiceName = "N4 Sentinel");
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// SEC-005 — chiffrement des données sensibles au repos.
-// Les clés de protection (cookies d'authentification, jetons antiforgery, valeurs protégées)
-// sont persistées hors du répertoire applicatif, puis chiffrées par DPAPI au niveau machine :
-// une copie du dossier de clés sur un autre serveur est inexploitable.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddCascadingAuthenticationState();
+
+// — Couche Données / Audit —
+var chaineDeConnexion = builder.Configuration["ChainesDeConnexion:BaseApplicative"];
+if (string.IsNullOrWhiteSpace(chaineDeConnexion))
+{
+    throw new InvalidOperationException(
+        "ChainesDeConnexion:BaseApplicative n'est pas renseignée. "
+        + "L'application ne démarre pas sans base : l'audit ne peut pas être différé.");
+}
+
+builder.Services.AjouterLaCoucheDonnees(chaineDeConnexion);
+
+// — SEC-001 : identité applicative avec second facteur par courriel —
+builder.Services.AddIdentity<UtilisateurApplicatif, IdentityRole>(options =>
+{
+    options.Password.RequiredLength = 12;
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+
+    options.User.RequireUniqueEmail = true;
+    options.SignIn.RequireConfirmedEmail = false;
+})
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+
+// Le code de second facteur est envoyé par courriel : il doit expirer vite, sans quoi
+// le second facteur ne protège plus que d'une négligence.
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+    options.TokenLifespan = TimeSpan.FromMinutes(5));
+
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/compte/connexion";
+    options.LogoutPath = "/compte/deconnexion";
+    options.AccessDeniedPath = "/compte/acces-refuse";
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    options.SlidingExpiration = true;
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+
+// SEC-002 — une politique par droit élémentaire, plus une règle de repli : toute page qui ne
+// dit rien exige d'être authentifié. L'oubli d'un attribut ne peut donc pas ouvrir un écran.
+builder.Services.AddAuthorizationBuilder()
+    .AjouterLesPolitiquesDeDroits()
+    .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
+
+builder.Services.AddScoped<IUtilisateurCourant, UtilisateurCourant>();
+builder.Services.AddSingleton<ISecretResolver, CoffreDeConfiguration>();
+
+// — Messagerie —
+var optionsDeCourriel = new OptionsDeCourriel();
+builder.Configuration.GetSection("Courriel").Bind(optionsDeCourriel);
+builder.Services.AddSingleton(optionsDeCourriel);
+
+if (optionsDeCourriel.EstConfigure)
+{
+    builder.Services.AddScoped<IEnvoiDeCourriel, EnvoiDeCourrielSmtp>();
+}
+else
+{
+    var dossier = Path.Combine(builder.Environment.ContentRootPath, "courriels-sortants");
+    builder.Services.AddScoped<IEnvoiDeCourriel>(fournisseur =>
+        new EnvoiDeCourrielVersFichier(
+            dossier,
+            fournisseur.GetRequiredService<ILogger<EnvoiDeCourrielVersFichier>>()));
+}
+
+// — SEC-005 : chiffrement des données sensibles au repos —
 var cheminDesCles = builder.Configuration["Securite:CheminDesClesDeProtection"];
 if (!string.IsNullOrWhiteSpace(cheminDesCles))
 {
@@ -28,9 +111,7 @@ if (!string.IsNullOrWhiteSpace(cheminDesCles))
     }
 }
 
-// SEC-005 — chiffrement des communications. Le port HTTPS est déclaré explicitement pour que
-// la redirection connaisse sa cible en service Windows, c'est-à-dire sans les variables
-// d'environnement que fournirait un hébergement IIS.
+// — SEC-005 : chiffrement des communications —
 builder.Services.AddHttpsRedirection(options =>
 {
     options.HttpsPort = builder.Configuration.GetValue<int?>("Securite:PortHttps") ?? 443;
@@ -44,6 +125,12 @@ builder.Services.AddHsts(options =>
 
 var app = builder.Build();
 
+if (!optionsDeCourriel.EstConfigure)
+{
+    JournalDeCourriel.RelaisNonConfigure(
+        app.Services.GetRequiredService<ILogger<EnvoiDeCourrielVersFichier>>());
+}
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -54,17 +141,31 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 app.UseSecurityHeaders();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
-app.MapStaticAssets();
+// Les ressources statiques précèdent l'authentification : la page de connexion doit pouvoir
+// charger sa feuille de style avant que quiconque soit authentifié.
+app.MapStaticAssets().AllowAnonymous();
+
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
+app.MapperLesPointsDEntreeDeCompte();
+app.MapperLesPointsDEntreeDAdministration();
+
 // Sonde de disponibilité pour la supervision et le déploiement automatisé. Volontairement
 // muette sur l'état interne : elle ne renseigne pas un appelant non authentifié.
-app.MapGet("/sante", () => Results.Ok(new { statut = "ok" }));
+app.MapGet("/sante", () => Results.Ok(new { statut = "ok" })).AllowAnonymous();
 
-app.Run();
+await AmorcageDeLIdentite.ExecuterAsync(
+    app.Services,
+    new ParametresDAmorcage(
+        builder.Configuration["Amorcage:EmailAdministrateur"],
+        builder.Configuration["Amorcage:MotDePasseAdministrateur"]));
+
+await app.RunAsync();
 
 /// <summary>Point d'entrée exposé aux tests d'intégration.</summary>
 public partial class Program;

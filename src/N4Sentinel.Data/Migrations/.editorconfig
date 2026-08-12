@@ -1,0 +1,5 @@
+# Les migrations sont produites par les outils EF Core, pas écrites à la main : les régler sur
+# les conventions du projet reviendrait à retoucher un fichier généré à chaque migration.
+# Les marquer comme code généré fait sortir l'analyse de code sans désactiver de règle ailleurs.
+[*.cs]
+generated_code = true
