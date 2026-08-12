@@ -145,7 +145,7 @@ h1:focus {
     box-shadow: 0 0 0 3px var(--primaire-halo);
 }
 
-.formulaire button {
+.formulaire > button {
     margin-top: 24px;
     background-color: var(--primaire);
     color: var(--texte-sur-primaire);
@@ -158,7 +158,7 @@ h1:focus {
     cursor: pointer;
 }
 
-.formulaire button:hover {
+.formulaire > button:hover {
     filter: brightness(1.08);
 }
 
@@ -189,6 +189,10 @@ h1:focus {
     padding: 0;
     color: var(--texte-efface);
     cursor: pointer;
+}
+
+.bouton-oeil svg[hidden] {
+    display: none;
 }
 
 .bouton-oeil:hover {

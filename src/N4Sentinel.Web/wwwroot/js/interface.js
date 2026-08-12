@@ -6,6 +6,18 @@
 // Le champ reste de type password par défaut : c'est l'utilisateur qui décide de montrer
 // sa saisie, jamais l'inverse.
 
+function basculer(element, masquer) {
+    if (!element) {
+        return;
+    }
+
+    if (masquer) {
+        element.setAttribute('hidden', '');
+    } else {
+        element.removeAttribute('hidden');
+    }
+}
+
 function brancherLesBasculesDeMotDePasse() {
     const boutons = document.querySelectorAll('[data-bascule-mot-de-passe]');
 
@@ -30,12 +42,11 @@ function brancherLesBasculesDeMotDePasse() {
             bouton.setAttribute('aria-pressed', afficher ? 'true' : 'false');
             bouton.title = libelle;
 
-            const oeil = bouton.querySelector('.oeil');
-            const oeilBarre = bouton.querySelector('.oeil-barre');
-            if (oeil && oeilBarre) {
-                oeil.hidden = afficher;
-                oeilBarre.hidden = !afficher;
-            }
+            // Attribut et non propriété : « hidden » n'est réfléchi que sur les éléments
+            // HTML. Sur un SVG, « element.hidden = true » ne pose qu'une propriété
+            // JavaScript sans le moindre effet à l'écran.
+            basculer(bouton.querySelector('.oeil'), afficher);
+            basculer(bouton.querySelector('.oeil-barre'), !afficher);
 
             // Rendre la main au champ : sans cela, la suite de la saisie part dans le vide.
             champ.focus();
