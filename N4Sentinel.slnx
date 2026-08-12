@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/N4Sentinel.Application/N4Sentinel.Application.csproj" />
+    <Project Path="src/N4Sentinel.Connectors/N4Sentinel.Connectors.csproj" />
+    <Project Path="src/N4Sentinel.Data/N4Sentinel.Data.csproj" />
+    <Project Path="src/N4Sentinel.Diagnostics/N4Sentinel.Diagnostics.csproj" />
+    <Project Path="src/N4Sentinel.Domain/N4Sentinel.Domain.csproj" />
+    <Project Path="src/N4Sentinel.Knowledge/N4Sentinel.Knowledge.csproj" />
+    <Project Path="src/N4Sentinel.Orchestration/N4Sentinel.Orchestration.csproj" />
+    <Project Path="src/N4Sentinel.Web/N4Sentinel.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/N4Sentinel.Application.Tests/N4Sentinel.Application.Tests.csproj" />
+    <Project Path="tests/N4Sentinel.Architecture.Tests/N4Sentinel.Architecture.Tests.csproj" />
+    <Project Path="tests/N4Sentinel.Connectors.Tests/N4Sentinel.Connectors.Tests.csproj" />
+    <Project Path="tests/N4Sentinel.Domain.Tests/N4Sentinel.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

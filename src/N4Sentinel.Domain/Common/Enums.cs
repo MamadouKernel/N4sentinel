@@ -136,32 +136,58 @@ public enum WorkflowType
 }
 
 /// <summary>
-/// Statut d'une exécution. « RéconciliationRequise » traduit l'exigence du §3.19 :
-/// divergence constatée entre l'état mémorisé et l'état réel du système.
+/// FR-020 — les dix états d'un workflow, tels que le cahier des charges les énumère.
+/// L'énumération est fermée : un onzième état inventé ne serait affichable nulle part.
 /// </summary>
 public enum ExecutionStatus
 {
-    Brouillon,
-    EnAttenteApprobation,
-    Approuvee,
+    /// <summary>Le plan est en cours de constitution ; rien n'est engagé.</summary>
+    EnPreparation,
+
+    EnAttenteDApprobation,
     EnCours,
     EnPause,
-    Echouee,
-    Terminee,
-    Annulee,
-    ReconciliationRequise
+
+    /// <summary>Annulation demandée : le moteur s'arrête au prochain point sûr, jamais au milieu d'une commande.</summary>
+    AnnulationDemandee,
+
+    /// <summary>§3.19 — divergence entre l'état mémorisé et l'état réel. Aucune reprise sans décision humaine.</summary>
+    ReconciliationRequise,
+
+    TermineAvecSucces,
+    TermineAvecAvertissements,
+    Echec,
+    Annule
 }
 
-/// <summary>Statut d'une étape d'exécution.</summary>
+/// <summary>
+/// FR-020 — les dix états d'une étape. « Vérification » est distinct de « En cours » :
+/// la commande est passée, on constate son effet réel avant de conclure.
+/// </summary>
 public enum StepStatus
 {
+    /// <summary>Pas encore atteinte dans le plan.</summary>
+    AVenir,
+
+    /// <summary>Atteinte, mais suspendue à une condition — confirmation, approbation, prérequis.</summary>
     EnAttente,
+
     EnCours,
-    Reussie,
-    Echouee,
-    Ignoree,
-    AttenteConfirmation,
-    AttenteApprobation
+
+    /// <summary>Commande passée ; on vérifie son effet avant de conclure.</summary>
+    Verification,
+
+    Reussi,
+
+    /// <summary>Réussi hors des seuils attendus : la poursuite dépend de la politique du workflow.</summary>
+    Avertissement,
+
+    /// <summary>Un prérequis interdit de continuer. Différent d'un échec : rien n'a été tenté.</summary>
+    Bloque,
+
+    Echec,
+    Ignore,
+    Annule
 }
 
 /// <summary>

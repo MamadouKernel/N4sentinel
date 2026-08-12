@@ -24,7 +24,7 @@ public class OperationExecution : Entity
 
     public string? ReferenceTicket { get; set; }
 
-    public ExecutionStatus Statut { get; set; } = ExecutionStatus.Brouillon;
+    public ExecutionStatus Statut { get; set; } = ExecutionStatus.EnPreparation;
 
     /// <summary>Exécution à blanc : le moteur déroule le plan sans émettre aucune commande mutative.</summary>
     public bool ModeSimulation { get; set; }

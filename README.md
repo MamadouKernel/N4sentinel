@@ -8,12 +8,13 @@ Elle remplace des procédures aujourd'hui manuelles, sensibles à l'erreur et no
 
 ## État
 
-**Sprint 4 livré** — socle technique, modèle de données et intégration continue (S0) ;
+**Sprint 5 livré** — socle technique, modèle de données et intégration continue (S0) ;
 authentification avec second facteur, huit profils, droits par environnement et journal d'audit
 non modifiable (S1) ; référentiel des environnements et des composants, typage N4, graphe de
 dépendances avec refus des cycles et cycle de validation (S2) ; connecteurs de collecte en
 lecture seule et consolidation d'état multi-signaux (S3) ; supervision, huit états consolidés,
-alertes et tableau de bord (S4).
+alertes et tableau de bord (S4) ; moteur d'orchestration persistant, reprise après arrêt brutal
+avec recollecte de l'état réel, verrou d'environnement et vue pas-à-pas (S5).
 
 > **Réserve du Sprint 3** : les accès techniques aux serveurs N4 ne sont pas ouverts. La
 > mécanique de collecte est exercée contre de vraies ressources du poste de développement,

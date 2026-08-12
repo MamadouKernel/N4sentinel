@@ -1,0 +1,198 @@
+@page "/operations"
+@page "/operations/{ExecutionId:guid}"
+@using System.Globalization
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Entities
+@using N4Sentinel.Domain.Orchestration
+@attribute [Authorize(Policy = "Droit:Consulter")]
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+
+<PageTitle>Opérations — N4 Sentinel</PageTitle>
+
+<h1>Opérations</h1>
+<p>
+    FR-020 — vue pas-à-pas : chaque étape dans son ordre d'exécution, avec son état parmi les
+    dix que définit le cahier des charges. Le moteur est persistant : une exécution retrouvée
+    « en cours » après un redémarrage du serveur n'est jamais reprise sans que l'état réel des
+    composants ait été recollecté et comparé au mémorisé.
+</p>
+
+@if (executions.Count == 0)
+{
+    <p>
+        Aucune opération enregistrée. La préparation d'une opération et le mode simulation
+        arrivent au Sprint 6 ; l'exécution réelle au Sprint 7.
+    </p>
+}
+else
+{
+    <h2>Exécutions</h2>
+    <div class="defilement">
+        <table class="tableau">
+            <thead>
+                <tr><th>Référence</th><th>État</th><th>Demandée par</th><th>Motif</th><th>Début</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var e in executions)
+                {
+                    <tr>
+                        <td><a href="/operations/@e.Id">@e.Reference</a></td>
+                        <td><span class="etat-consolide @ClasseDExecution(e.Statut)">@LibelleDExecution(e.Statut)</span></td>
+                        <td>@e.DemandePar</td>
+                        <td>@e.Motif</td>
+                        <td>@Date(e.DebutLe)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (execution is not null)
+{
+    <h2>@execution.Reference — @LibelleDExecution(execution.Statut)</h2>
+
+    @if (!string.IsNullOrWhiteSpace(execution.Resultat))
+    {
+        <p class="mention">@execution.Resultat</p>
+    }
+
+    @if (execution.Statut == ExecutionStatus.ReconciliationRequise)
+    {
+        <p class="alerte" role="alert">
+            Réconciliation requise : l'état réel des composants ne correspond pas à l'état
+            mémorisé par le moteur. Aucune reprise n'est possible avant qu'une décision humaine
+            ait tranché ce qui a réellement été fait.
+        </p>
+    }
+
+    <h3>Étapes</h3>
+    @if (execution.Etapes.Count == 0)
+    {
+        <p>Aucune étape planifiée.</p>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead>
+                    <tr>
+                        <th>Ordre</th><th>Étape</th><th>Action</th><th>État</th>
+                        <th>Début</th><th>Durée</th><th>Tentatives</th><th>Erreur</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var etape in execution.Etapes.OrderBy(e => e.Ordre))
+                    {
+                        <tr>
+                            <td>@etape.Ordre</td>
+                            <td>@etape.Libelle</td>
+                            <td>@etape.Action</td>
+                            <td><span class="etat-consolide @ClasseDEtape(etape.Statut)">@LibelleDEtape(etape.Statut)</span></td>
+                            <td>@Date(etape.DebutLe)</td>
+                            <td>@Duree(etape.Duree)</td>
+                            <td>@etape.NombreDeTentatives</td>
+                            <td>@(etape.TypeDErreur == StepErrorKind.Aucune ? "—" : $"{etape.TypeDErreur} : {etape.MessageDErreur}")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <p class="mention">
+        Transitions possibles depuis l'état courant :
+        @(TransitionsPossibles.Count == 0
+            ? "aucune — l'exécution est close."
+            : string.Join(", ", TransitionsPossibles.Select(LibelleDExecution)))
+    </p>
+}
+
+@code {
+    private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
+
+    [Parameter]
+    public Guid? ExecutionId { get; set; }
+
+    private List<OperationExecution> executions = [];
+    private OperationExecution? execution;
+
+    private IReadOnlyList<ExecutionStatus> TransitionsPossibles =>
+        execution is null ? [] : MachineAEtats.SuivantsPossibles(execution.Statut);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        executions = await contexte.Executions
+            .AsNoTracking()
+            .OrderByDescending(e => e.DemandeLe)
+            .Take(50)
+            .ToListAsync();
+
+        if (ExecutionId is { } id)
+        {
+            execution = await contexte.Executions
+                .AsNoTracking()
+                .Include(e => e.Etapes)
+                .FirstOrDefaultAsync(e => e.Id == id);
+        }
+    }
+
+    private static string Date(DateTimeOffset? date) =>
+        date is null ? "—" : date.Value.UtcDateTime.ToString("dd/MM HH:mm:ss", Culture);
+
+    private static string Duree(TimeSpan? duree) =>
+        duree is null ? "—" : $"{(int)duree.Value.TotalSeconds} s";
+
+    private static string LibelleDExecution(ExecutionStatus statut) => statut switch
+    {
+        ExecutionStatus.EnPreparation => "En préparation",
+        ExecutionStatus.EnAttenteDApprobation => "En attente d'approbation",
+        ExecutionStatus.EnCours => "En cours",
+        ExecutionStatus.EnPause => "En pause",
+        ExecutionStatus.AnnulationDemandee => "Annulation demandée",
+        ExecutionStatus.ReconciliationRequise => "Réconciliation requise",
+        ExecutionStatus.TermineAvecSucces => "Terminé avec succès",
+        ExecutionStatus.TermineAvecAvertissements => "Terminé avec avertissements",
+        ExecutionStatus.Echec => "Échec",
+        ExecutionStatus.Annule => "Annulé",
+        _ => statut.ToString()
+    };
+
+    private static string LibelleDEtape(StepStatus statut) => statut switch
+    {
+        StepStatus.AVenir => "À venir",
+        StepStatus.EnAttente => "En attente",
+        StepStatus.EnCours => "En cours",
+        StepStatus.Verification => "Vérification",
+        StepStatus.Reussi => "Réussi",
+        StepStatus.Avertissement => "Avertissement",
+        StepStatus.Bloque => "Bloqué",
+        StepStatus.Echec => "Échec",
+        StepStatus.Ignore => "Ignoré",
+        StepStatus.Annule => "Annulé",
+        _ => statut.ToString()
+    };
+
+    // Le libellé porte l'information ; la couleur ne fait que l'appuyer (FR-055).
+    private static string ClasseDExecution(ExecutionStatus statut) => statut switch
+    {
+        ExecutionStatus.TermineAvecSucces => "etat-favorable",
+        ExecutionStatus.TermineAvecAvertissements => "etat-degrade",
+        ExecutionStatus.Echec => "etat-defavorable",
+        ExecutionStatus.EnCours => "etat-transition",
+        _ => "etat-indetermine"
+    };
+
+    private static string ClasseDEtape(StepStatus statut) => statut switch
+    {
+        StepStatus.Reussi => "etat-favorable",
+        StepStatus.Avertissement => "etat-degrade",
+        StepStatus.Echec or StepStatus.Bloque => "etat-defavorable",
+        StepStatus.EnCours or StepStatus.Verification => "etat-transition",
+        _ => "etat-indetermine"
+    };
+}

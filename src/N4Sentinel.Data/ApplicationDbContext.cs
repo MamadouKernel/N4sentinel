@@ -24,6 +24,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<ControlSignal> Releves => Set<ControlSignal>();
 
+    public DbSet<OperationExecution> Executions => Set<OperationExecution>();
+
+    public DbSet<VerrouDOperation> VerrousDOperation => Set<VerrouDOperation>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -145,6 +149,54 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             // sans cet index, chaque rafraîchissement parcourrait tout l'historique.
             releve.HasIndex(r => new { r.ComposantCibleId, r.Type, r.ReleveLe });
             releve.HasIndex(r => r.ReleveLe);
+        });
+
+        builder.Entity<OperationExecution>(execution =>
+        {
+            execution.ToTable("Executions");
+            execution.Property(e => e.Reference).HasMaxLength(64).IsRequired();
+            execution.Property(e => e.DemandePar).HasMaxLength(256).IsRequired();
+            execution.Property(e => e.Motif).HasMaxLength(1024).IsRequired();
+            execution.Property(e => e.ReferenceTicket).HasMaxLength(128);
+            execution.Property(e => e.ApprouvePar).HasMaxLength(256);
+            execution.Property(e => e.Resultat).HasMaxLength(2048);
+            execution.Property(e => e.ReferenceDeCorrelation).HasMaxLength(128).IsRequired();
+
+            execution.HasIndex(e => e.Reference).IsUnique();
+            execution.HasIndex(e => new { e.EnvironmentId, e.Statut });
+
+            execution.HasMany(e => e.Etapes)
+                .WithOne()
+                .HasForeignKey(s => s.ExecutionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ExecutionStep>(etape =>
+        {
+            etape.ToTable("EtapesDExecution");
+            etape.Property(s => s.Libelle).HasMaxLength(256).IsRequired();
+            etape.Property(s => s.Action).HasMaxLength(256).IsRequired();
+            etape.Property(s => s.Preuve).HasMaxLength(4000);
+            etape.Property(s => s.MessageDErreur).HasMaxLength(2048);
+            etape.Property(s => s.Decision).HasMaxLength(512);
+            etape.Property(s => s.DecidePar).HasMaxLength(256);
+            etape.Property(s => s.OperateurExecutant).HasMaxLength(256);
+
+            // La durée est calculée : elle ne se persiste pas, elle se déduit.
+            etape.Ignore(s => s.Duree);
+
+            etape.HasIndex(s => new { s.ExecutionId, s.Ordre });
+        });
+
+        builder.Entity<VerrouDOperation>(verrou =>
+        {
+            verrou.ToTable("VerrousDOperation");
+            verrou.Property(v => v.DetenuPar).HasMaxLength(256).IsRequired();
+            verrou.Property(v => v.LiberePar).HasMaxLength(256);
+
+            // FR-015 — la lecture du verrou actif d'un environnement doit être immédiate :
+            // elle conditionne le démarrage de toute opération mutative.
+            verrou.HasIndex(v => new { v.EnvironmentId, v.LibereLe, v.ExpireLe });
         });
 
         builder.Entity<EnvironmentResponsible>(responsable =>

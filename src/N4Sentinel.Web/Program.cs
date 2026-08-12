@@ -4,6 +4,8 @@ using N4Sentinel.Application.Abstractions;
 using N4Sentinel.Connectors;
 using N4Sentinel.Data;
 using N4Sentinel.Data.Supervision;
+using N4Sentinel.Orchestration;
+using N4Sentinel.Application.Orchestration;
 using N4Sentinel.Data.Amorcage;
 using N4Sentinel.Data.Identite;
 using N4Sentinel.Web.Components;
@@ -41,6 +43,7 @@ builder.Configuration.GetSection(OptionsDeCollecte.Section).Bind(optionsDeCollec
 
 builder.Services.AjouterLaCoucheDonnees(chaineDeConnexion, optionsDeCollecte);
 builder.Services.AjouterLaCoucheConnecteurs();
+builder.Services.AjouterLaCoucheOrchestrateur();
 
 // — SEC-001 : identité applicative avec second facteur par courriel —
 builder.Services.AddIdentity<UtilisateurApplicatif, IdentityRole>(options =>
@@ -189,6 +192,15 @@ await AmorcageDeLIdentite.ExecuterAsync(
     new ParametresDAmorcage(
         builder.Configuration["Amorcage:EmailAdministrateur"],
         builder.Configuration["Amorcage:MotDePasseAdministrateur"]));
+
+// Après l'amorçage seulement — il applique les migrations, et la reprise lit des tables.
+// Le moteur est persistant : il reprend en main les exécutions laissées « en cours » par un
+// arrêt brutal du serveur applicatif, en recollectant l'état réel avant toute décision.
+using (var portee = app.Services.CreateScope())
+{
+    var moteur = portee.ServiceProvider.GetRequiredService<IMoteurDOrchestration>();
+    await moteur.RecupererLesExecutionsInterrompuesAsync();
+}
 
 await app.RunAsync();
 

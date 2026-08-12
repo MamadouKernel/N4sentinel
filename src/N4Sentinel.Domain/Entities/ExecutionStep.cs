@@ -20,7 +20,7 @@ public class ExecutionStep : Entity
 
     public Guid? ComposantCibleId { get; set; }
 
-    public StepStatus Statut { get; set; } = StepStatus.EnAttente;
+    public StepStatus Statut { get; set; } = StepStatus.AVenir;
 
     public DateTimeOffset? DebutLe { get; set; }
 
