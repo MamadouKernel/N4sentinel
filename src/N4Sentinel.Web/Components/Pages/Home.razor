@@ -7,49 +7,141 @@
 @inject IDbContextFactory<ApplicationDbContext> Fabrique
 @inject IHttpContextAccessor Accesseur
 
-<PageTitle>Accueil — N4 Sentinel</PageTitle>
+<PageTitle>Accueil — N4 Sentinel Control Room</PageTitle>
 
-<h1>Bienvenue, @NomAffiche</h1>
-<p>
-    Les écrans de supervision, de pilotage et de diagnostic arrivent aux sprints suivants.
-    Cette page montre ce que le Sprint 1 a rendu vrai : qui vous êtes, et ce que vous avez le
-    droit de faire sur l'environnement sélectionné.
-</p>
-
-<h2>Droits effectifs sur @NomDeLEnvironnement</h2>
-
-@if (droits.Count == 0)
-{
-    <p>Aucun droit sur cet environnement.</p>
-}
-else
-{
-    <div class="defilement">
-        <table class="tableau">
-            <thead>
-                <tr><th>Droit</th><th>Nature</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var droit in droits.OrderBy(d => d.ToString(), StringComparer.Ordinal))
-                {
-                    <tr>
-                        <td>@droit</td>
-                        <td>@(Droits.EstUneAction(droit) ? "Action" : "Consultation")</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+<div class="en-tete-page">
+    <div>
+        <h1>
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--primaire)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            Tableau de Bord — Bienvenue, @NomAffiche
+        </h1>
+        <p>Console de supervision et d'orchestration pour l'écosystème Navis N4 de CIT</p>
     </div>
-}
+</div>
 
-<p class="mention">
-    En Production, un profil global n'accorde que la consultation : toute permission d'action
-    y exige une habilitation explicite sur l'environnement.
-</p>
+<div class="grille-cartes">
+    <div class="carte">
+        <div class="carte-en-tete">
+            <span class="carte-titre">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--primaire)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                Environnement Actif
+            </span>
+            <span class="pastille-environnement @ClasseDePastille">@TypeEnvironnementText</span>
+        </div>
+        <div class="carte-valeur">@NomDeLEnvironnement</div>
+        <span class="mention">Désignation officielle dans le référentiel</span>
+    </div>
+
+    <div class="carte">
+        <div class="carte-en-tete">
+            <span class="carte-titre">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--succes)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                Habilitations Effectives
+            </span>
+        </div>
+        <div class="carte-valeur">@droits.Count <span class="unite-valeur">privilège(s)</span></div>
+        <span class="mention">Calculés selon la politique SEC-004</span>
+    </div>
+
+    <div class="carte">
+        <div class="carte-en-tete">
+            <span class="carte-titre">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Dernier Sprint Validé
+            </span>
+        </div>
+        <div class="carte-valeur texte-accent">Sprint 5</div>
+        <span class="mention">Moteur d'Orchestration & Reprise post-crash</span>
+    </div>
+</div>
+
+<div class="carte bloc-espace-court">
+    <div class="carte-en-tete">
+        <h2 class="carte-titre">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primaire)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Matrice des Droits Effectifs sur @NomDeLEnvironnement
+        </h2>
+    </div>
+
+    @if (droits.Count == 0)
+    {
+        <div class="alerte avertissement">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div>Aucune habilitation accordée sur cet environnement. Veuillez contacter un administrateur N4.</div>
+        </div>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead>
+                    <tr>
+                        <th>Intitulé du Droit</th>
+                        <th>Nature du Privilège</th>
+                        <th>Portée SEC-004</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var droit in droits.OrderBy(d => d.ToString(), StringComparer.Ordinal))
+                    {
+                        var estAction = Droits.EstUneAction(droit);
+                        <tr>
+                            <td>
+                                <strong>@droit</strong>
+                            </td>
+                            <td>
+                                @if (estAction)
+                                {
+                                    <span class="signal-attention signal-attention-primaire">
+                                        ⚡ Action
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="texte-attenue">👁️ Consultation</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="mention">
+                                    @(estAction && TypeEnvironnementText == "Production" ? "Habilitation spécifique requise" : "Accordé selon profil")
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <p class="mention mention-moyenne">
+        💡 <strong>Règle SEC-004</strong> : En Production, un profil global n'accorde que la consultation. Toute permission d'action y exige une habilitation explicite affectée à cet environnement.
+    </p>
+</div>
 
 @code {
     private IReadOnlyCollection<Droit> droits = [];
     private string NomDeLEnvironnement = "—";
+    private string TypeEnvironnementText = "N/A";
+    private string ClasseDePastille = "";
 
     private string NomAffiche => Accesseur.HttpContext?.User.Identity?.Name ?? string.Empty;
 
@@ -80,6 +172,14 @@ else
         }
 
         NomDeLEnvironnement = environnement.Nom;
+        TypeEnvironnementText = environnement.Type.ToString();
+        ClasseDePastille = environnement.Type switch
+        {
+            Domain.Common.EnvironmentType.Production => "production",
+            Domain.Common.EnvironmentType.Uat => "uat",
+            _ => string.Empty
+        };
+
         droits = [.. await Habilitations.DroitsSurAsync(identifiant, environnement.Id)];
     }
 }

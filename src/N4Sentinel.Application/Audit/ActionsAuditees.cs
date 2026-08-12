@@ -35,6 +35,29 @@ public static class ActionsAuditees
     public const string ModificationRefusee = "Modification refusée";
     public const string ConfigurationTestee = "Configuration testée";
     public const string CollecteDemandee = "Collecte de supervision demandée";
+
+    // — Pilotage : workflows (Sprint 6) —
+    public const string WorkflowCree = "Workflow créé";
+    public const string WorkflowModifie = "Workflow modifié";
+    public const string WorkflowVersionCreee = "Version de workflow créée";
+    public const string WorkflowVersionModifiee = "Version de workflow modifiée";
+    public const string EtapeAjoutee = "Étape ajoutée";
+
+    // — Préparation d'opération (Sprint 6) —
+    public const string OperationPreparee = "Opération préparée en simulation";
+    public const string SimulationConfirmee = "Simulation confirmée";
+    public const string ApprobationEnregistree = "Approbation enregistrée";
+    public const string ApprobationRefusee = "Approbation refusée";
+
+    // — Exécution réelle (Sprint 7) —
+    public const string ExecutionEngagee = "Exécution engagée";
+    public const string ExecutionAvancee = "Avancement manuel demandé";
+    public const string EtapeConfirmee = "Étape confirmée";
+    public const string EtapeApprouvee = "Étape approuvée";
+    public const string ContournementDemande = "Contournement demandé";
+    public const string ContournementApprouve = "Contournement approuvé";
+    public const string ArretForce = "Arrêt forcé";
+    public const string InterventionManuelleConsignee = "Intervention manuelle consignée";
 }
 
 /// <summary>Types d'objets visés par une action tracée.</summary>
@@ -45,4 +68,6 @@ public static class ObjetsAudites
     public const string Ressource = "Ressource";
     public const string Environnement = "Environnement";
     public const string Composant = "Composant";
+    public const string Workflow = "Workflow";
+    public const string Execution = "Exécution";
 }

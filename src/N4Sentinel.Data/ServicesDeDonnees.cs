@@ -20,7 +20,8 @@ public static class ServicesDeDonnees
     public static IServiceCollection AjouterLaCoucheDonnees(
         this IServiceCollection services,
         string chaineDeConnexion,
-        OptionsDeCollecte? optionsDeCollecte = null)
+        OptionsDeCollecte? optionsDeCollecte = null,
+        OptionsDExecution? optionsDExecution = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(chaineDeConnexion);
 
@@ -49,6 +50,9 @@ public static class ServicesDeDonnees
 
         services.AddSingleton(optionsDeCollecte ?? new OptionsDeCollecte());
         services.AddHostedService<CollecteurPeriodique>();
+
+        services.AddSingleton(optionsDExecution ?? new OptionsDExecution());
+        services.AddHostedService<ExecuteurDeWorkflow>();
 
         return services;
     }

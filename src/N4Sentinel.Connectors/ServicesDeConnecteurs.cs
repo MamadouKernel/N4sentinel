@@ -34,6 +34,18 @@ public static class ServicesDeConnecteurs
         services.AddScoped<IRepartiteurDeConnecteurs>(f =>
             new RepartiteurDeConnecteurs(f.GetServices<IConnecteurDeSignaux>()));
 
+        // Sprint 7 — connecteurs d'écriture, volontairement séparés des connecteurs de lecture
+        // ci-dessus (Sprint 3) : voir le commentaire d'IConnecteurDeCommandes.
+        services.AddScoped<IConnecteurDeCommandes, ConnecteurDeCommandeProcessus>();
+
+        if (OperatingSystem.IsWindows())
+        {
+            services.AddScoped<IConnecteurDeCommandes, ConnecteurDeCommandeServiceWindows>();
+        }
+
+        services.AddScoped<IRepartiteurDeCommandes>(f =>
+            new RepartiteurDeCommandes(f.GetServices<IConnecteurDeCommandes>()));
+
         return services;
     }
 }

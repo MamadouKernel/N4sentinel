@@ -1,4 +1,5 @@
 using N4Sentinel.Domain.Common;
+using N4Sentinel.Domain.Operations;
 
 namespace N4Sentinel.Domain.Entities;
 
@@ -41,6 +42,18 @@ public class WorkflowVersion : Entity
 
     public string? ValidePar { get; set; }
 
+    /// <summary>
+    /// Sprint 6 — droit exigé pour sélectionner ce scénario : <c>ExecuterUneOperationSensible</c>
+    /// plutôt que <c>ExecuterUneOperationAutorisee</c>. Un paramètre du workflow, pas une
+    /// déduction faite au moment de la sélection.
+    /// </summary>
+    public bool ActionSensible { get; set; }
+
+    /// <summary>
+    /// Sprint 6 — FR-013. Simple par défaut : mieux vaut une approbation de trop qu'aucune.
+    /// </summary>
+    public TypeDeCircuitDApprobation Circuit { get; set; } = TypeDeCircuitDApprobation.Simple;
+
     public List<WorkflowStepDefinition> Etapes { get; set; } = [];
 }
 
@@ -78,4 +91,12 @@ public class WorkflowStepDefinition : Entity
     /// Le parallélisme n'est jamais déduit : il est déclaré dans la version validée.
     /// </summary>
     public bool IndependanteDesEtapesVoisines { get; set; }
+
+    /// <summary>
+    /// Sprint 7 (FR-022) — « aucun contrôle bloquant ne peut être contourné s'il n'a pas été
+    /// explicitement déclaré comme contournable dans une version validée du workflow ». C'est
+    /// ce champ qui porte cette déclaration : le contournement est un paramètre du workflow,
+    /// jamais une décision prise au moment de l'exécution.
+    /// </summary>
+    public bool Contournable { get; set; }
 }

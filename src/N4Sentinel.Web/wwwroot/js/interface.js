@@ -54,10 +54,65 @@ function brancherLesBasculesDeMotDePasse() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', brancherLesBasculesDeMotDePasse);
+// FR-021 — rafraîchissement du suivi d'exécution.
+//
+// Les écrans de l'application se rechargent par formulaire POST classique. Une exécution
+// engagée, elle, avance toute seule : l'exécuteur de fond franchit les étapes sans que
+// personne ne clique. Sans rafraîchissement, l'exploitant regarde un écran figé pendant que
+// l'arrêt se déroule — et c'est précisément le moment où il doit voir ce qui se passe.
+//
+// Le rechargement complet est assumé plutôt qu'un flux temps réel : celui-ci supposerait un
+// mode de rendu interactif que le reste de l'application n'utilise pas.
+
+let minuterieDeRafraichissement = null;
+
+// Une saisie en cours n'est jamais interrompue : recharger pendant qu'un opérateur motive un
+// contournement effacerait sa justification. Le rafraîchissement attend le cycle suivant.
+function saisieEnCours() {
+    const actif = document.activeElement;
+    if (!actif) {
+        return false;
+    }
+
+    const balise = actif.tagName;
+    return balise === 'INPUT' || balise === 'TEXTAREA' || balise === 'SELECT' || actif.isContentEditable;
+}
+
+function brancherLeRafraichissement() {
+    if (minuterieDeRafraichissement !== null) {
+        clearInterval(minuterieDeRafraichissement);
+        minuterieDeRafraichissement = null;
+    }
+
+    const cible = document.querySelector('[data-rafraichir-secondes]');
+    if (!cible) {
+        return;
+    }
+
+    const secondes = Number.parseInt(cible.dataset.rafraichirSecondes, 10);
+    if (!Number.isFinite(secondes) || secondes < 1) {
+        return;
+    }
+
+    minuterieDeRafraichissement = setInterval(() => {
+        // Onglet en arrière-plan : rien à montrer, autant ne pas interroger le serveur.
+        if (document.hidden || saisieEnCours()) {
+            return;
+        }
+
+        window.location.reload();
+    }, secondes * 1000);
+}
+
+function brancherLesComportements() {
+    brancherLesBasculesDeMotDePasse();
+    brancherLeRafraichissement();
+}
+
+document.addEventListener('DOMContentLoaded', brancherLesComportements);
 
 // La navigation améliorée de Blazor remplace le contenu sans recharger la page :
 // les écouteurs doivent être reposés sur le nouveau DOM.
 if (window.Blazor && typeof window.Blazor.addEventListener === 'function') {
-    window.Blazor.addEventListener('enhancedload', brancherLesBasculesDeMotDePasse);
+    window.Blazor.addEventListener('enhancedload', brancherLesComportements);
 }

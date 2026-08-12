@@ -1,0 +1,251 @@
+@page "/operations/{ExecutionId:guid}/apercu"
+@using System.Globalization
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Application.Supervision
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Entities
+@using N4Sentinel.Domain.Operations
+@using N4Sentinel.Domain.Supervision
+@attribute [Authorize(Policy = "Droit:Consulter")]
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IServiceDeSupervision Supervision
+
+<PageTitle>Aperçu de simulation — N4 Sentinel</PageTitle>
+
+@if (execution is null)
+{
+    <h1>Exécution introuvable</h1>
+    <p><a class="lien-retour" href="/operations">Revenir aux opérations</a></p>
+}
+else
+{
+    <h1>Aperçu de simulation — @execution.Reference</h1>
+    <p>
+        FR-005 — aucune commande n'a été émise pour produire cet aperçu : les pré-checks
+        reflètent le dernier état collecté par la supervision, jamais une collecte déclenchée
+        ici. Ce résultat est conservé tel quel, rattaché à la demande.
+    </p>
+
+    @if (Erreur is not null)
+    {
+        <p class="alerte" role="alert">@Erreur</p>
+    }
+
+    <h2>Pré-checks</h2>
+    <div class="defilement">
+        <table class="tableau">
+            <thead>
+                <tr><th>Ordre</th><th>Étape</th><th>Composant</th><th>Statut</th><th>Motif</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var etape in execution.Etapes.OrderBy(e => e.Ordre))
+                {
+                    <tr>
+                        <td>@etape.Ordre</td>
+                        <td>@etape.Libelle</td>
+                        <td>@(etape.ComposantCibleId.HasValue ? NomDeComposant(etape.ComposantCibleId.Value) : "—")</td>
+                        <td>
+                            <span class="etat-consolide @ClassePreCheck(etape.StatutDuPreCheck)">
+                                @LibellePreCheck(etape.StatutDuPreCheck)
+                            </span>
+                        </td>
+                        <td>@etape.Preuve</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    var bloquants = execution.Etapes.Count(e => e.StatutDuPreCheck == StatutDePreCheck.Bloquant);
+
+    @if (bloquants > 0)
+    {
+        <p class="alerte" role="alert">
+            @bloquants étape(s) bloquée(s) : elles empêchent la poursuite tant que le composant
+            visé n'est pas actif, pilotable, ou tant que l'état réel n'est pas rétabli.
+        </p>
+    }
+
+    <h2>Risques identifiés</h2>
+    @if (risques.Count == 0)
+    {
+        <p>Aucun risque particulier relevé.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (var risque in risques)
+            {
+                <li>@risque</li>
+            }
+        </ul>
+    }
+
+    <h2>Prérequis non satisfaits</h2>
+    @if (prerequisNonSatisfaits.Count == 0)
+    {
+        <p>Aucun prérequis déclaré n'est actuellement insatisfait.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (var prerequis in prerequisNonSatisfaits)
+            {
+                <li>@prerequis</li>
+            }
+        </ul>
+    }
+
+    <h2>Circuit d'approbation</h2>
+    <p>
+        @(circuit switch
+        {
+            TypeDeCircuitDApprobation.Aucun => "Aucune approbation requise par la version validée.",
+            TypeDeCircuitDApprobation.Simple => "Une approbation, distincte du demandeur, est requise.",
+            TypeDeCircuitDApprobation.Doublee => "Deux approbations distinctes, chacune distincte du demandeur, sont requises.",
+            _ => "—"
+        })
+    </p>
+
+    <h2>Confirmation</h2>
+    @if (execution.Statut != ExecutionStatus.EnPreparation)
+    {
+        <p class="mention">
+            Cette simulation a déjà été soumise — statut actuel : @execution.Statut.
+        </p>
+    }
+    else
+    {
+        <form method="post" action="/operations/@execution.Id/soumettre" class="formulaire">
+            <AntiforgeryToken />
+            <label>
+                <input type="checkbox" name="confirmation" value="true" required />
+                Je confirme avoir pris connaissance des pré-checks, des risques identifiés et des
+                prérequis non satisfaits ci-dessus, et je demande la poursuite de cette opération.
+            </label>
+            <button type="submit">Confirmer et soumettre</button>
+        </form>
+    }
+
+    <p><a class="lien-retour" href="/operations/@execution.Id">Voir l'exécution</a></p>
+}
+
+@code {
+    [Parameter]
+    public Guid ExecutionId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    private OperationExecution? execution;
+    private List<N4Component> composants = [];
+    private List<string> risques = [];
+    private List<string> prerequisNonSatisfaits = [];
+    private TypeDeCircuitDApprobation circuit;
+
+    private string? Erreur => CodeErreur switch
+    {
+        "confirmation" => "La confirmation explicite est obligatoire pour soumettre la simulation.",
+        "statut" => "Cette action n'est plus possible dans l'état actuel de l'exécution.",
+        _ => null
+    };
+
+    private string NomDeComposant(Guid id) => composants.Find(c => c.Id == id)?.Nom ?? "?";
+
+    private static string LibellePreCheck(StatutDePreCheck? statut) => statut switch
+    {
+        StatutDePreCheck.Satisfait => "Satisfait",
+        StatutDePreCheck.Avertissement => "Avertissement",
+        StatutDePreCheck.Bloquant => "Bloquant",
+        StatutDePreCheck.NonApplicable => "Non applicable",
+        StatutDePreCheck.ImpossibleAVerifier => "Impossible à vérifier",
+        _ => "—"
+    };
+
+    private static string ClassePreCheck(StatutDePreCheck? statut) => statut switch
+    {
+        StatutDePreCheck.Satisfait => "etat-favorable",
+        StatutDePreCheck.Avertissement => "etat-degrade",
+        StatutDePreCheck.Bloquant => "etat-defavorable",
+        StatutDePreCheck.NonApplicable => "etat-transition",
+        _ => "etat-indetermine"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        execution = await contexte.Executions
+            .AsNoTracking()
+            .Include(e => e.Etapes)
+            .FirstOrDefaultAsync(e => e.Id == ExecutionId);
+
+        if (execution is null)
+        {
+            return;
+        }
+
+        var version = await contexte.VersionsDeWorkflow
+            .AsNoTracking()
+            .FirstOrDefaultAsync(v => v.Id == execution.WorkflowVersionId);
+        circuit = version?.Circuit ?? TypeDeCircuitDApprobation.Aucun;
+
+        var environnement = await contexte.Environnements
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == execution.EnvironmentId);
+
+        var idsCibles = execution.Etapes
+            .Where(e => e.ComposantCibleId is not null)
+            .Select(e => e.ComposantCibleId!.Value)
+            .Distinct()
+            .ToList();
+
+        composants = await contexte.Composants
+            .AsNoTracking()
+            .Where(c => idsCibles.Contains(c.Id))
+            .ToListAsync();
+
+        risques = [.. composants
+            .Where(c => c.Criticite is Criticality.Haute or Criticality.Critique)
+            .Select(c => $"{c.Nom} — criticité {c.Criticite}.")];
+
+        risques.AddRange(composants
+            .Where(c => c.EnMaintenance)
+            .Select(c => $"{c.Nom} est actuellement déclaré en maintenance."));
+
+        if (environnement?.Type == EnvironmentType.Production)
+        {
+            risques.Add("Opération préparée sur un environnement de Production.");
+        }
+
+        var cartographie = await Supervision.LireAsync(execution.EnvironmentId);
+        var etatParComposant = cartographie?.Lignes.ToDictionary(l => l.ComposantId, l => l.Etat.Etat)
+            ?? new Dictionary<Guid, EtatDeSupervision>();
+
+        var dependances = await contexte.Dependances
+            .AsNoTracking()
+            .Where(d => idsCibles.Contains(d.ComponentId) && d.Bloquante)
+            .ToListAsync();
+
+        var idsRequis = dependances.Select(d => d.ComposantRequisId).ToList();
+
+        var nomsComposants = await contexte.Composants
+            .AsNoTracking()
+            .Where(c => idsRequis.Contains(c.Id) || idsCibles.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.Nom);
+
+        prerequisNonSatisfaits = [.. dependances
+            .Where(d => !etatParComposant.TryGetValue(d.ComposantRequisId, out var etat)
+                || etat != EtatDeSupervision.Disponible)
+            .Select(d =>
+            {
+                var nomDependant = nomsComposants.GetValueOrDefault(d.ComponentId, "?");
+                var nomRequis = nomsComposants.GetValueOrDefault(d.ComposantRequisId, "?");
+                var etatConnu = etatParComposant.TryGetValue(d.ComposantRequisId, out var e)
+                    ? e.ToString()
+                    : "inconnu";
+                return $"{nomDependant} dépend de {nomRequis} (bloquante) — état actuel : {etatConnu}.";
+            })];
+    }
+}

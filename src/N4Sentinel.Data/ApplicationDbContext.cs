@@ -28,6 +28,12 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<VerrouDOperation> VerrousDOperation => Set<VerrouDOperation>();
 
+    public DbSet<Workflow> Workflows => Set<Workflow>();
+
+    public DbSet<WorkflowVersion> VersionsDeWorkflow => Set<WorkflowVersion>();
+
+    public DbSet<ExecutionApproval> Approbations => Set<ExecutionApproval>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -161,6 +167,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             execution.Property(e => e.ApprouvePar).HasMaxLength(256);
             execution.Property(e => e.Resultat).HasMaxLength(2048);
             execution.Property(e => e.ReferenceDeCorrelation).HasMaxLength(128).IsRequired();
+            execution.Property(e => e.Perimetre).HasMaxLength(1024);
+            execution.Property(e => e.ImpactAttendu).HasMaxLength(1024);
 
             execution.HasIndex(e => e.Reference).IsUnique();
             execution.HasIndex(e => new { e.EnvironmentId, e.Statut });
@@ -169,6 +177,63 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .WithOne()
                 .HasForeignKey(s => s.ExecutionId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            execution.HasMany(e => e.Approbations)
+                .WithOne()
+                .HasForeignKey(a => a.ExecutionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ExecutionApproval>(approbation =>
+        {
+            approbation.ToTable("ApprobationsDExecution");
+            approbation.Property(a => a.ApprouvePar).HasMaxLength(256).IsRequired();
+            approbation.Property(a => a.Motif).HasMaxLength(1024);
+
+            // Un même acteur ne compte qu'une fois dans un circuit : la lecture des
+            // approbations distinctes s'appuie sur cette unicité plutôt que de la recalculer.
+            approbation.HasIndex(a => new { a.ExecutionId, a.ApprouvePar }).IsUnique();
+        });
+
+        builder.Entity<Workflow>(workflow =>
+        {
+            workflow.ToTable("Workflows");
+            workflow.Property(w => w.Nom).HasMaxLength(128).IsRequired();
+            workflow.Property(w => w.Description).HasMaxLength(1024);
+
+            workflow.HasIndex(w => new { w.EnvironmentId, w.Nom }).IsUnique();
+
+            workflow.HasMany(w => w.Versions)
+                .WithOne()
+                .HasForeignKey(v => v.WorkflowId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WorkflowVersion>(version =>
+        {
+            version.ToTable("VersionsDeWorkflow");
+            version.Property(v => v.CommentaireDeVersion).HasMaxLength(1024);
+            version.Property(v => v.CreePar).HasMaxLength(256).IsRequired();
+            version.Property(v => v.ValidePar).HasMaxLength(256);
+
+            // Deux versions d'un même workflow ne peuvent pas porter le même numéro : la
+            // version exécutable doit être désignée sans ambiguïté.
+            version.HasIndex(v => new { v.WorkflowId, v.NumeroDeVersion }).IsUnique();
+
+            version.HasMany(v => v.Etapes)
+                .WithOne()
+                .HasForeignKey(s => s.WorkflowVersionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<WorkflowStepDefinition>(etape =>
+        {
+            etape.ToTable("EtapesDeWorkflow");
+            etape.Property(s => s.Libelle).HasMaxLength(256).IsRequired();
+            etape.Property(s => s.Action).HasMaxLength(256).IsRequired();
+            etape.Property(s => s.Condition).HasMaxLength(1024);
+
+            etape.HasIndex(s => new { s.WorkflowVersionId, s.Ordre });
         });
 
         builder.Entity<ExecutionStep>(etape =>

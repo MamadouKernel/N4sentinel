@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using N4Sentinel.Application.Abstractions;
 using N4Sentinel.Connectors;
 using N4Sentinel.Data;
+using N4Sentinel.Data.Orchestration;
 using N4Sentinel.Data.Supervision;
 using N4Sentinel.Orchestration;
 using N4Sentinel.Application.Orchestration;
@@ -11,6 +12,8 @@ using N4Sentinel.Data.Identite;
 using N4Sentinel.Web.Components;
 using N4Sentinel.Web.Administration;
 using N4Sentinel.Web.Comptes;
+using N4Sentinel.Web.Operations;
+using N4Sentinel.Web.Pilotage;
 using N4Sentinel.Web.Referentiel;
 using N4Sentinel.Web.Supervision;
 using N4Sentinel.Web.Courriel;
@@ -41,7 +44,11 @@ if (string.IsNullOrWhiteSpace(chaineDeConnexion))
 var optionsDeCollecte = new OptionsDeCollecte();
 builder.Configuration.GetSection(OptionsDeCollecte.Section).Bind(optionsDeCollecte);
 
-builder.Services.AjouterLaCoucheDonnees(chaineDeConnexion, optionsDeCollecte);
+// Sprint 7 — cadence de l'avancement automatique des exécutions engagées.
+var optionsDExecution = new OptionsDExecution();
+builder.Configuration.GetSection(OptionsDExecution.Section).Bind(optionsDExecution);
+
+builder.Services.AjouterLaCoucheDonnees(chaineDeConnexion, optionsDeCollecte, optionsDExecution);
 builder.Services.AjouterLaCoucheConnecteurs();
 builder.Services.AjouterLaCoucheOrchestrateur();
 
@@ -182,6 +189,8 @@ app.MapperLePointDEntreeDeTheme();
 app.MapperLesPointsDEntreeDuReferentiel();
 app.MapperLesPointsDEntreeDeSupervision();
 app.MapperLesPointsDEntreeDAdministration();
+app.MapperLesPointsDEntreeDuPilotage();
+app.MapperLesPointsDEntreeDesOperations();
 
 // Sonde de disponibilité pour la supervision et le déploiement automatisé. Volontairement
 // muette sur l'état interne : elle ne renseigne pas un appelant non authentifié.

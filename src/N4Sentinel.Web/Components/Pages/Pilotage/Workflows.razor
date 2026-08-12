@@ -1,0 +1,110 @@
+@page "/pilotage/workflows"
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Entities
+@attribute [Authorize(Policy = "Droit:Consulter")]
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IHttpContextAccessor Accesseur
+
+<PageTitle>Workflows — N4 Sentinel</PageTitle>
+
+<h1>Workflows — @NomDeLEnvironnement</h1>
+<p>
+    Sprint 6 — un scénario n'est sélectionnable en préparation d'opération que sous forme d'une
+    version <strong>Active</strong>. Toute modification de contenu passe par une nouvelle
+    version : une version validée ne se réédite pas.
+</p>
+
+@if (environnement is null)
+{
+    <p class="alerte" role="alert">Aucun environnement sélectionné.</p>
+}
+else
+{
+    <div class="defilement">
+        <table class="tableau">
+            <thead>
+                <tr><th>Nom</th><th>Type</th><th>Versions</th><th>Version active</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var workflow in workflows)
+                {
+                    <tr>
+                        <td><a href="/pilotage/workflow/@workflow.Id">@workflow.Nom</a></td>
+                        <td>@workflow.Type</td>
+                        <td>@workflow.Versions.Count</td>
+                        <td>
+                            @{
+                                var active = workflow.Versions.FirstOrDefault(v => v.Statut == ValidationStatus.Actif);
+                            }
+                            @(active is null ? "—" : $"v{active.NumeroDeVersion}")
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (workflows.Count == 0)
+    {
+        <p>Aucun workflow enregistré sur cet environnement.</p>
+    }
+
+    <AuthorizeView Policy="Droit:GererLeReferentiel">
+        <h2>Nouveau workflow</h2>
+        <form method="post" action="/pilotage/workflow" class="formulaire">
+            <AntiforgeryToken />
+            <input type="hidden" name="environnementId" value="@environnement.Id" />
+
+            <label for="nom">Nom</label>
+            <input id="nom" name="nom" type="text" maxlength="128" required />
+
+            <label for="type">Type</label>
+            <select id="type" name="type">
+                @foreach (var type in Enum.GetValues<WorkflowType>())
+                {
+                    <option value="@type">@type</option>
+                }
+            </select>
+
+            <label for="description">Description</label>
+            <input id="description" name="description" type="text" maxlength="1024" />
+
+            <button type="submit">Créer</button>
+        </form>
+    </AuthorizeView>
+}
+
+@code {
+    private N4Environment? environnement;
+    private List<Workflow> workflows = [];
+
+    private string NomDeLEnvironnement => environnement?.Nom ?? "—";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        var choisi = Guid.TryParse(Accesseur.HttpContext?.Request.Cookies["environnement"], out var id)
+            ? id
+            : Guid.Empty;
+
+        environnement = await contexte.Environnements
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == choisi)
+            ?? await contexte.Environnements.AsNoTracking().OrderBy(e => e.Type).FirstOrDefaultAsync();
+
+        if (environnement is null)
+        {
+            return;
+        }
+
+        workflows = await contexte.Workflows
+            .AsNoTracking()
+            .Include(w => w.Versions)
+            .Where(w => w.EnvironmentId == environnement.Id)
+            .OrderBy(w => w.Nom)
+            .ToListAsync();
+    }
+}

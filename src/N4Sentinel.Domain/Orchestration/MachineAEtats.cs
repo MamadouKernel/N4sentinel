@@ -69,7 +69,20 @@ public static class MachineAEtats
 
         // Une nouvelle tentative repart d'un échec ; les autres états finaux sont définitifs.
         [StepStatus.Echec] = [StepStatus.EnCours, StepStatus.Ignore],
-        [StepStatus.Bloque] = [StepStatus.EnCours, StepStatus.Ignore, StepStatus.Annule],
+
+        // Sprint 7 — une étape bloquée (prérequis non satisfait, effet non vérifiable) peut être
+        // retentée, ignorée (contournement approuvé : l'étape est délibérément sautée), annulée,
+        // ou conclue par une intervention manuelle prouvée. Reussi/Avertissement/Echec n'y sont
+        // atteignables que par ce dernier chemin, jamais automatiquement.
+        [StepStatus.Bloque] =
+        [
+            StepStatus.EnCours,
+            StepStatus.Ignore,
+            StepStatus.Annule,
+            StepStatus.Reussi,
+            StepStatus.Avertissement,
+            StepStatus.Echec
+        ],
 
         [StepStatus.Reussi] = [],
         [StepStatus.Avertissement] = [],

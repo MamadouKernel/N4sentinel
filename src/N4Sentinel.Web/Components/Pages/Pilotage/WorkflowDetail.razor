@@ -1,0 +1,243 @@
+@page "/pilotage/workflow/{WorkflowId:guid}"
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Application.Connecteurs
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Entities
+@using N4Sentinel.Domain.Operations
+@using N4Sentinel.Domain.Referentiel
+@attribute [Authorize(Policy = "Droit:Consulter")]
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+
+<PageTitle>@(workflow?.Nom ?? "Workflow") — N4 Sentinel</PageTitle>
+
+@if (workflow is null)
+{
+    <h1>Workflow introuvable</h1>
+    <p><a class="lien-retour" href="/pilotage/workflows">Revenir à la liste</a></p>
+}
+else
+{
+    <h1>@workflow.Nom</h1>
+    <p>@workflow.Type — @(workflow.Description ?? "sans description")</p>
+
+    @if (Erreur is not null)
+    {
+        <p class="alerte" role="alert">@Erreur</p>
+    }
+
+    <h2>Versions</h2>
+    @if (workflow.Versions.Count == 0)
+    {
+        <p>Aucune version. Une version brouillon est nécessaire avant de saisir des étapes.</p>
+    }
+    else
+    {
+        @foreach (var version in workflow.Versions.OrderByDescending(v => v.NumeroDeVersion))
+        {
+            <div>
+                <h3>
+                    v@(version.NumeroDeVersion) — @CycleDeValidation.Libelle(version.Statut)
+                    @if (version.Statut == ValidationStatus.Actif)
+                    {
+                        <span class="etat-consolide etat-favorable">sélectionnable en préparation d'opération</span>
+                    }
+                </h3>
+                <p>
+                    Sensible : @(version.ActionSensible ? "Oui" : "Non") · Circuit d'approbation : @version.Circuit
+                    @if (!string.IsNullOrWhiteSpace(version.CommentaireDeVersion))
+                    {
+                        <text> · @version.CommentaireDeVersion</text>
+                    }
+                </p>
+
+                <h4>Étapes</h4>
+                @if (version.Etapes.Count == 0)
+                {
+                    <p>Aucune étape.</p>
+                }
+                else
+                {
+                    <div class="defilement">
+                        <table class="tableau">
+                            <thead>
+                                <tr><th>Ordre</th><th>Libellé</th><th>Action</th><th>Composant cible</th><th>Confirmation</th><th>Approbation</th><th>Contournable</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var etape in version.Etapes.OrderBy(e => e.Ordre))
+                                {
+                                    <tr>
+                                        <td>@etape.Ordre</td>
+                                        <td>@etape.Libelle</td>
+                                        <td>@etape.Action</td>
+                                        <td>@(etape.ComposantCibleId.HasValue ? NomDeComposant(etape.ComposantCibleId.Value) : "—")</td>
+                                        <td>@(etape.ConfirmationRequise ? "Oui" : "Non")</td>
+                                        <td>@(etape.ApprobationRequise ? "Oui" : "Non")</td>
+                                        <td>@(etape.Contournable ? "Oui" : "Non")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+
+                <AuthorizeView Policy="Droit:GererLeReferentiel">
+                    @if (version.Statut == ValidationStatus.Brouillon)
+                    {
+                        <form method="post" action="/pilotage/workflow/version/etape" class="formulaire">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="workflowId" value="@workflow.Id" />
+                            <input type="hidden" name="workflowVersionId" value="@version.Id" />
+
+                            <label for="ordre-@version.Id">Ordre</label>
+                            <input id="ordre-@version.Id" name="ordre" type="number" min="1" value="@(version.Etapes.Count + 1)" required />
+
+                            <label for="libelle-@version.Id">Libellé</label>
+                            <input id="libelle-@version.Id" name="libelle" type="text" maxlength="256" required />
+
+                            <label for="action-@version.Id">Action approuvée</label>
+                            <select id="action-@version.Id" name="action" required>
+                                @foreach (var action in ActionsDePilotage.Toutes)
+                                {
+                                    <option value="@action">@action</option>
+                                }
+                            </select>
+
+                            <label for="composant-@version.Id">Composant cible</label>
+                            <select id="composant-@version.Id" name="composantCibleId">
+                                <option value="">— aucun —</option>
+                                @foreach (var composant in composants)
+                                {
+                                    <option value="@composant.Id">@composant.Nom</option>
+                                }
+                            </select>
+
+                            <label for="timeout-@version.Id">Timeout (secondes)</label>
+                            <input id="timeout-@version.Id" name="timeoutSecondes" type="number" min="1" max="7200" value="300" />
+
+                            <label for="reessais-@version.Id">Nombre de réessais</label>
+                            <input id="reessais-@version.Id" name="nombreDeReessais" type="number" min="0" max="10" value="0" />
+
+                            <label for="confirmation-@version.Id">Confirmation requise</label>
+                            <select id="confirmation-@version.Id" name="confirmationRequise">
+                                <option value="false">Non</option>
+                                <option value="true">Oui</option>
+                            </select>
+
+                            <label for="approbation-@version.Id">Approbation requise</label>
+                            <select id="approbation-@version.Id" name="approbationRequise">
+                                <option value="false">Non</option>
+                                <option value="true">Oui</option>
+                            </select>
+
+                            <label for="independante-@version.Id">Indépendante des étapes voisines</label>
+                            <select id="independante-@version.Id" name="independanteDesEtapesVoisines">
+                                <option value="false">Non</option>
+                                <option value="true">Oui</option>
+                            </select>
+
+                            <label for="contournable-@version.Id">Contrôle bloquant contournable</label>
+                            <select id="contournable-@version.Id" name="contournable">
+                                <option value="false">Non</option>
+                                <option value="true">Oui</option>
+                            </select>
+
+                            <button type="submit">Ajouter l'étape</button>
+                        </form>
+                    }
+
+                    <div class="ligne-action">
+                        @foreach (var suivant in CycleDeValidation.TransitionsPossiblesDepuis(version.Statut))
+                        {
+                            <form method="post" action="/pilotage/workflow/version/statut">
+                                <AntiforgeryToken />
+                                <input type="hidden" name="id" value="@version.Id" />
+                                <input type="hidden" name="workflowId" value="@workflow.Id" />
+                                <input type="hidden" name="statut" value="@suivant" />
+                                <button type="submit" class="bouton-discret">@CycleDeValidation.Libelle(suivant)</button>
+                            </form>
+                        }
+                    </div>
+                </AuthorizeView>
+            </div>
+        }
+    }
+
+    <AuthorizeView Policy="Droit:GererLeReferentiel">
+        <h2>Nouvelle version</h2>
+        <p class="mention">
+            FR-013 — le circuit d'approbation et le caractère sensible se figent avec la version :
+            ils ne changent plus une fois qu'elle a quitté le brouillon.
+        </p>
+        <form method="post" action="/pilotage/workflow/version" class="formulaire">
+            <AntiforgeryToken />
+            <input type="hidden" name="workflowId" value="@workflow.Id" />
+
+            <label for="commentaire">Commentaire de version</label>
+            <input id="commentaire" name="commentaireDeVersion" type="text" maxlength="1024" />
+
+            <label for="actionSensible">Action sensible</label>
+            <select id="actionSensible" name="actionSensible">
+                <option value="false">Non — ExecuterUneOperationAutorisee suffit</option>
+                <option value="true">Oui — ExecuterUneOperationSensible requis</option>
+            </select>
+
+            <label for="circuit">Circuit d'approbation</label>
+            <select id="circuit" name="circuit">
+                @foreach (var type in Enum.GetValues<TypeDeCircuitDApprobation>())
+                {
+                    <option value="@type" selected="@(type == TypeDeCircuitDApprobation.Simple)">@type</option>
+                }
+            </select>
+
+            <button type="submit">Créer la version</button>
+        </form>
+    </AuthorizeView>
+
+    <p><a class="lien-retour" href="/pilotage/workflows">Revenir à la liste</a></p>
+}
+
+@code {
+    [Parameter]
+    public Guid WorkflowId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    private Workflow? workflow;
+    private List<N4Component> composants = [];
+
+    private string? Erreur => CodeErreur switch
+    {
+        "actif" => "Cette version a quitté le brouillon : elle ne peut plus être modifiée. Créez une nouvelle version.",
+        "transition" => "Cette transition de statut n'est pas permise par le cycle de validation.",
+        "introuvable" => "Élément introuvable.",
+        "action" => "Cette action n'appartient pas au catalogue approuvé (SEC-006).",
+        "sequence" => "Activation refusée : l'ordre des étapes contredit la séquence d'arrêt de référence de l'éditeur N4.",
+        _ => null
+    };
+
+    private string NomDeComposant(Guid id) => composants.Find(c => c.Id == id)?.Nom ?? "?";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        workflow = await contexte.Workflows
+            .AsNoTracking()
+            .Include(w => w.Versions)
+                .ThenInclude(v => v.Etapes)
+            .FirstOrDefaultAsync(w => w.Id == WorkflowId);
+
+        if (workflow is null)
+        {
+            return;
+        }
+
+        composants = await contexte.Composants
+            .AsNoTracking()
+            .Where(c => c.EnvironmentId == workflow.EnvironmentId && c.Statut == ValidationStatus.Actif)
+            .OrderBy(c => c.Nom)
+            .ToListAsync();
+    }
+}

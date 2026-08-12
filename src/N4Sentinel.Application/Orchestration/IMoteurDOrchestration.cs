@@ -38,4 +38,54 @@ public interface IMoteurDOrchestration
     /// que simplement « redémarrable ».
     /// </summary>
     Task<int> RecupererLesExecutionsInterrompuesAsync(CancellationToken cancellationToken = default);
+
+    // — Sprint 7 : exécution réelle —
+
+    /// <summary>
+    /// Fait avancer une exécution « En cours » d'un pas : lance la prochaine étape éligible si
+    /// aucune confirmation ni approbation ne manque, ou vérifie l'effet d'une commande déjà
+    /// lancée. N'avance jamais deux étapes à la fois — appelée en boucle par
+    /// <c>ExecuteurDeWorkflow</c>, ou à la main depuis l'écran.
+    /// </summary>
+    Task<ReponseDuMoteur> AvancerAsync(Guid executionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Confirmation humaine d'une étape qui l'exige avant de se lancer. L'acteur est celui de
+    /// la requête en cours (<see cref="Abstractions.IUtilisateurCourant"/>), pas un paramètre :
+    /// même convention que <see cref="DemarrerAsync"/> et les autres méthodes déjà en place.
+    /// </summary>
+    Task<ReponseDuMoteur> ConfirmerLEtapeAsync(Guid executionId, Guid etapeId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Approbation d'une étape qui l'exige. La séparation demandeur/approbateur et l'habilitation
+    /// sur l'environnement sont vérifiées par l'appelant (comme pour l'approbation d'exécution du
+    /// Sprint 6) — cette méthode enregistre une décision déjà autorisée, elle ne l'autorise pas.
+    /// </summary>
+    Task<ReponseDuMoteur> ApprouverLEtapeAsync(Guid executionId, Guid etapeId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Demande de contournement sur une étape bloquée, dont la version validée du workflow
+    /// déclare le contrôle contournable (<c>WorkflowStepDefinition.Contournable</c>).
+    /// </summary>
+    Task<ReponseDuMoteur> DemanderUnContournementAsync(
+        Guid executionId, Guid etapeId, string motif, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Approbation d'un contournement déjà demandé. Séparation demandeur/approbateur vérifiée
+    /// par l'appelant, comme pour <see cref="ApprouverLEtapeAsync"/>.
+    /// </summary>
+    Task<ReponseDuMoteur> ApprouverLeContournementAsync(Guid executionId, Guid etapeId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Arrêt forcé d'une étape bloquée au-delà du délai normal — jamais automatique : chaque
+    /// appel exige une confirmation explicite ; l'habilitation est vérifiée par l'appelant.
+    /// </summary>
+    Task<ReponseDuMoteur> ForcerLArretAsync(Guid executionId, Guid etapeId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Intervention manuelle : un opérateur atteste un effet réel que la vérification
+    /// automatique n'a pas pu établir. La preuve est obligatoire, jamais facultative.
+    /// </summary>
+    Task<ReponseDuMoteur> ConsignerUneInterventionManuelleAsync(
+        Guid executionId, Guid etapeId, bool succes, string preuve, CancellationToken cancellationToken = default);
 }

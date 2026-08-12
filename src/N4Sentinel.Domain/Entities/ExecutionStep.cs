@@ -1,4 +1,5 @@
 using N4Sentinel.Domain.Common;
+using N4Sentinel.Domain.Operations;
 
 namespace N4Sentinel.Domain.Entities;
 
@@ -21,6 +22,15 @@ public class ExecutionStep : Entity
     public Guid? ComposantCibleId { get; set; }
 
     public StepStatus Statut { get; set; } = StepStatus.AVenir;
+
+    /// <summary>
+    /// Sprint 6 (FR-005) — verdict du pré-check établi à la préparation, l'un des cinq statuts
+    /// du mode simulation. Conservé tel quel : « c'est une pièce du dossier, pas un aperçu
+    /// jetable ». Distinct de <see cref="Statut"/>, qui décrit l'avancement réel (Sprint 7) —
+    /// seul un pré-check Bloquant fait aussi passer <see cref="Statut"/> à
+    /// <see cref="StepStatus.Bloque"/>.
+    /// </summary>
+    public StatutDePreCheck? StatutDuPreCheck { get; set; }
 
     public DateTimeOffset? DebutLe { get; set; }
 

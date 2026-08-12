@@ -10,125 +10,383 @@
 @inject IDbContextFactory<ApplicationDbContext> Fabrique
 @inject IHttpContextAccessor Accesseur
 
-<PageTitle>Supervision — N4 Sentinel</PageTitle>
+<PageTitle>Supervision Navis N4 — N4 Sentinel Control Room</PageTitle>
 
 @if (cartographie is null)
 {
-    <h1>Supervision</h1>
-    <p>Aucun environnement sélectionné, ou environnement introuvable.</p>
+    <div class="en-tete-page">
+        <h1>Supervision de l'Écosystème</h1>
+    </div>
+    <div class="alerte avertissement">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>Aucun environnement sélectionné ou référentiel introuvable.</span>
+    </div>
 }
 else
 {
-    <h1>
-        Supervision — @cartographie.NomDeLEnvironnement
-        @if (cartographie.EstProduction)
-        {
-            <span class="pastille-environnement production">Production</span>
-        }
-    </h1>
+    <div class="en-tete-page">
+        <div>
+            <h1>
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--primaire)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+                Supervision N4 — @cartographie.NomDeLEnvironnement
+                @if (cartographie.EstProduction)
+                {
+                    <span class="pastille-environnement production">Production</span>
+                }
+                else
+                {
+                    <span class="pastille-environnement uat">UAT / Dev</span>
+                }
+            </h1>
+            <p class="mention">
+                🔄 Vue générée le @cartographie.GenereLe.UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", Culture) UTC —
+                Donnée la plus récente : <strong>@LibelleDeDate(DonneeLaPlusRecente)</strong>
+            </p>
+        </div>
 
-    @* FR-053 — la date de la dernière donnée est toujours visible. *@
-    <p class="mention">
-        Vue générée le @cartographie.GenereLe.UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", Culture) UTC.
-        Donnée la plus récente : @LibelleDeDate(DonneeLaPlusRecente).
-    </p>
+        <div class="rangee">
+            <!-- Selecteur de mode d'affichage -->
+            <div class="bascule-affichage">
+                <button type="button" class="bouton-discret @(ModeAffichage == "schema" ? "active actif" : "")"
+                        @onclick='() => ModeAffichage = "schema"'>
+                    🌐 Schéma Officiel Navis N4
+                </button>
+                <button type="button" class="bouton-discret @(ModeAffichage == "matrice" ? "active actif" : "")"
+                        @onclick='() => ModeAffichage = "matrice"'>
+                    📊 Cartographie & Liste
+                </button>
+            </div>
 
-    <AuthorizeView Policy="Droit:GererLeReferentiel">
-        <form method="post" action="/supervision/collecte" class="ligne-action">
-            <AntiforgeryToken />
-            <input type="hidden" name="environnementId" value="@cartographie.EnvironmentId" />
-            <button type="submit" class="bouton-discret">Rafraîchir maintenant</button>
-        </form>
-    </AuthorizeView>
+            <AuthorizeView Policy="Droit:GererLeReferentiel">
+                <form method="post" action="/supervision/collecte">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="environnementId" value="@cartographie.EnvironmentId" />
+                    <button type="submit" class="bouton-primaire" title="Lancer une collecte de signaux immédiate">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <polyline points="23 4 23 10 17 10"/>
+                            <polyline points="1 20 1 14 7 14"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                        </svg>
+                        Rafraîchir
+                    </button>
+                </form>
+            </AuthorizeView>
+        </div>
+    </div>
 
     @if (Message is not null)
     {
-        <p class="alerte succes" role="status">@Message</p>
-    }
-
-    <h2>Alertes (@cartographie.Alertes.Count)</h2>
-    @if (cartographie.Alertes.Count == 0)
-    {
-        <p>Aucune alerte.</p>
-    }
-    else
-    {
-        <div class="defilement">
-            <table class="tableau">
-                <thead><tr><th>Motif</th><th>Message</th><th>Portée</th></tr></thead>
-                <tbody>
-                    @foreach (var alerte in cartographie.Alertes)
-                    {
-                        <tr>
-                            <td>@LibelleDeMotif(alerte.Motif)</td>
-                            <td>@alerte.Message</td>
-                            <td>@(alerte.Critique ? "Composant critique" : "Standard")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        <div class="alerte succes" role="status">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <span>@Message</span>
         </div>
     }
 
-    <h2>Cartographie (@cartographie.Lignes.Count composants)</h2>
-    @if (cartographie.Lignes.Count == 0)
+    <!-- Métriques synthétiques -->
+    <div class="grille-cartes">
+        <div class="carte">
+            <div class="carte-en-tete">
+                <span class="carte-titre">Composants Supervisés</span>
+            </div>
+            <div class="carte-valeur">@cartographie.Lignes.Count</div>
+            <span class="mention">Cartographiés dans l'écosystème</span>
+        </div>
+
+        <div class="carte">
+            <div class="carte-en-tete">
+                <span class="carte-titre">Nœuds Opérationnels</span>
+            </div>
+            <div class="carte-valeur texte-succes">
+                @cartographie.Lignes.Count(l => l.Etat.Etat == EtatDeSupervision.Disponible)
+            </div>
+            <span class="mention">Signaux 100% favorables</span>
+        </div>
+
+        <div class="carte">
+            <div class="carte-en-tete">
+                <span class="carte-titre">Alertes Levées</span>
+            </div>
+            <div class="carte-valeur @(cartographie.Alertes.Count > 0 ? "texte-danger" : "texte-succes")">
+                @cartographie.Alertes.Count
+            </div>
+            <span class="mention">Nécessitant une attention</span>
+        </div>
+    </div>
+
+    @if (ModeAffichage == "schema")
     {
-        <p>Aucun composant enregistré sur cet environnement.</p>
+        <!-- SCHÉMA D'ARCHITECTURE NAVIS N4 PARFAITEMENT ALIGNÉ & CONFORME -->
+        <div class="diagramme-navis-container">
+            <div class="diagramme-navis-header">
+                <div class="rangee-serree">
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="var(--primaire)" stroke-width="2">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+                        <polyline points="2 17 12 22 22 17"/>
+                        <polyline points="2 12 12 17 22 12"/>
+                    </svg>
+                    <div>
+                        <strong class="titre-diagramme">Schéma Officiel d'Architecture Navis N4</strong>
+                        <div class="mention">Supervision temps réel interactive — Cliquez sur un élément pour afficher sa fiche diagnostic</div>
+                    </div>
+                </div>
+
+                @* Les pastilles reprennent les variables de statut du thème, plus les
+                   hexadécimaux recopiés qui divergeaient déjà du reste de la palette. *@
+                <div class="legende">
+                    <span class="legende-entree"><span class="legende-pastille operationnel"></span> Opérationnel</span>
+                    <span class="legende-entree"><span class="legende-pastille a-confirmer"></span> À confirmer</span>
+                    <span class="legende-entree"><span class="legende-pastille indisponible"></span> Indisponible</span>
+                    <span class="legende-entree"><span class="legende-pastille non-supervise"></span> Non supervisé</span>
+                </div>
+            </div>
+
+            <!-- CANVAS SVG PIXEL-PERFECT (1300 x 740 px) -->
+            <div class="defilement">
+                <svg viewBox="0 0 1300 740" class="diagramme-navis-svg-wrapper" role="img" aria-label="Schéma officiel d'architecture Navis N4">
+                    <defs>
+                        <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+                        </marker>
+                    </defs>
+
+                    <!-- CONTRAINTE PRINCIPALE : NAVIS N4 BOUNDARY BOX -->
+                    <rect x="230" y="25" width="830" height="585" class="navis-contour-principal" />
+                    
+                    <!-- LOGO NAVIS N4 EN HAUT À DROITE -->
+                    <g transform="translate(970, 42)">
+                        <rect x="0" y="0" width="72" height="26" fill="#ffffff" stroke="#cbd5e1" rx="4" />
+                        <text x="8" y="17" fill="#0b7b3e" font-weight="900" font-size="12" font-family="sans-serif">navis</text>
+                        <text x="49" y="17" fill="#10b981" font-weight="900" font-size="14" font-family="sans-serif">N4</text>
+                    </g>
+
+                    <!-- FLECHES DE CONNEXION INTER-SYSTEMES (LIGNES & FLÈCHES EXACTES) -->
+                    <!-- Systemes externes gauche vers Navis N4 -->
+                    <path d="M 175 115 L 230 200" stroke="#64748b" stroke-width="1.4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+                    <path d="M 185 295 L 230 295" stroke="#64748b" stroke-width="1.4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+                    <path d="M 175 480 L 230 380" stroke="#64748b" stroke-width="1.4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+                    
+                    <!-- Systemes externes bas vers Navis N4 -->
+                    <path d="M 285 640 L 370 595" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+                    <path d="M 525 640 L 525 610" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+                    <path d="M 830 640 L 830 610" stroke="#64748b" stroke-width="1.4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+                    <!-- Systemes externes droite vers Navis N4 -->
+                    <path d="M 1090 235 L 1060 235" stroke="#64748b" stroke-width="1.4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+                    <!-- Fleches internes Navis N4 -->
+                    <path d="M 430 145 L 360 205" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+                    <path d="M 490 145 L 490 205" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+                    <path d="M 640 265 L 685 240" stroke="#64748b" stroke-width="1.4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+                    <path d="M 730 270 L 730 310" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+                    <path d="M 685 410 L 640 370" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+                    <path d="M 775 235 L 825 180" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+                    <path d="M 830 170 L 775 170" stroke="#64748b" stroke-width="1.4"/>
+                    <path d="M 915 225 L 915 280" stroke="#64748b" stroke-width="1.4" marker-end="url(#arrow)"/>
+                    <path d="M 460 365 L 460 395" stroke="#64748b" stroke-width="1.4" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+                    <!-- 1. CLUSTER NODES BOX (Encadré pointillé bleu) -->
+                    <rect x="255" y="175" width="385" height="190" class="navis-sous-groupe navis-sous-groupe-cluster" />
+                    <text x="447" y="195" fill="var(--primaire)" font-size="13" font-weight="800" text-anchor="middle">Cluster Nodes</text>
+
+                    <!-- Rangée 1 du Cluster (6 nœuds verts) -->
+                    @RenderNodeCapsule("Cluster Node 1", "ClusterNode", "noeud-vert", 270, 210, 56, 48, "Cluster", "Node 1")
+                    @RenderNodeCapsule("Cluster Node 2", "ClusterNode", "noeud-vert", 332, 210, 56, 48, "Cluster", "Node 2")
+                    @RenderNodeCapsule("Cluster Node 3", "ClusterNode", "noeud-vert", 394, 210, 56, 48, "Cluster", "Node 3")
+                    @RenderNodeCapsule("Cluster Node 4", "ClusterNode", "noeud-vert", 456, 210, 56, 48, "Cluster", "Node 4")
+                    @RenderNodeCapsule("Gate", "ClusterNode", "noeud-vert", 518, 210, 56, 48, "Gate", "")
+                    @RenderNodeCapsule("EDI", "ClusterNode", "noeud-vert", 580, 210, 52, 48, "EDI", "")
+
+                    <!-- Rangée 2 du Cluster (2 nœuds verts larges) -->
+                    @RenderNodeCapsule("SmartAccess Node", "ComposantConditionnel", "noeud-vert", 330, 290, 115, 52, "SmartAccess", "Node")
+                    @RenderNodeCapsule("Partenaire Externe", "ComposantConditionnel", "noeud-vert", 465, 290, 120, 52, "Partenaire", "Externe")
+
+                    <!-- LOAD BALANCER & ICONES (Haut du Cluster) -->
+                    <g class="noeud-navis noeud-orange @ObtenirClasseStatut("Load Balancer")" transform="translate(385, 105)" @onclick='() => SelectionnerComposant("Load Balancer")'>
+                        <rect x="0" y="0" width="150" height="40" rx="20" />
+                        <text x="75" y="24" class="noeud-texte-titre" font-weight="800">Load Balancer</text>
+                    </g>
+
+                    <g transform="translate(390, 42)">
+                        <rect x="0" y="0" width="48" height="42" fill="none" stroke="#94a3b8" stroke-width="1.2" rx="6" />
+                        <text x="24" y="25" fill="#94a3b8" font-size="9.5" text-anchor="middle">N4 Mobile</text>
+                    </g>
+                    <g transform="translate(470, 42)">
+                        <rect x="0" y="0" width="48" height="42" fill="none" stroke="#94a3b8" stroke-width="1.2" rx="6" />
+                        <text x="24" y="25" fill="#94a3b8" font-size="9.5" text-anchor="middle">N4 Client</text>
+                    </g>
+
+                    <!-- 2. CLUSTER DATABASE BOX (Bas du Cluster) -->
+                    <rect x="335" y="395" width="245" height="200" class="navis-sous-groupe navis-sous-groupe-db" />
+                    <text x="457" y="415" fill="var(--succes)" font-size="12.5" font-weight="800" text-anchor="middle">CLUSTER DATABASE</text>
+
+                    @RenderCylindreGrand("Database Host", "BaseDeDonnees", "noeud-vert", 350, 430, 95, 148, "Database", "Host")
+                    @RenderCylindreGrand("Database Host (Replicated)", "BaseDeDonnees", "noeud-vert", 465, 430, 102, 148, "Database Host", "(Replicated)")
+
+                    <!-- Fleche entre les 2 DB -->
+                    <path d="M 445 500 L 465 500" stroke="#10b981" stroke-width="1.8" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+                    <!-- 3. CENTER NODE, STANDBY & SHARE FOLDER (Colonne centrale) -->
+                    @RenderCylindre("Center Node", "CenterNode", "noeud-vert", 685, 215, 95, 52, "Center Node", "")
+                    @RenderCylindre("Standby", "StandbyCenterNode", "noeud-vert", 685, 285, 95, 52, "Standby", "")
+                    @RenderCylindre("Share Folder", "DossierPartage", "noeud-blanc", 680, 395, 100, 52, "Share Folder", "")
+
+                    <!-- 4. XPS SUB-SYSTEM (Haut Droite) -->
+                    <rect x="805" y="80" width="215" height="140" class="navis-sous-groupe navis-sous-groupe-xps" />
+                    <text x="912" y="98" fill="#3b82f6" font-size="11" font-weight="800" text-anchor="middle">XPS Sub-system</text>
+
+                    @RenderBox("Docking", "Xps", "noeud-bleu", 818, 110, 85, 38)
+                    @RenderBox("Dispatcher", "Xps", "noeud-bleu", 918, 110, 85, 38)
+                    @RenderCylindre("XPS Server / Maps", "Xps", "noeud-bleu", 825, 160, 175, 48, "XPS Server / Maps", "")
+
+                    <g transform="translate(880, 36)">
+                        <rect x="0" y="0" width="65" height="32" fill="none" stroke="#3b82f6" stroke-width="1.2" rx="4" />
+                        <text x="32" y="20" fill="#3b82f6" font-size="9.5" text-anchor="middle">XPS Client</text>
+                    </g>
+
+                    <!-- 5. ECN4 & ECN4WEB & VMT (Milieu Droite) -->
+                    @RenderBox("ECN4", "Ecn4", "noeud-orange", 820, 290, 85, 50)
+                    @RenderBox("ECN4Web", "Ecn4Web", "noeud-orange", 920, 290, 90, 50)
+
+                    <!-- Icone VMT au-dessus d'ECN4Web -->
+                    <g transform="translate(935, 232)">
+                        <rect x="0" y="0" width="60" height="38" fill="none" stroke="#f97316" stroke-width="1.2" rx="6" />
+                        <text x="30" y="23" fill="#f97316" font-size="10" font-weight="800" text-anchor="middle">VMT</text>
+                    </g>
+                    <line x1="965" y1="270" x2="965" y2="290" stroke="#f97316" stroke-width="1.4" />
+
+                    <!-- 6. SYSTEMES EXTERNES (EXTÉRIEUR DU PÉRIMÈTRE NAVIS N4) -->
+                    <!-- Gauche -->
+                    @RenderCylindreGrand("Gate Operating System", "SystemeDependant", "noeud-gris", 35, 75, 140, 85, "Gate Operating", "System")
+                    @RenderCylindreGrand("Server SFTP (for EDI)", "SystemeDependant", "noeud-gris", 20, 250, 165, 85, "Server SFTP", "(for EDI)")
+                    @RenderCylindreGrand("Billing System (PASS)", "SystemeDependant", "noeud-gris", 35, 435, 140, 85, "Billing System", "(PASS)")
+
+                    <!-- Bas -->
+                    @RenderCylindreGrand("Vehicle Booking System", "SystemeDependant", "noeud-gris", 205, 640, 155, 75, "Vehicle Booking", "System")
+                    @RenderCylindreGrand("Hyperion", "SystemeDependant", "noeud-gris", 505, 640, 140, 75, "Hyperion", "")
+                    @RenderCylindreGrand("Reefer Runner", "SystemeDependant", "noeud-gris", 805, 640, 140, 75, "Reefer Runner", "")
+
+                    <!-- Droite -->
+                    @RenderCylindreGrand("GCSS", "SystemeDependant", "noeud-gris", 1090, 195, 130, 85, "GCSS", "")
+                </svg>
+            </div>
+        </div>
+
+        <!-- Fiche de détail du composant sélectionné au clic sur le schéma -->
+        @if (ComposantSelectionne is not null)
+        {
+            <div class="panneau-detail-noeud anim-entree">
+                <div class="rangee-espacee">
+                    <h3 class="titre-panneau">
+                        🖥️ @ComposantSelectionne.Nom
+                        <span class="etat-consolide @ClasseDEtat(ComposantSelectionne.Etat.Etat)">
+                            @EvaluationDeSupervision.Libelle(ComposantSelectionne.Etat.Etat)
+                        </span>
+                    </h3>
+                    <button type="button" class="bouton-icone" @onclick="() => ComposantSelectionne = null">✕</button>
+                </div>
+                <div class="grille-auto">
+                    <div><strong>Type N4 :</strong> <code>@ComposantSelectionne.Kind</code></div>
+                    <div><strong>Dernière donnée :</strong> @LibelleDeDate(ComposantSelectionne.Etat.DerniereDonnee)</div>
+                    <div><strong>Signaux croisés :</strong> @ResumerLesSignaux(ComposantSelectionne)</div>
+                    <div><strong>Justification :</strong> @ComposantSelectionne.Etat.Justification</div>
+                </div>
+                <div class="bloc-serre-haut">
+                    <a href="/referentiel/composant/@ComposantSelectionne.ComposantId" class="bouton-discret">Voir la fiche technique complète →</a>
+                </div>
+            </div>
+        }
     }
     else
     {
-        <div class="defilement">
-            <table class="tableau">
-                <thead>
-                    <tr>
-                        <th>Composant</th>
-                        <th>Type N4</th>
-                        <th>État</th>
-                        <th>Dernière donnée</th>
-                        <th>Signaux</th>
-                        <th>Justification</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var ligne in cartographie.Lignes)
-                    {
-                        <tr>
-                            <td><a href="/referentiel/composant/@ligne.ComposantId">@ligne.Nom</a></td>
-                            <td>@ligne.Kind</td>
-                            <td>
-                                @* FR-055 — le libellé porte l'information, la couleur l'appuie. *@
-                                <span class="etat-consolide @ClasseDEtat(ligne.Etat.Etat)">
-                                    @EvaluationDeSupervision.Libelle(ligne.Etat.Etat)
-                                </span>
-                            </td>
-                            <td>@LibelleDeDate(ligne.Etat.DerniereDonnee)</td>
-                            <td>@ResumerLesSignaux(ligne)</td>
-                            <td>@ligne.Etat.Justification</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        <!-- VUE MATRICE & LISTE DES COMPOSANTS -->
+        <div class="carte">
+            <div class="carte-en-tete">
+                <h2 class="carte-titre">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primaire)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                        <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                        <line x1="6" y1="6" x2="6.01" y2="6"/>
+                        <line x1="6" y1="18" x2="6.01" y2="18"/>
+                    </svg>
+                    Inventaire des Composants Supervisés (@cartographie.Lignes.Count)
+                </h2>
+            </div>
+
+            @if (cartographie.Lignes.Count == 0)
+            {
+                <p class="mention">Aucun composant enregistré sur cet environnement.</p>
+            }
+            else
+            {
+                <div class="defilement">
+                    <table class="tableau">
+                        <thead>
+                            <tr>
+                                <th>Nom du Composant</th>
+                                <th>Type N4</th>
+                                <th>État Consolidé</th>
+                                <th>Dernier Relevé</th>
+                                <th>Signaux Croisés</th>
+                                <th>Justification Détaillée</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var ligne in cartographie.Lignes)
+                            {
+                                <tr>
+                                    <td>
+                                        <a href="/referentiel/composant/@ligne.ComposantId" class="identite-nom lien-reference">
+                                            🖥️ @ligne.Nom
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="mention texte-mono">@ligne.Kind</span>
+                                    </td>
+                                    <td>
+                                        <span class="etat-consolide @ClasseDEtat(ligne.Etat.Etat)">
+                                            @EvaluationDeSupervision.Libelle(ligne.Etat.Etat)
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="mention">@LibelleDeDate(ligne.Etat.DerniereDonnee)</span>
+                                    </td>
+                                    <td>
+                                        <span class="texte-appuye">@ResumerLesSignaux(ligne)</span>
+                                    </td>
+                                    <td>
+                                        <span class="mention">@ligne.Etat.Justification</span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
         </div>
     }
-
-    <p class="mention">
-        Les composants non activés au référentiel sont supervisés mais n'autorisent aucune
-        action, conformément à FR-050. Un composant sans contrôle de santé actif reste
-        « Inconnu » : c'est un composant dont l'application ne peut rien dire.
-    </p>
 }
 
 @code {
     private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
 
     private CartographieDeSupervision? cartographie;
+    private string ModeAffichage = "schema"; // "schema" ou "matrice"
+    private LigneDeSupervision? ComposantSelectionne;
 
     [SupplyParameterFromQuery(Name = "message")]
     private string? CodeMessage { get; set; }
 
     private string? Message => CodeMessage switch
     {
-        "collecte" => "Collecte effectuée.",
+        "collecte" => "Collecte de signaux en direct effectuée.",
         _ => null
     };
 
@@ -166,54 +424,134 @@ else
         }
     }
 
+    private void SelectionnerComposant(string nom)
+    {
+        ComposantSelectionne = cartographie?.Lignes.FirstOrDefault(l =>
+            l.Nom.Equals(nom, StringComparison.OrdinalIgnoreCase) ||
+            l.Nom.Contains(nom, StringComparison.OrdinalIgnoreCase))
+            ?? CreerLigneDefaut(nom, N4ComponentKind.Autre);
+    }
+
+    private string ObtenirClasseStatut(string nom)
+    {
+        var trouve = cartographie?.Lignes.FirstOrDefault(l =>
+            l.Nom.Equals(nom, StringComparison.OrdinalIgnoreCase) ||
+            l.Nom.Contains(nom, StringComparison.OrdinalIgnoreCase));
+
+        if (trouve is null) return "statut-indetermine";
+
+        return ClasseDEtat(trouve.Etat.Etat);
+    }
+
+    /// <summary>
+    /// Ligne de repli pour un nœud du schéma que le référentiel ne connaît pas : ni supervisé
+    /// ni validé, sans signal ni alerte. Elle n'invente aucun état — Inconnu reste Inconnu.
+    /// </summary>
+    private static LigneDeSupervision CreerLigneDefaut(string nom, N4ComponentKind kind) =>
+        new(Guid.Empty, nom, kind,
+            Criticality.Moyenne,
+            ModeDePilotage.NonSupervise,
+            ValidationStatus.Brouillon,
+            new EtatDeSupervisionDuComposant(
+                EtatDeSupervision.Inconnu, "Aucun contrôle configuré", null, []),
+            [],
+            []);
+
+    private RenderFragment RenderNodeCapsule(string nom, string kind, string classeCouleur, int x, int y, int w, int h, string ligne1, string ligne2) => __builder =>
+    {
+        var classeStatut = ObtenirClasseStatut(nom);
+        <g class="noeud-navis @classeCouleur @classeStatut" transform="translate(@x, @y)" @onclick='() => SelectionnerComposant(nom)'>
+            <rect x="0" y="0" width="@w" height="@h" rx="8" />
+            @* <text> ouvert hors du bloc @if : à l'intérieur, Razor y verrait sa propre balise
+               de transition, qui n'admet aucun attribut (RZ1023), et non l'élément SVG. *@
+            <text x="@(w/2)" y="@(string.IsNullOrEmpty(ligne2) ? h/2 + 4 : h/2 - 2)" class="noeud-texte-titre">
+                @if (string.IsNullOrEmpty(ligne2))
+                {
+                    @ligne1
+                }
+                else
+                {
+                    <tspan x="@(w/2)" dy="0">@ligne1</tspan>
+                    <tspan x="@(w/2)" dy="14">@ligne2</tspan>
+                }
+            </text>
+        </g>
+    };
+
+    private RenderFragment RenderBox(string nom, string kind, string classeCouleur, int x, int y, int w, int h) => __builder =>
+    {
+        var classeStatut = ObtenirClasseStatut(nom);
+        <g class="noeud-navis @classeCouleur @classeStatut" transform="translate(@x, @y)" @onclick='() => SelectionnerComposant(nom)'>
+            <rect x="0" y="0" width="@w" height="@h" rx="6" />
+            <text x="@(w/2)" y="@(h/2 + 4)" class="noeud-texte-titre">@nom</text>
+        </g>
+    };
+
+    private RenderFragment RenderCylindre(string nom, string kind, string classeCouleur, int x, int y, int w, int h, string ligne1, string ligne2) => __builder =>
+    {
+        var classeStatut = ObtenirClasseStatut(nom);
+        <g class="noeud-navis @classeCouleur @classeStatut" transform="translate(@x, @y)" @onclick='() => SelectionnerComposant(nom)'>
+            <path class="cylindre" d="M 0 12 C 0 4, @w 4, @w 12 L @w @(h - 12) C @w @h, 0 @h, 0 @(h - 12) Z" />
+            <ellipse cx="@(w/2)" cy="12" rx="@(w/2)" ry="8" fill="rgba(255,255,255,0.08)" stroke="currentColor" stroke-width="1.2" />
+            @* <text> ouvert hors du bloc @if : à l'intérieur, Razor y verrait sa propre balise
+               de transition, qui n'admet aucun attribut (RZ1023), et non l'élément SVG. *@
+            <text x="@(w/2)" y="@(string.IsNullOrEmpty(ligne2) ? h/2 + 4 : h/2 - 2)" class="noeud-texte-titre">
+                @if (string.IsNullOrEmpty(ligne2))
+                {
+                    @ligne1
+                }
+                else
+                {
+                    <tspan x="@(w/2)" dy="0">@ligne1</tspan>
+                    <tspan x="@(w/2)" dy="14">@ligne2</tspan>
+                }
+            </text>
+        </g>
+    };
+
+    private RenderFragment RenderCylindreGrand(string nom, string kind, string classeCouleur, int x, int y, int w, int h, string ligne1, string ligne2) => __builder =>
+    {
+        var classeStatut = ObtenirClasseStatut(nom);
+        <g class="noeud-navis @classeCouleur @classeStatut" transform="translate(@x, @y)" @onclick='() => SelectionnerComposant(nom)'>
+            <path class="cylindre" d="M 0 16 C 0 5, @w 5, @w 16 L @w @(h - 16) C @w @h, 0 @h, 0 @(h - 16) Z" />
+            <ellipse cx="@(w/2)" cy="16" rx="@(w/2)" ry="10" fill="rgba(255,255,255,0.08)" stroke="currentColor" stroke-width="1.2" />
+            <text x="@(w/2)" y="@(string.IsNullOrEmpty(ligne2) ? h/2 + 4 : h/2 - 3)" class="noeud-texte-titre"
+                  font-size="@(string.IsNullOrEmpty(ligne2) ? "11.5" : "11")">
+                @if (string.IsNullOrEmpty(ligne2))
+                {
+                    @ligne1
+                }
+                else
+                {
+                    <tspan x="@(w/2)" dy="0">@ligne1</tspan>
+                    <tspan x="@(w/2)" dy="15">@ligne2</tspan>
+                }
+            </text>
+        </g>
+    };
+
     private static string ResumerLesSignaux(LigneDeSupervision ligne)
     {
-        if (ligne.Signaux.Count == 0)
-        {
-            return "aucun";
-        }
-
+        if (ligne.Signaux.Count == 0) return "Aucun signal";
         var favorables = ligne.Signaux.Count(s => s.Verdict == VerdictDeSignal.Favorable);
         var manquants = ligne.Signaux.Count(s => s.Verdict is VerdictDeSignal.Indisponible or VerdictDeSignal.Perime);
-
-        return $"{favorables}/{ligne.Signaux.Count} favorables"
-            + (manquants > 0 ? $", {manquants} manquant(s)" : string.Empty);
+        return $"{favorables}/{ligne.Signaux.Count} OK" + (manquants > 0 ? $" ({manquants} manquant)" : string.Empty);
     }
 
     private string LibelleDeDate(DateTimeOffset? date)
     {
-        if (date is null)
-        {
-            return "aucun relevé";
-        }
-
+        if (date is null) return "aucun relevé";
         var age = (cartographie?.GenereLe ?? DateTimeOffset.UtcNow) - date.Value;
-
-        var anciennete = age.TotalSeconds < 90
-            ? $"il y a {(int)age.TotalSeconds} s"
-            : $"il y a {(int)age.TotalMinutes} min";
-
+        var anciennete = age.TotalSeconds < 90 ? $"il y a {(int)age.TotalSeconds} s" : $"il y a {(int)age.TotalMinutes} min";
         return $"{date.Value.UtcDateTime.ToString("HH:mm:ss", Culture)} UTC ({anciennete})";
     }
 
     private static string ClasseDEtat(EtatDeSupervision etat) => etat switch
     {
-        EtatDeSupervision.Disponible => "etat-favorable",
-        EtatDeSupervision.Degrade => "etat-degrade",
-        EtatDeSupervision.Indisponible => "etat-defavorable",
-        EtatDeSupervision.Demarrage or EtatDeSupervision.Arret => "etat-transition",
-        _ => "etat-indetermine"
-    };
-
-    private static string LibelleDeMotif(MotifDAlerte motif) => motif switch
-    {
-        MotifDAlerte.Timeout => "Délai dépassé",
-        MotifDAlerte.Echec => "Échec",
-        MotifDAlerte.IncoherenceDEtat => "Incohérence d'état",
-        MotifDAlerte.FileQuiAugmente => "File en croissance",
-        MotifDAlerte.HeartbeatAncien => "Heartbeat ancien",
-        MotifDAlerte.RessourceCritique => "Ressource critique",
-        MotifDAlerte.DonneeTropAncienne => "Donnée trop ancienne",
-        _ => motif.ToString()
+        EtatDeSupervision.Disponible => "statut-favorable",
+        EtatDeSupervision.Degrade => "statut-degrade",
+        EtatDeSupervision.Indisponible => "statut-defavorable",
+        EtatDeSupervision.Demarrage or EtatDeSupervision.Arret => "statut-indetermine",
+        _ => "statut-indetermine"
     };
 }

@@ -1,8 +1,10 @@
 using N4Sentinel.Application.Abstractions;
+using N4Sentinel.Application.Connecteurs;
 using N4Sentinel.Application.Orchestration;
 using N4Sentinel.Application.Supervision;
 using N4Sentinel.Domain.Common;
 using N4Sentinel.Domain.Entities;
+using N4Sentinel.Domain.Execution;
 using N4Sentinel.Domain.Orchestration;
 
 namespace N4Sentinel.Orchestration;
@@ -17,10 +19,17 @@ namespace N4Sentinel.Orchestration;
 /// **Aucune reprise n'est aveugle.** Avant de repartir, l'état réel est recollecté et comparé
 /// au mémorisé ; toute divergence bascule l'exécution en « Réconciliation requise » plutôt que
 /// de rejouer une étape sur un système qui a changé entre-temps.
+///
+/// Sprint 7 — l'exécution réelle. Les méthodes ci-dessous qui gardent une décision d'habilitation
+/// (approbation, contournement) supposent que l'appelant a déjà vérifié le droit et la séparation
+/// des responsabilités, exactement comme le fait déjà <c>PointsDEntreeDesOperations</c> pour
+/// l'approbation d'exécution du Sprint 6 : le moteur enregistre une décision autorisée, il ne
+/// l'autorise pas lui-même.
 /// </summary>
 public sealed class MoteurDOrchestration(
     IEtatDExecutionPersiste etat,
     IServiceDeSupervision supervision,
+    IRepartiteurDeCommandes commandes,
     IUtilisateurCourant acteur,
     IClock horloge) : IMoteurDOrchestration
 {
@@ -171,6 +180,504 @@ public sealed class MoteurDOrchestration(
         return reprises;
     }
 
+    // — Sprint 7 : exécution réelle —
+
+    public async Task<ReponseDuMoteur> AvancerAsync(Guid executionId, CancellationToken cancellationToken = default)
+    {
+        var execution = await etat.LireAsync(executionId, cancellationToken);
+        if (execution is null)
+        {
+            return new ReponseDuMoteur(false, ExecutionStatus.EnPreparation, "Exécution introuvable.");
+        }
+
+        if (execution.Statut != ExecutionStatus.EnCours)
+        {
+            return Refus(execution, $"Une exécution {execution.Statut} ne peut pas être avancée.");
+        }
+
+        var definitions = await etat.LireLesDefinitionsDEtapesAsync(execution.WorkflowVersionId, cancellationToken);
+        var definitionsParId = definitions.ToDictionary(d => d.Id);
+
+        // Une étape déjà « En cours » n'est jamais relancée : on relit son effet.
+        var enCours = execution.Etapes.FirstOrDefault(e => e.Statut == StepStatus.EnCours);
+        if (enCours is not null)
+        {
+            if (!definitionsParId.TryGetValue(enCours.WorkflowStepDefinitionId, out var definitionEnCours))
+            {
+                return Refus(execution, $"Définition de l'étape {enCours.Ordre} introuvable.");
+            }
+
+            return await VerifierLEffetEtConclureAsync(execution, enCours, definitionEnCours, cancellationToken);
+        }
+
+        var suivante = execution.Etapes
+            .Where(e => e.Statut is StepStatus.AVenir or StepStatus.EnAttente)
+            .OrderBy(e => e.Ordre)
+            .FirstOrDefault();
+
+        if (suivante is null)
+        {
+            return await ConclureSiPossibleAsync(execution, cancellationToken);
+        }
+
+        if (!definitionsParId.TryGetValue(suivante.WorkflowStepDefinitionId, out var definition))
+        {
+            return Refus(execution, $"Définition de l'étape {suivante.Ordre} introuvable.");
+        }
+
+        var autorisationObtenue = suivante.Decision is "Confirmée" or "Approuvée";
+        var decisionDeLancement = PolitiqueDeLancement.Evaluer(
+            definition.ConfirmationRequise, definition.ApprobationRequise, autorisationObtenue);
+
+        if (!decisionDeLancement.Autorise)
+        {
+            suivante.Statut = StepStatus.EnAttente;
+            suivante.MessageDErreur = decisionDeLancement.Motif;
+            await etat.EnregistrerAsync(cancellationToken);
+            return new ReponseDuMoteur(true, execution.Statut, decisionDeLancement.Motif);
+        }
+
+        return await LancerLEtapeAsync(execution, suivante, definition, cancellationToken);
+    }
+
+    public async Task<ReponseDuMoteur> ConfirmerLEtapeAsync(
+        Guid executionId, Guid etapeId, CancellationToken cancellationToken = default)
+    {
+        var (execution, etape, definition, erreur) = await ChargerAsync(executionId, etapeId, cancellationToken);
+        if (erreur is not null)
+        {
+            return erreur;
+        }
+
+        if (definition!.ApprobationRequise)
+        {
+            return Refus(execution!, $"Étape {etape!.Ordre} : exige une approbation, pas une simple confirmation.");
+        }
+
+        if (etape!.Statut != StepStatus.EnAttente)
+        {
+            return Refus(execution!, $"Étape {etape.Ordre} : rien à confirmer dans l'état {etape.Statut}.");
+        }
+
+        etape.Decision = "Confirmée";
+        etape.DecidePar = acteur.NomAffiche;
+        etape.DecideLe = horloge.MaintenantUtc;
+        etape.Statut = StepStatus.AVenir;
+        etape.MessageDErreur = null;
+        await etat.EnregistrerAsync(cancellationToken);
+
+        return new ReponseDuMoteur(true, execution!.Statut, $"Étape {etape.Ordre} confirmée par {acteur.NomAffiche}.");
+    }
+
+    public async Task<ReponseDuMoteur> ApprouverLEtapeAsync(
+        Guid executionId, Guid etapeId, CancellationToken cancellationToken = default)
+    {
+        var (execution, etape, definition, erreur) = await ChargerAsync(executionId, etapeId, cancellationToken);
+        if (erreur is not null)
+        {
+            return erreur;
+        }
+
+        if (!definition!.ApprobationRequise)
+        {
+            return Refus(execution!, $"Étape {etape!.Ordre} : n'exige pas d'approbation.");
+        }
+
+        if (etape!.Statut != StepStatus.EnAttente)
+        {
+            return Refus(execution!, $"Étape {etape.Ordre} : rien à approuver dans l'état {etape.Statut}.");
+        }
+
+        etape.Decision = "Approuvée";
+        etape.DecidePar = acteur.NomAffiche;
+        etape.DecideLe = horloge.MaintenantUtc;
+        etape.Statut = StepStatus.AVenir;
+        etape.MessageDErreur = null;
+        await etat.EnregistrerAsync(cancellationToken);
+
+        return new ReponseDuMoteur(true, execution!.Statut, $"Étape {etape.Ordre} approuvée par {acteur.NomAffiche}.");
+    }
+
+    public async Task<ReponseDuMoteur> DemanderUnContournementAsync(
+        Guid executionId, Guid etapeId, string motif, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(motif);
+
+        var (execution, etape, definition, erreur) = await ChargerAsync(executionId, etapeId, cancellationToken);
+        if (erreur is not null)
+        {
+            return erreur;
+        }
+
+        if (etape!.Statut != StepStatus.Bloque)
+        {
+            return Refus(execution!, $"Étape {etape.Ordre} : rien à contourner dans l'état {etape.Statut}.");
+        }
+
+        if (!definition!.Contournable)
+        {
+            return Refus(execution!,
+                $"Étape {etape.Ordre} : le contrôle bloquant n'est pas déclaré contournable dans la version validée.");
+        }
+
+        etape.Decision = $"Contournement demandé : {motif}";
+        etape.DecidePar = acteur.NomAffiche;
+        etape.DecideLe = horloge.MaintenantUtc;
+        await etat.EnregistrerAsync(cancellationToken);
+
+        return new ReponseDuMoteur(true, execution!.Statut, $"Contournement demandé par {acteur.NomAffiche} : {motif}");
+    }
+
+    public async Task<ReponseDuMoteur> ApprouverLeContournementAsync(
+        Guid executionId, Guid etapeId, CancellationToken cancellationToken = default)
+    {
+        var (execution, etape, _, erreur) = await ChargerAsync(executionId, etapeId, cancellationToken);
+        if (erreur is not null)
+        {
+            return erreur;
+        }
+
+        if (etape!.Statut != StepStatus.Bloque
+            || etape.Decision is null
+            || !etape.Decision.StartsWith("Contournement demandé", StringComparison.Ordinal))
+        {
+            return Refus(execution!, $"Étape {etape.Ordre} : aucun contournement en attente d'approbation.");
+        }
+
+        etape.Statut = StepStatus.Ignore;
+        etape.Decision = $"{etape.Decision} — approuvé par {acteur.NomAffiche}";
+        etape.DecidePar = acteur.NomAffiche;
+        etape.DecideLe = horloge.MaintenantUtc;
+        etape.FinLe ??= horloge.MaintenantUtc;
+        await etat.EnregistrerAsync(cancellationToken);
+
+        return new ReponseDuMoteur(true, execution!.Statut,
+            $"Contournement approuvé par {acteur.NomAffiche} : étape {etape.Ordre} ignorée.");
+    }
+
+    public async Task<ReponseDuMoteur> ForcerLArretAsync(
+        Guid executionId, Guid etapeId, CancellationToken cancellationToken = default)
+    {
+        var (execution, etape, definition, erreur) = await ChargerAsync(executionId, etapeId, cancellationToken);
+        if (erreur is not null)
+        {
+            return erreur;
+        }
+
+        if (etape!.Statut != StepStatus.EnCours)
+        {
+            return Refus(execution!, $"Étape {etape.Ordre} : rien à forcer dans l'état {etape.Statut}.");
+        }
+
+        // « Arrêt forcé proposé seulement après délai » (plan, S7) : un service bloqué en
+        // Stopping s'arrête très souvent de lui-même. Le refus est ici, côté moteur, et pas
+        // seulement dans la visibilité du bouton — un POST direct doit se heurter à la règle.
+        var escalade = PolitiqueDEscalade.EvaluerLArretForce(
+            etape.DebutLe, horloge.MaintenantUtc, definition!.TimeoutSecondes);
+
+        if (!escalade.ArretForceOuvert)
+        {
+            return Refus(execution!, escalade.Motif);
+        }
+
+        var actionDeForce = definition.Action switch
+        {
+            ActionsDePilotage.ArreterServiceWindows => ActionsDePilotage.ArreterServiceWindowsDeForce,
+            _ => null
+        };
+
+        if (actionDeForce is null)
+        {
+            return Refus(execution!, $"L'action « {definition.Action} » n'a pas de variante forcée.");
+        }
+
+        var composant = definition.ComposantCibleId is { } id
+            ? await etat.LireLeComposantAsync(id, cancellationToken)
+            : null;
+        var cible = ResoudreLaCible(composant, definition);
+
+        var resultat = await commandes.ExecuterAsync(
+            new DemandeDeCommande(actionDeForce, cible, Timeout: TimeSpan.FromSeconds(definition.TimeoutSecondes)),
+            cancellationToken);
+
+        etape.Preuve = $"[Forcé par {acteur.NomAffiche}] {MasquageDesSecrets.Appliquer(resultat.Preuve)}";
+        etape.NombreDeTentatives++;
+
+        var statutBrut = EvaluationDeCommande.EvaluerLeResultatBrut(resultat.Resultat);
+
+        if (statutBrut == StepStatus.Echec)
+        {
+            etape.TypeDErreur = StepErrorKind.ErreurDeCommande;
+            etape.MessageDErreur = MasquageDesSecrets.Appliquer(resultat.MotifDEchec ?? resultat.Preuve);
+            return await EchouerLExecutionAsync(
+                execution!, $"Étape {etape.Ordre} : échec après arrêt forcé — {etape.MessageDErreur}", cancellationToken);
+        }
+
+        if (statutBrut == StepStatus.EnCours)
+        {
+            await etat.EnregistrerAsync(cancellationToken);
+            return new ReponseDuMoteur(true, execution!.Statut, resultat.Preuve);
+        }
+
+        etape.Statut = StepStatus.Verification;
+        await etat.EnregistrerAsync(cancellationToken);
+
+        return await VerifierLEffetEtConclureAsync(execution!, etape, definition, cancellationToken);
+    }
+
+    public async Task<ReponseDuMoteur> ConsignerUneInterventionManuelleAsync(
+        Guid executionId, Guid etapeId, bool succes, string preuve, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(preuve);
+
+        var (execution, etape, _, erreur) = await ChargerAsync(executionId, etapeId, cancellationToken);
+        if (erreur is not null)
+        {
+            return erreur;
+        }
+
+        if (etape!.Statut != StepStatus.Bloque)
+        {
+            return Refus(execution!,
+                $"Étape {etape.Ordre} : une intervention manuelle ne s'applique qu'à une étape bloquée.");
+        }
+
+        etape.Statut = succes ? StepStatus.Reussi : StepStatus.Echec;
+        // Masquée comme une preuve machine : une preuve saisie à la main contient tout aussi
+        // bien un mot de passe recopié depuis une console.
+        etape.Preuve = MasquageDesSecrets.Appliquer(preuve);
+        etape.Decision = "Intervention manuelle";
+        etape.DecidePar = acteur.NomAffiche;
+        etape.DecideLe = horloge.MaintenantUtc;
+        etape.FinLe ??= horloge.MaintenantUtc;
+
+        if (!succes)
+        {
+            etape.TypeDErreur = StepErrorKind.ErreurDeCommande;
+            etape.MessageDErreur = "Échec constaté par intervention manuelle.";
+            return await EchouerLExecutionAsync(
+                execution!, $"Étape {etape.Ordre} : échec constaté par intervention manuelle de {acteur.NomAffiche}.",
+                cancellationToken);
+        }
+
+        await etat.EnregistrerAsync(cancellationToken);
+        return new ReponseDuMoteur(true, execution!.Statut,
+            $"Étape {etape.Ordre} conclue par intervention manuelle de {acteur.NomAffiche}.");
+    }
+
+    // — Sprint 7 : mécanique interne —
+
+    private async Task<ReponseDuMoteur> LancerLEtapeAsync(
+        OperationExecution execution,
+        ExecutionStep etape,
+        WorkflowStepDefinition definition,
+        CancellationToken cancellationToken)
+    {
+        var composant = definition.ComposantCibleId is { } id
+            ? await etat.LireLeComposantAsync(id, cancellationToken)
+            : null;
+
+        if (definition.ComposantCibleId is not null
+            && (composant is null
+                || composant.Statut != ValidationStatus.Actif
+                || composant.ModeDePilotage != ModeDePilotage.Pilotable))
+        {
+            etape.Statut = StepStatus.Bloque;
+            etape.TypeDErreur = StepErrorKind.PrerequisNonSatisfait;
+            etape.MessageDErreur = composant is null
+                ? "Composant cible introuvable."
+                : $"{composant.Nom} n'est pas actif et pilotable : aucune commande ne peut être émise.";
+            await etat.EnregistrerAsync(cancellationToken);
+            return new ReponseDuMoteur(true, execution.Statut, etape.MessageDErreur);
+        }
+
+        // « Composants déjà arrêtés ignorés proprement, ordre recalculé sans rompre les
+        // dépendances » (plan, S7). L'état réel est relu juste avant d'émettre, jamais déduit de
+        // l'étape précédente : arrêter un service déjà arrêté renvoie une erreur de commande qui
+        // ferait échouer toute la séquence sur un composant pourtant dans l'état voulu.
+        //
+        // L'ordre n'est pas réordonné pour autant : les étapes restantes gardent leur rang et
+        // s'enchaînent inchangées — sauter celle qui n'a plus lieu d'être ne déplace rien.
+        var etatVise = ActionsDePilotage.EtatViseParLAction(definition.Action);
+        var etatAvantCommande = await LireLEtatConstateAsync(
+            execution.EnvironmentId, definition.ComposantCibleId, cancellationToken);
+
+        if (EvaluationDeCommande.EstDejaDansLEtatVise(etatAvantCommande, etatVise))
+        {
+            etape.Statut = StepStatus.Ignore;
+            etape.DebutLe ??= horloge.MaintenantUtc;
+            etape.FinLe ??= horloge.MaintenantUtc;
+            etape.OperateurExecutant = acteur.NomAffiche;
+            etape.Preuve = $"Aucune commande émise : {composant?.Nom ?? "la cible"} est déjà "
+                + $"dans l'état visé ({etatVise}), constaté avant émission.";
+            await etat.EnregistrerAsync(cancellationToken);
+
+            return new ReponseDuMoteur(true, execution.Statut,
+                $"Étape {etape.Ordre} ignorée — {etape.Preuve}");
+        }
+
+        var cible = ResoudreLaCible(composant, definition);
+
+        etape.Statut = StepStatus.EnCours;
+        etape.DebutLe ??= horloge.MaintenantUtc;
+        etape.OperateurExecutant = acteur.NomAffiche;
+        etape.NombreDeTentatives++;
+        await etat.EnregistrerAsync(cancellationToken);
+
+        var resultat = await commandes.ExecuterAsync(
+            new DemandeDeCommande(definition.Action, cible, Timeout: TimeSpan.FromSeconds(definition.TimeoutSecondes)),
+            cancellationToken);
+
+        // Masquée avant persistance, pas seulement avant affichage (SEC-003) : un secret déjà
+        // écrit en base est un secret divulgué, que l'écran le montre ou non.
+        etape.Preuve = MasquageDesSecrets.Appliquer(resultat.Preuve);
+
+        var statutBrut = EvaluationDeCommande.EvaluerLeResultatBrut(resultat.Resultat);
+
+        if (statutBrut == StepStatus.EnCours)
+        {
+            // Toujours en cours : le prochain AvancerAsync retentera la vérification, ou un
+            // acteur habilité proposera un forçage — jamais automatiquement.
+            await etat.EnregistrerAsync(cancellationToken);
+            return new ReponseDuMoteur(true, execution.Statut, resultat.Preuve);
+        }
+
+        if (statutBrut == StepStatus.Echec)
+        {
+            etape.TypeDErreur = StepErrorKind.ErreurDeCommande;
+            etape.MessageDErreur = MasquageDesSecrets.Appliquer(resultat.MotifDEchec ?? resultat.Preuve);
+            return await EchouerLExecutionAsync(
+                execution, $"Étape {etape.Ordre} : {etape.MessageDErreur}", cancellationToken);
+        }
+
+        // Réussie -> Vérification : l'effet reste à constater, jamais conclu directement.
+        etape.Statut = StepStatus.Verification;
+        await etat.EnregistrerAsync(cancellationToken);
+
+        return await VerifierLEffetEtConclureAsync(execution, etape, definition, cancellationToken);
+    }
+
+    private async Task<ReponseDuMoteur> VerifierLEffetEtConclureAsync(
+        OperationExecution execution,
+        ExecutionStep etape,
+        WorkflowStepDefinition definition,
+        CancellationToken cancellationToken)
+    {
+        var etatConstate = await LireLEtatConstateAsync(
+            execution.EnvironmentId, definition.ComposantCibleId, cancellationToken);
+
+        var etatVise = ActionsDePilotage.EtatViseParLAction(definition.Action);
+        var resultatDeLaVerification = EvaluationDeCommande.VerifierLEffet(etatConstate, etatVise);
+
+        etape.Statut = resultatDeLaVerification;
+
+        if (resultatDeLaVerification == StepStatus.Echec)
+        {
+            etape.TypeDErreur = StepErrorKind.EtatInattendu;
+            etape.MessageDErreur = "L'état constaté après la commande ne correspond pas à l'état visé.";
+            return await EchouerLExecutionAsync(
+                execution, $"Étape {etape.Ordre} : {etape.MessageDErreur}", cancellationToken);
+        }
+
+        if (resultatDeLaVerification == StepStatus.Bloque)
+        {
+            etape.MessageDErreur = "État réel non établi après la commande : impossible de conclure automatiquement.";
+            await etat.EnregistrerAsync(cancellationToken);
+            return new ReponseDuMoteur(true, execution.Statut, etape.MessageDErreur);
+        }
+
+        etape.FinLe ??= horloge.MaintenantUtc;
+        await etat.EnregistrerAsync(cancellationToken);
+
+        return new ReponseDuMoteur(true, execution.Statut,
+            resultatDeLaVerification == StepStatus.Reussi
+                ? $"Étape {etape.Ordre} réussie."
+                : $"Étape {etape.Ordre} réussie avec avertissement.");
+    }
+
+    private async Task<ReponseDuMoteur> ConclureSiPossibleAsync(
+        OperationExecution execution, CancellationToken cancellationToken)
+    {
+        var conclusion = MachineAEtats.ConclureDepuisLesEtapes([.. execution.Etapes.Select(e => e.Statut)]);
+
+        if (!MachineAEtats.EstAutorisee(execution.Statut, conclusion))
+        {
+            return new ReponseDuMoteur(true, execution.Statut,
+                "Aucune étape éligible ; l'exécution attend une décision humaine.");
+        }
+
+        execution.Statut = conclusion;
+        execution.FinLe = horloge.MaintenantUtc;
+        await etat.EnregistrerAsync(cancellationToken);
+        await etat.LibererLeVerrouAsync(execution.Id, acteur.NomAffiche, cancellationToken);
+
+        return new ReponseDuMoteur(true, execution.Statut, "Exécution conclue : plus aucune étape à traiter.");
+    }
+
+    private async Task<ReponseDuMoteur> EchouerLExecutionAsync(
+        OperationExecution execution, string motif, CancellationToken cancellationToken)
+    {
+        execution.Statut = ExecutionStatus.Echec;
+        execution.Resultat = motif;
+        execution.FinLe = horloge.MaintenantUtc;
+        await etat.EnregistrerAsync(cancellationToken);
+        await etat.LibererLeVerrouAsync(execution.Id, acteur.NomAffiche, cancellationToken);
+
+        return new ReponseDuMoteur(false, execution.Statut, motif);
+    }
+
+    private async Task<(OperationExecution? Execution, ExecutionStep? Etape, WorkflowStepDefinition? Definition, ReponseDuMoteur? Erreur)>
+        ChargerAsync(Guid executionId, Guid etapeId, CancellationToken cancellationToken)
+    {
+        var execution = await etat.LireAsync(executionId, cancellationToken);
+        if (execution is null)
+        {
+            return (null, null, null, new ReponseDuMoteur(false, ExecutionStatus.EnPreparation, "Exécution introuvable."));
+        }
+
+        var etape = execution.Etapes.FirstOrDefault(e => e.Id == etapeId);
+        if (etape is null)
+        {
+            return (execution, null, null, Refus(execution, "Étape introuvable sur cette exécution."));
+        }
+
+        var definitions = await etat.LireLesDefinitionsDEtapesAsync(execution.WorkflowVersionId, cancellationToken);
+        var definition = definitions.FirstOrDefault(d => d.Id == etape.WorkflowStepDefinitionId);
+        if (definition is null)
+        {
+            return (execution, etape, null, Refus(execution, "Définition de l'étape introuvable."));
+        }
+
+        return (execution, etape, definition, null);
+    }
+
+    /// <summary>
+    /// État réel d'un composant, relu à la supervision. Utilisé aux deux bouts d'une commande :
+    /// avant, pour ne pas ré-agir sur une cible déjà dans l'état visé ; après, pour constater
+    /// l'effet. <c>null</c> quand l'étape ne vise aucun composant, ou quand rien n'est connu —
+    /// les deux cas se traitent pareil : on ne conclut pas.
+    /// </summary>
+    private async Task<ComponentHealth?> LireLEtatConstateAsync(
+        Guid environnementId,
+        Guid? composantId,
+        CancellationToken cancellationToken)
+    {
+        if (composantId is not { } id)
+        {
+            return null;
+        }
+
+        var cartographie = await supervision.LireAsync(environnementId, cancellationToken);
+        return Convertir(cartographie?.Lignes.FirstOrDefault(l => l.ComposantId == id)?.Etat.Etat);
+    }
+
+    /// <summary>
+    /// Ce que la commande vise : nom de service (avec préfixe machine éventuel) ou nom/PID de
+    /// processus, selon le mécanisme déclaré du composant — jamais une ligne de commande.
+    /// </summary>
+    private static string ResoudreLaCible(N4Component? composant, WorkflowStepDefinition definition) =>
+        composant?.NomDuService ?? composant?.Mecanisme ?? composant?.Nom ?? definition.Action;
+
     /// <summary>
     /// Recollecte l'état réel des composants visés par l'exécution et le compare au mémorisé.
     /// </summary>
@@ -222,14 +729,18 @@ public sealed class MoteurDOrchestration(
         };
     }
 
-    private static ComponentHealth Convertir(Domain.Supervision.EtatDeSupervision etat) => etat switch
+    private static ComponentHealth? Convertir(Domain.Supervision.EtatDeSupervision? etat) => etat switch
     {
+        null => null,
         Domain.Supervision.EtatDeSupervision.Disponible => ComponentHealth.Operationnel,
         Domain.Supervision.EtatDeSupervision.Degrade => ComponentHealth.Degrade,
         Domain.Supervision.EtatDeSupervision.Indisponible => ComponentHealth.Arrete,
         Domain.Supervision.EtatDeSupervision.AConfirmer => ComponentHealth.AConfirmer,
         _ => ComponentHealth.Inconnu
     };
+
+    private static ComponentHealth Convertir(Domain.Supervision.EtatDeSupervision etat) =>
+        Convertir((Domain.Supervision.EtatDeSupervision?)etat)!.Value;
 
     private static ReponseDuMoteur Refus(OperationExecution execution, string motif) =>
         new(false, execution.Statut, motif);

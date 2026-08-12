@@ -4,28 +4,67 @@
 @using N4Sentinel.Domain.Common
 @inject IDbContextFactory<ApplicationDbContext> Fabrique
 @inject IHttpContextAccessor Accesseur
+@inject NavigationManager Nav
 
 <header class="bandeau">
-    <span class="bandeau-titre">N4 SENTINEL</span>
+    <a href="/" class="bandeau-marque" aria-label="N4 Sentinel Accueil">
+        <div class="bandeau-logo-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <circle cx="12" cy="12" r="3" />
+            </svg>
+        </div>
+        <span class="bandeau-titre">N4 <span>SENTINEL</span></span>
+    </a>
 
-    <nav class="bandeau-nav">
-        <a href="/">Accueil</a>
-        <a href="/supervision">Supervision</a>
-        <a href="/operations">Opérations</a>
-        <a href="/referentiel/environnements">Environnements</a>
-        <a href="/referentiel/composants">Composants</a>
-        <a href="/referentiel/dependances">Dépendances</a>
+    <nav class="bandeau-nav" aria-label="Navigation principale">
+        <a href="/" class="@EstActif("/")">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            Accueil
+        </a>
+        <a href="/supervision" class="@EstActif("/supervision")">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+            Supervision
+        </a>
+        <a href="/operations" class="@EstActif("/operations")">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            Opérations
+        </a>
+        <a href="/pilotage/workflows" class="@EstActif("/pilotage")">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="16 18 22 12 16 6"/>
+                <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            Workflows
+        </a>
+        <a href="/referentiel/environnements" class="@EstActif("/referentiel/environnements")">
+            Environnements
+        </a>
+        <a href="/referentiel/composants" class="@EstActif("/referentiel/composants")">
+            Composants
+        </a>
+        <a href="/referentiel/dependances" class="@EstActif("/referentiel/dependances")">
+            Dépendances
+        </a>
     </nav>
 
     <div class="bandeau-droite">
         <SelecteurDeTheme />
+
         @* SEC-004 — l'environnement courant est visible en permanence, jamais deviné. *@
         @if (environnements.Count > 0)
         {
-            <form method="post" action="/environnement">
+            <form method="post" action="/environnement" class="selecteur-environnement-wrapper">
                 <AntiforgeryToken />
                 <span class="pastille-environnement @ClasseDePastille">@NomDeLEnvironnement</span>
-                <select name="environnementId" aria-label="Environnement">
+                <select name="environnementId" aria-label="Choisir l'environnement">
                     @foreach (var environnement in environnements)
                     {
                         <option value="@environnement.Id"
@@ -34,19 +73,19 @@
                         </option>
                     }
                 </select>
-                <button type="submit" class="bouton-discret">Changer</button>
+                <button type="submit" class="bouton-discret" title="Appliquer le changement d'environnement">Changer</button>
             </form>
         }
 
         <AuthorizeView>
             <Authorized>
-                <span class="identite">
+                <div class="identite">
                     <a class="identite-nom" href="/compte/profil">@context.User.Identity?.Name</a>
                     <span class="identite-profils">@Profils(context.User)</span>
-                </span>
+                </div>
                 <form method="post" action="/compte/deconnexion">
                     <AntiforgeryToken />
-                    <button type="submit" class="bouton-discret">Se déconnecter</button>
+                    <button type="submit" class="bouton-discret">Déconnexion</button>
                 </form>
             </Authorized>
         </AuthorizeView>
@@ -94,6 +133,14 @@
             .AsNoTracking()
             .OrderBy(e => e.Type)
             .ToListAsync();
+    }
+
+    private string EstActif(string chemin)
+    {
+        var cheminCourant = Nav.ToBaseRelativePath(Nav.Uri);
+        if (chemin == "/" && string.IsNullOrEmpty(cheminCourant)) return "active";
+        if (chemin != "/" && ("/" + cheminCourant).StartsWith(chemin, StringComparison.OrdinalIgnoreCase)) return "active";
+        return string.Empty;
     }
 
     private static string Profils(System.Security.Claims.ClaimsPrincipal utilisateur) =>

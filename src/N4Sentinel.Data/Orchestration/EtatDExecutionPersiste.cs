@@ -72,4 +72,22 @@ public sealed class EtatDExecutionPersiste(ApplicationDbContext contexte, IClock
 
     public Task EnregistrerAsync(CancellationToken cancellationToken) =>
         contexte.SaveChangesAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<WorkflowStepDefinition>> LireLesDefinitionsDEtapesAsync(
+        Guid workflowVersionId, CancellationToken cancellationToken) =>
+        await contexte.Set<WorkflowStepDefinition>()
+            .AsNoTracking()
+            .Where(d => d.WorkflowVersionId == workflowVersionId)
+            .ToListAsync(cancellationToken);
+
+    public Task<N4Component?> LireLeComposantAsync(Guid composantId, CancellationToken cancellationToken) =>
+        contexte.Composants.AsNoTracking().FirstOrDefaultAsync(c => c.Id == composantId, cancellationToken);
+
+    public async Task<IReadOnlyList<Guid>> LireLesIdentifiantsDesExecutionsEnCoursAsync(
+        CancellationToken cancellationToken) =>
+        await contexte.Executions
+            .AsNoTracking()
+            .Where(e => e.Statut == ExecutionStatus.EnCours)
+            .Select(e => e.Id)
+            .ToListAsync(cancellationToken);
 }

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using N4Sentinel.Data;
 
@@ -11,9 +12,11 @@ using N4Sentinel.Data;
 namespace N4Sentinel.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812145327_Sprint6_PreparationEtSimulation")]
+    partial class Sprint6_PreparationEtSimulation
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -785,9 +788,6 @@ namespace N4Sentinel.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
-                    b.Property<DateTimeOffset?>("ConfirmeeLe")
-                        .HasColumnType("datetimeoffset");
-
                     b.Property<DateTimeOffset?>("DebutLe")
                         .HasColumnType("datetimeoffset");
 
@@ -949,9 +949,6 @@ namespace N4Sentinel.Data.Migrations
                         .HasColumnType("nvarchar(1024)");
 
                     b.Property<bool>("ConfirmationRequise")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("Contournable")
                         .HasColumnType("bit");
 
                     b.Property<int>("DelaiEntreReessaisSecondes")

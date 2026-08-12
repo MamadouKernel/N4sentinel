@@ -8,17 +8,30 @@ Elle remplace des procédures aujourd'hui manuelles, sensibles à l'erreur et no
 
 ## État
 
-**Sprint 5 livré** — socle technique, modèle de données et intégration continue (S0) ;
-authentification avec second facteur, huit profils, droits par environnement et journal d'audit
-non modifiable (S1) ; référentiel des environnements et des composants, typage N4, graphe de
-dépendances avec refus des cycles et cycle de validation (S2) ; connecteurs de collecte en
-lecture seule et consolidation d'état multi-signaux (S3) ; supervision, huit états consolidés,
-alertes et tableau de bord (S4) ; moteur d'orchestration persistant, reprise après arrêt brutal
-avec recollecte de l'état réel, verrou d'environnement et vue pas-à-pas (S5).
+**Sprint 7 livré en développement, non recetté** — socle technique, modèle de données et
+intégration continue (S0) ; authentification avec second facteur, huit profils, droits par
+environnement et journal d'audit non modifiable (S1) ; référentiel des environnements et des
+composants, typage N4, graphe de dépendances avec refus des cycles et cycle de validation (S2) ;
+connecteurs de collecte en lecture seule et consolidation d'état multi-signaux (S3) ;
+supervision, huit états consolidés, alertes et tableau de bord (S4) ; moteur d'orchestration
+persistant, reprise après arrêt brutal avec recollecte de l'état réel, verrou d'environnement et
+vue pas-à-pas (S5) ; saisie des workflows, mode simulation avec pré-check à cinq statuts,
+sélection de scénario compatible avec les habilitations, circuit d'approbation simple ou double
+et confirmation explicite avant toute soumission (S6) ; connecteurs de commande sous catalogue
+d'actions fermé, exécution réelle pas-à-pas, séquence d'arrêt de l'éditeur vérifiée à
+l'activation, composants déjà arrêtés ignorés, arrêt forcé ouvert seulement après délai, sous
+confirmation et droit sensible, contournement et intervention manuelle tracés, masquage des
+secrets dans les preuves (S7).
 
 > **Réserve du Sprint 3** : les accès techniques aux serveurs N4 ne sont pas ouverts. La
 > mécanique de collecte est exercée contre de vraies ressources du poste de développement,
 > mais **aucune validation contre l'écosystème N4 de CIT n'a eu lieu**.
+
+> **Réserve du Sprint 7** : faute d'environnement UAT représentatif, le livrable de revue du
+> Sprint 7 — l'arrêt complet piloté d'un écosystème N4 (AC-05) — n'a pas pu être démontré.
+> Les commandes d'arrêt et de démarrage sont exercées contre des services et des processus du
+> poste de développement ; **aucune commande n'a été émise vers un composant N4 réel**. Le
+> Sprint 8 dépend de cette démonstration.
 
 Le plan complet — 25 sprints, 4 lots, 148 exigences — est dans
 [`docs/plan-de-sprints.html`](docs/plan-de-sprints.html).
