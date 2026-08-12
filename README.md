@@ -8,10 +8,10 @@ Elle remplace des procédures aujourd'hui manuelles, sensibles à l'erreur et no
 
 ## État
 
-**Sprint 1 livré** — socle technique, modèle de données, intégration continue, puis
-authentification avec second facteur, huit profils, droits différenciés par environnement et
-journal d'audit non modifiable. L'application se connecte ; les écrans métier arrivent à partir
-du Sprint 2.
+**Sprint 2 livré** — socle technique, modèle de données et intégration continue (S0) ;
+authentification avec second facteur, huit profils, droits par environnement et journal d'audit
+non modifiable (S1) ; référentiel des environnements et des composants, typage N4, graphe de
+dépendances avec refus des cycles et cycle de validation (S2).
 
 Le plan complet — 25 sprints, 4 lots, 148 exigences — est dans
 [`docs/plan-de-sprints.html`](docs/plan-de-sprints.html).

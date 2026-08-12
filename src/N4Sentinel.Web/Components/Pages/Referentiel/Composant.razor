@@ -1,0 +1,301 @@
+@page "/referentiel/composant/{ComposantId:guid}"
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Entities
+@using N4Sentinel.Domain.Referentiel
+@attribute [Authorize(Policy = "Droit:Consulter")]
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+
+<PageTitle>@(composant?.Nom ?? "Composant") — N4 Sentinel</PageTitle>
+
+@if (composant is null)
+{
+    <h1>Composant introuvable</h1>
+    <p><a class="lien-retour" href="/referentiel/composants">Revenir à la liste</a></p>
+}
+else
+{
+    <h1>@composant.Nom</h1>
+    <p>@composant.Role</p>
+
+    @if (Erreur is not null)
+    {
+        <p class="alerte" role="alert">@Erreur</p>
+    }
+
+    <div class="defilement">
+        <table class="tableau">
+            <tbody>
+                <tr><th>Type N4</th><td>@composant.Kind</td></tr>
+                <tr><th>Mode de pilotage</th><td>@composant.ModeDePilotage</td></tr>
+                <tr><th>Hôte</th><td>@composant.Serveur</td></tr>
+                <tr><th>Adresse IP</th><td>@(composant.AdresseIp ?? "—")</td></tr>
+                <tr><th>Nom DNS</th><td>@(composant.NomDns ?? "—")</td></tr>
+                <tr><th>Système d'exploitation</th><td>@(composant.SystemeDExploitation ?? "—")</td></tr>
+                <tr><th>Service Windows</th><td>@(composant.NomDuService ?? "—")</td></tr>
+                <tr><th>Processus ou mécanisme</th><td>@(composant.Mecanisme ?? "—")</td></tr>
+                <tr><th>Criticité</th><td>@composant.Criticite</td></tr>
+                <tr><th>Responsable</th><td>@(composant.Responsable ?? "—")</td></tr>
+                <tr><th>Statut</th><td>@CycleDeValidation.Libelle(composant.Statut)</td></tr>
+                <tr>
+                    <th>Utilisable pour une opération</th>
+                    <td>@(CycleDeValidation.EstUtilisablePourUneOperation(composant.Statut) ? "Oui" : "Non")</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <AuthorizeView Policy="Droit:GererLeReferentiel">
+        <h2>Cycle de validation</h2>
+        @if (composant.Kind == N4ComponentKind.NonSpecifie)
+        {
+            <p class="mention">
+                Ce composant n'est pas typé : la validation sera refusée. Sans type, aucune règle
+                d'ordre d'arrêt ou de démarrage n'est calculable, et le composant resterait
+                invisible des séquences tout en étant déclaré exploitable.
+            </p>
+        }
+        @foreach (var suivant in CycleDeValidation.TransitionsPossiblesDepuis(composant.Statut))
+        {
+            <form method="post" action="/referentiel/composant/statut" class="ligne-action">
+                <AntiforgeryToken />
+                <input type="hidden" name="id" value="@composant.Id" />
+                <input type="hidden" name="statut" value="@suivant" />
+                <button type="submit" class="bouton-discret">@CycleDeValidation.Libelle(suivant)</button>
+            </form>
+        }
+    </AuthorizeView>
+
+    <h2>Dépendances</h2>
+    @if (dependances.Count == 0)
+    {
+        <p>Aucune dépendance déclarée.</p>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead>
+                    <tr><th>Prérequis</th><th>Bloquante</th><th>Justification</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var dependance in dependances)
+                    {
+                        <tr>
+                            <td>@NomDe(dependance.ComposantRequisId)</td>
+                            <td>@(dependance.Bloquante ? "Oui" : "Non")</td>
+                            <td>@(dependance.Justification ?? "—")</td>
+                            <td>
+                                <AuthorizeView Policy="Droit:GererLeReferentiel">
+                                    <form method="post" action="/referentiel/composant/dependance/retrait">
+                                        <AntiforgeryToken />
+                                        <input type="hidden" name="dependanceId" value="@dependance.Id" />
+                                        <input type="hidden" name="composantId" value="@composant.Id" />
+                                        <button type="submit" class="bouton-discret">Retirer</button>
+                                    </form>
+                                </AuthorizeView>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    @if (impact.Count > 0)
+    {
+        <p class="mention">
+            Arrêter ce composant affecterait, en cascade : @string.Join(", ", impact.Select(NomDe)).
+        </p>
+    }
+
+    <AuthorizeView Policy="Droit:GererLeReferentiel">
+        <form method="post" action="/referentiel/composant/dependance" class="formulaire">
+            <AntiforgeryToken />
+            <input type="hidden" name="composantId" value="@composant.Id" />
+
+            <label for="composantRequisId">Ce composant dépend de</label>
+            <select id="composantRequisId" name="composantRequisId">
+                @foreach (var autre in voisins.Where(c => c.Id != composant.Id))
+                {
+                    <option value="@autre.Id">@autre.Nom</option>
+                }
+            </select>
+
+            <label for="bloquante">Dépendance bloquante</label>
+            <select id="bloquante" name="bloquante">
+                <option value="true">Oui — le démarrage est interdit sans elle</option>
+                <option value="false">Non — simple relation documentée</option>
+            </select>
+
+            <label for="justification">Justification</label>
+            <input id="justification" name="justification" type="text" maxlength="512" />
+
+            <button type="submit">Ajouter la dépendance</button>
+        </form>
+    </AuthorizeView>
+
+    <h2>Endpoints</h2>
+    @if (composant.Endpoints.Count == 0)
+    {
+        <p>Aucun endpoint déclaré.</p>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead><tr><th>Libellé</th><th>Protocole</th><th>Hôte</th><th>Port</th><th>Chemin</th></tr></thead>
+                <tbody>
+                    @foreach (var point in composant.Endpoints)
+                    {
+                        <tr>
+                            <td>@point.Libelle</td>
+                            <td>@point.Protocole</td>
+                            <td>@point.Hote</td>
+                            <td>@(point.Port?.ToString(Culture) ?? "—")</td>
+                            <td>@(point.Chemin ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <AuthorizeView Policy="Droit:GererLeReferentiel">
+        <form method="post" action="/referentiel/composant/endpoint" class="formulaire">
+            <AntiforgeryToken />
+            <input type="hidden" name="composantId" value="@composant.Id" />
+
+            <label for="libelleEndpoint">Libellé</label>
+            <input id="libelleEndpoint" name="libelle" type="text" maxlength="128" required />
+
+            <label for="protocole">Protocole</label>
+            <input id="protocole" name="protocole" type="text" maxlength="32" required placeholder="HTTP, TCP, JMX…" />
+
+            <label for="hote">Hôte</label>
+            <input id="hote" name="hote" type="text" maxlength="256" required />
+
+            <label for="port">Port</label>
+            <input id="port" name="port" type="number" min="1" max="65535" />
+
+            <label for="chemin">Chemin</label>
+            <input id="chemin" name="chemin" type="text" maxlength="512" />
+
+            <button type="submit">Ajouter l'endpoint</button>
+        </form>
+    </AuthorizeView>
+
+    <h2>Contrôles de santé</h2>
+    @if (composant.Controles.Count == 0)
+    {
+        <p>Aucun contrôle déclaré.</p>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead><tr><th>Libellé</th><th>Type</th><th>Timeout</th><th>Actif</th></tr></thead>
+                <tbody>
+                    @foreach (var controle in composant.Controles)
+                    {
+                        <tr>
+                            <td>@controle.Libelle</td>
+                            <td>@controle.TypeDeControle</td>
+                            <td>@controle.TimeoutSecondes s</td>
+                            <td>@(controle.Actif ? "Oui" : "Non")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <AuthorizeView Policy="Droit:GererLeReferentiel">
+        <form method="post" action="/referentiel/composant/controle" class="formulaire">
+            <AntiforgeryToken />
+            <input type="hidden" name="composantId" value="@composant.Id" />
+
+            <label for="libelleControle">Libellé</label>
+            <input id="libelleControle" name="libelle" type="text" maxlength="128" required />
+
+            <label for="typeDeControle">Type de contrôle</label>
+            <input id="typeDeControle" name="typeDeControle" type="text" maxlength="64" required
+                   placeholder="Service Windows, port TCP, requête SQL, log…" />
+
+            <label for="parametres">Paramètres</label>
+            <input id="parametres" name="parametres" type="text" maxlength="1024" />
+
+            <label for="timeoutSecondes">Timeout (secondes)</label>
+            <input id="timeoutSecondes" name="timeoutSecondes" type="number" min="1" max="3600" value="30" />
+
+            <button type="submit">Ajouter le contrôle</button>
+        </form>
+    </AuthorizeView>
+
+    <p><a class="lien-retour" href="/referentiel/composants">Revenir à la liste</a></p>
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo Culture =
+        System.Globalization.CultureInfo.InvariantCulture;
+
+    [Parameter]
+    public Guid ComposantId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    private N4Component? composant;
+    private List<ComponentDependency> dependances = [];
+    private List<N4Component> voisins = [];
+    private IReadOnlyList<Guid> impact = [];
+
+    private string? Erreur => CodeErreur switch
+    {
+        "cycle" => "Dépendance refusée : elle formerait un cycle, et l'ordre de démarrage deviendrait incalculable.",
+        "boucle" => "Un composant ne peut pas dépendre de lui-même.",
+        "actif" => "Un composant actif ne peut pas être modifié. Désactivez-le d'abord.",
+        "transition" => "Cette transition de statut n'est pas permise par le cycle de validation.",
+        "typage" => "Validation refusée : le composant doit d'abord être typé.",
+        _ => null
+    };
+
+    private string NomDe(Guid id) => voisins.Find(c => c.Id == id)?.Nom ?? "?";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        composant = await contexte.Composants
+            .AsNoTracking()
+            .Include(c => c.Endpoints)
+            .Include(c => c.Controles)
+            .FirstOrDefaultAsync(c => c.Id == ComposantId);
+
+        if (composant is null)
+        {
+            return;
+        }
+
+        voisins = await contexte.Composants
+            .AsNoTracking()
+            .Where(c => c.EnvironmentId == composant.EnvironmentId)
+            .OrderBy(c => c.Nom)
+            .ToListAsync();
+
+        var identifiants = voisins.Select(c => c.Id).ToList();
+
+        var aretes = await contexte.Dependances
+            .AsNoTracking()
+            .Where(d => identifiants.Contains(d.ComponentId))
+            .ToListAsync();
+
+        dependances = [.. aretes.Where(d => d.ComponentId == ComposantId)];
+
+        impact = new GrapheDeDependances(
+                identifiants,
+                aretes.Select(d => new Dependance(d.ComponentId, d.ComposantRequisId)))
+            .ImpactDeLArretDe(ComposantId);
+    }
+}

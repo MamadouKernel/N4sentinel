@@ -7,6 +7,7 @@ using N4Sentinel.Data.Identite;
 using N4Sentinel.Web.Components;
 using N4Sentinel.Web.Administration;
 using N4Sentinel.Web.Comptes;
+using N4Sentinel.Web.Referentiel;
 using N4Sentinel.Web.Courriel;
 using N4Sentinel.Web.Securite;
 
@@ -161,6 +162,7 @@ app.MapRazorComponents<App>()
 app.MapperLesPointsDEntreeDeCompte();
 app.MapperLesPointsDEntreeDeProfil();
 app.MapperLePointDEntreeDeTheme();
+app.MapperLesPointsDEntreeDuReferentiel();
 app.MapperLesPointsDEntreeDAdministration();
 
 // Sonde de disponibilité pour la supervision et le déploiement automatisé. Volontairement

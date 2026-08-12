@@ -6,9 +6,8 @@ using N4Sentinel.Domain.Entities;
 namespace N4Sentinel.Data;
 
 /// <summary>
-/// Contexte applicatif. Au Sprint 1, il porte l'identité, les habilitations par environnement
-/// et la piste d'audit. Les entités du référentiel arrivent au Sprint 2 ; <see cref="Environnements"/>
-/// est déjà présent parce qu'une habilitation par environnement n'a pas de sens sans environnement.
+/// Contexte applicatif : identité, habilitations par environnement, piste d'audit (Sprint 1)
+/// et référentiel — environnements, composants, endpoints, contrôles et dépendances (Sprint 2).
 /// </summary>
 public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
     : IdentityDbContext<UtilisateurApplicatif>(options)
@@ -18,6 +17,10 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<HabilitationEnvironnement> Habilitations => Set<HabilitationEnvironnement>();
 
     public DbSet<N4Environment> Environnements => Set<N4Environment>();
+
+    public DbSet<N4Component> Composants => Set<N4Component>();
+
+    public DbSet<ComponentDependency> Dependances => Set<ComponentDependency>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -58,8 +61,71 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .HasForeignKey(r => r.EnvironmentId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Les composants relèvent du Sprint 2 : ignorés tant que le référentiel n'existe pas.
-            environnement.Ignore(e => e.Composants);
+            environnement.HasMany(e => e.Composants)
+                .WithOne()
+                .HasForeignKey(c => c.EnvironmentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<N4Component>(composant =>
+        {
+            composant.ToTable("Composants");
+            composant.Property(c => c.Nom).HasMaxLength(128).IsRequired();
+            composant.Property(c => c.Role).HasMaxLength(256).IsRequired();
+            composant.Property(c => c.Serveur).HasMaxLength(256).IsRequired();
+            composant.Property(c => c.AdresseIp).HasMaxLength(64);
+            composant.Property(c => c.NomDns).HasMaxLength(256);
+            composant.Property(c => c.SystemeDExploitation).HasMaxLength(128);
+            composant.Property(c => c.NomDuService).HasMaxLength(128);
+            composant.Property(c => c.Mecanisme).HasMaxLength(256);
+            composant.Property(c => c.Responsable).HasMaxLength(256);
+
+            // Deux composants ne peuvent pas porter le même nom dans un même environnement :
+            // une opération viserait alors une cible ambiguë.
+            composant.HasIndex(c => new { c.EnvironmentId, c.Nom }).IsUnique();
+
+            composant.HasMany(c => c.Endpoints)
+                .WithOne()
+                .HasForeignKey(e => e.ComponentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            composant.HasMany(c => c.Controles)
+                .WithOne()
+                .HasForeignKey(v => v.ComponentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            composant.HasMany(c => c.Dependances)
+                .WithOne()
+                .HasForeignKey(d => d.ComponentId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<ComponentEndpoint>(point =>
+        {
+            point.ToTable("ComposantEndpoints");
+            point.Property(e => e.Libelle).HasMaxLength(128).IsRequired();
+            point.Property(e => e.Protocole).HasMaxLength(32).IsRequired();
+            point.Property(e => e.Hote).HasMaxLength(256).IsRequired();
+            point.Property(e => e.Chemin).HasMaxLength(512);
+        });
+
+        builder.Entity<ComponentCheck>(controle =>
+        {
+            controle.ToTable("ComposantControles");
+            controle.Property(v => v.Libelle).HasMaxLength(128).IsRequired();
+            controle.Property(v => v.TypeDeControle).HasMaxLength(64).IsRequired();
+            controle.Property(v => v.Parametres).HasMaxLength(1024);
+        });
+
+        builder.Entity<ComponentDependency>(dependance =>
+        {
+            dependance.ToTable("ComposantDependances");
+            dependance.Property(d => d.Justification).HasMaxLength(512);
+
+            // Le prérequis n'est pas déclaré en clé étrangère : la suppression en cascade
+            // effacerait des dépendances sans que personne le voie. Elles sont retirées
+            // explicitement, et l'opération est auditée.
+            dependance.HasIndex(d => new { d.ComponentId, d.ComposantRequisId }).IsUnique();
         });
 
         builder.Entity<EnvironmentResponsible>(responsable =>

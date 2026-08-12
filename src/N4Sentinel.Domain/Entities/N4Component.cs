@@ -21,10 +21,29 @@ public class N4Component : Entity
     /// </summary>
     public N4ComponentKind Kind { get; set; } = N4ComponentKind.NonSpecifie;
 
+    /// <summary>Serveur ou machine virtuelle qui héberge le composant.</summary>
     public required string Serveur { get; set; }
+
+    public string? AdresseIp { get; set; }
+
+    public string? NomDns { get; set; }
+
+    public string? SystemeDExploitation { get; set; }
 
     /// <summary>Nom du service Windows hébergeant le composant, lorsqu'il en existe un.</summary>
     public string? NomDuService { get; set; }
+
+    /// <summary>Processus ou mécanisme de fonctionnement, quand ce n'est pas un service Windows.</summary>
+    public string? Mecanisme { get; set; }
+
+    /// <summary>
+    /// §2.4 — pilotable, uniquement supervisé, ou ni l'un ni l'autre. Par défaut le composant
+    /// n'est que supervisé : accorder le pilotage doit être un geste délibéré.
+    /// </summary>
+    public ModeDePilotage ModeDePilotage { get; set; } = ModeDePilotage.UniquementSupervise;
+
+    /// <summary>Responsable technique ou fonctionnel désigné pour ce composant.</summary>
+    public string? Responsable { get; set; }
 
     public Criticality Criticite { get; set; } = Criticality.Moyenne;
 

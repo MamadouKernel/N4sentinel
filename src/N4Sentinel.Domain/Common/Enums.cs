@@ -37,18 +37,70 @@ public enum ValidationStatus
 /// </summary>
 public enum N4ComponentKind
 {
+    /// <summary>Non typé : le composant reste invisible des séquences tant qu'il l'est.</summary>
     NonSpecifie,
+
+    /// <summary>Nœud applicatif N4. Démarrés un par un, chacun confirmé avant le suivant.</summary>
     ClusterNode,
+
+    /// <summary>Nœud central des communications entre nœuds N4 et composants d'intégration.</summary>
     CenterNode,
-    Bridge,
-    Ecn4Web,
+
+    /// <summary>
+    /// Instance de secours du Center. Un service démarré ne signifie pas qu'il détient le rôle
+    /// actif : la distinction est portée par le composant, pas déduite de son état de service.
+    /// </summary>
+    StandbyCenterNode,
+
+    /// <summary>Échanges entre N4, le Center et XPS. À valider avant toute remise en service de XPS.</summary>
+    BridgeDaemon,
+
+    /// <summary>Planification et exécution, connecté à N4 par le Bridge.</summary>
     Xps,
-    ActiveMq,
+
+    /// <summary>Equipment Control.</summary>
+    Ecn4,
+
+    /// <summary>Interface web de l'Equipment Control.</summary>
+    Ecn4Web,
+
+    /// <summary>Base SQL Server de N4.</summary>
     BaseDeDonnees,
-    ServeurApplicatif,
-    Billing,
-    Bento,
+
+    /// <summary>Gestion et persistance des messages.</summary>
+    ActiveMq,
+
+    /// <summary>Répertoire de configuration, d'échange ou de persistance.</summary>
+    DossierPartage,
+
+    /// <summary>Billing, Bento, Purge/Archive, ECN4 XD… activés selon l'environnement.</summary>
+    ComposantConditionnel,
+
+    /// <summary>Système tiers dont N4 dépend sans le piloter.</summary>
+    SystemeDependant,
+
+    /// <summary>Réseau, DNS, ports.</summary>
+    InfrastructureReseau,
+
     Autre
+}
+
+/// <summary>
+/// §2.4 — « La cartographie doit distinguer les composants pilotables par N4 Sentinel des
+/// composants uniquement supervisés ou utilisés comme sources de diagnostic. »
+/// Cette distinction conditionne ce que l'application s'autorise à faire : on ne propose pas
+/// d'arrêter ce qu'on n'a pas le droit d'arrêter.
+/// </summary>
+public enum ModeDePilotage
+{
+    /// <summary>Arrêt, démarrage et redémarrage possibles depuis N4 Sentinel.</summary>
+    Pilotable,
+
+    /// <summary>Observé seulement : son état est lu, aucune action n'est émise.</summary>
+    UniquementSupervise,
+
+    /// <summary>Ni piloté ni observé : présent au référentiel pour documenter une dépendance.</summary>
+    NonSupervise
 }
 
 /// <summary>État de santé constaté d'un composant.</summary>

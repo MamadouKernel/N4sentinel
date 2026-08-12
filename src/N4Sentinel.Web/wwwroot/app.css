@@ -433,3 +433,41 @@ a.identite-nom:hover {
     right: 1rem;
     top: 0.6rem;
 }
+
+/* — Navigation du bandeau — */
+
+.bandeau-nav {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.bandeau-nav a {
+    color: var(--texte-attenue);
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.bandeau-nav a:hover {
+    color: var(--primaire);
+}
+
+/* Actions de cycle de validation, alignées sur une ligne de tableau. */
+.ligne-action {
+    display: inline-block;
+    margin: 0 6px 4px 0;
+}
+
+/* Signal discret sur un composant non typé : il reste invisible des séquences. */
+.signal-attention {
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--alerte);
+    color: var(--alerte);
+    font-size: 11px;
+}
+
+.tableau th {
+    white-space: nowrap;
+}
