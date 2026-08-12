@@ -23,8 +23,22 @@ public sealed class BaseDeTest : IAsyncLifetime
 {
     private readonly string nom = "N4Sentinel_Tests_" + Guid.NewGuid().ToString("N")[..12];
 
+    /// <summary>
+    /// Même instance que l'application en développement — instance locale par défaut,
+    /// authentification Windows. Tester contre un autre moteur que celui qui sert
+    /// l'application viderait ces tests de leur intérêt : c'est le moteur réel qui refuse les
+    /// requêtes non traduisibles et applique les contraintes de colonnes.
+    ///
+    /// Surchargeable par variable d'environnement pour une intégration continue dont le serveur
+    /// n'est pas « . ».
+    /// </summary>
+    private static string Serveur =>
+        Environment.GetEnvironmentVariable("N4SENTINEL_TESTS_SQLSERVER") is { Length: > 0 } serveur
+            ? serveur
+            : ".";
+
     private string ChaineDeConnexion =>
-        $"Server=(localdb)\\MSSQLLocalDB;Database={nom};Trusted_Connection=True;"
+        $"Server={Serveur};Database={nom};Trusted_Connection=True;"
         + "MultipleActiveResultSets=true;TrustServerCertificate=True";
 
     public ApplicationDbContext CreerLeContexte() =>
