@@ -12,6 +12,8 @@ public static class ActionsAuditees
     public const string SecondFacteurDemande = "Second facteur demandé";
     public const string SecondFacteurRefuse = "Second facteur refusé";
     public const string Deconnexion = "Déconnexion";
+    public const string MethodeDeSecondFacteurModifiee = "Méthode de second facteur modifiée";
+    public const string MethodeDeSecondFacteurRefusee = "Changement de second facteur refusé";
     public const string AccesRefuse = "Accès refusé";
     public const string HabilitationAccordee = "Habilitation accordée";
     public const string HabilitationRevoquee = "Habilitation révoquée";

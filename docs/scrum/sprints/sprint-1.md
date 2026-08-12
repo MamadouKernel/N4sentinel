@@ -24,6 +24,24 @@ un circuit interactif Blazor ne peut pas écrire de cookie d'authentification.
 Mots de passe : 12 caractères minimum, majuscule, minuscule, chiffre et caractère spécial.
 Verrouillage après 5 échecs pendant 15 minutes.
 
+**Canal du second facteur au choix de l'utilisateur** (demande DSI en cours de sprint). Deux
+canaux dans `/compte/profil` : code par courriel, ou application d'authentification (TOTP).
+Le second facteur lui-même reste obligatoire — SEC-001 l'impose, et aucun écran ne permet de
+le désactiver. La seule question posée à l'utilisateur est « par où », jamais « faut-il ».
+
+Trois garde-fous sur ce choix :
+
+- **La bascule vers l'application exige un code valide.** Une clé mal recopiée ne peut donc pas
+  enfermer l'utilisateur dehors : tant que l'application n'a pas prouvé qu'elle fonctionne, le
+  canal reste le courriel.
+- **Une régénération de clé** — téléphone perdu ou remplacé — remet immédiatement le canal sur
+  le courriel, sans quoi l'utilisateur ne pourrait plus se connecter pour reconfigurer.
+- **Chaque changement de canal est audité**, y compris les tentatives refusées pour code invalide.
+
+L'application d'authentification a un intérêt propre sur un outil d'exploitation : elle génère
+le code hors ligne. La connexion reste donc possible quand la messagerie CIT est indisponible —
+c'est-à-dire, sur un outil de supervision, précisément quand on en a le plus besoin.
+
 Le message d'erreur affiché ne distingue jamais un compte inexistant d'un mot de passe erroné.
 Le motif exact, lui, est écrit au journal d'audit.
 
@@ -120,6 +138,9 @@ Parcours vérifié sur l'application réellement lancée, requête par requête 
 | Journal d'audit | 200 — succès et refus présents avec leur motif |
 | Droits sur Production | Consultation seulement, pour un Administrateur de la solution global |
 | Bascule vers UAT | Les droits d'administration apparaissent |
+| Bascule vers l'application d'authentification, code erroné | Refusée, canal inchangé, refus tracé |
+| Bascule avec un code TOTP valide | Canal modifié, changement tracé |
+| Reconnexion, canal « application » | Le libellé change, **aucun courriel n'est émis**, la connexion aboutit |
 
 La dernière ligne est la démonstration de SEC-004 : le même compte, le même instant, deux
 environnements, deux jeux de droits.

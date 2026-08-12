@@ -1,0 +1,166 @@
+@page "/compte/profil"
+@using Microsoft.AspNetCore.Identity
+@using N4Sentinel.Data.Identite
+@using N4Sentinel.Domain.Common
+@inject UserManager<UtilisateurApplicatif> Utilisateurs
+@inject IHttpContextAccessor Accesseur
+
+<PageTitle>Mon compte — N4 Sentinel</PageTitle>
+
+<h1>Mon compte</h1>
+
+@if (utilisateur is null)
+{
+    <p>Compte introuvable.</p>
+}
+else
+{
+    <p>@utilisateur.NomComplet — @utilisateur.Email</p>
+
+    @if (Message is not null)
+    {
+        <p class="alerte succes" role="status">@Message</p>
+    }
+    @if (Erreur is not null)
+    {
+        <p class="alerte" role="alert">@Erreur</p>
+    }
+
+    <h2>Second facteur d'authentification</h2>
+    <p>
+        Le second facteur est obligatoire et ne peut pas être désactivé. Vous choisissez
+        seulement par quel canal vous recevez votre code.
+    </p>
+
+    <p>
+        Canal actuel :
+        <strong>@LibelleDuCanal(utilisateur.MethodeDeSecondFacteur)</strong>
+    </p>
+
+    @if (utilisateur.MethodeDeSecondFacteur != MethodeDeSecondFacteur.Courriel)
+    {
+        <h3>Revenir au code par courriel</h3>
+        <p>Le code sera envoyé à @utilisateur.Email à chaque connexion.</p>
+        <form method="post" action="/compte/profil/second-facteur">
+            <AntiforgeryToken />
+            <input type="hidden" name="methode" value="@MethodeDeSecondFacteur.Courriel" />
+            <button type="submit" class="bouton-discret">Utiliser le courriel</button>
+        </form>
+    }
+    else
+    {
+        <h3>Utiliser une application d'authentification</h3>
+        <p>
+            Recommandé sur un outil d'exploitation : l'application génère le code hors ligne,
+            donc la connexion reste possible quand la messagerie est indisponible.
+        </p>
+
+        <ol class="etapes">
+            <li>
+                Ouvrez Microsoft Authenticator, Google Authenticator ou équivalent, puis ajoutez
+                un compte de type « saisie manuelle ».
+            </li>
+            <li>
+                Saisissez cette clé :
+                <code class="cle">@CleFormatee</code>
+                <br />
+                <span class="mention">Compte à renseigner : @utilisateur.Email — Émetteur : N4 Sentinel</span>
+            </li>
+            <li>Saisissez ci-dessous le code affiché par l'application pour confirmer.</li>
+        </ol>
+
+        <p class="mention">
+            Le canal ne bascule qu'une fois le code vérifié : une clé mal recopiée ne peut pas
+            vous enfermer dehors.
+        </p>
+
+        <form method="post" action="/compte/profil/second-facteur" class="formulaire">
+            <AntiforgeryToken />
+            <input type="hidden" name="methode" value="@MethodeDeSecondFacteur.ApplicationDAuthentification" />
+
+            <label for="code">Code affiché par l'application</label>
+            <input id="code" name="code" type="text" inputmode="numeric"
+                   autocomplete="one-time-code" maxlength="8" required />
+
+            <button type="submit">Activer l'application d'authentification</button>
+        </form>
+    }
+
+    <h3>Téléphone perdu ou remplacé</h3>
+    <p>
+        La régénération invalide la clé actuelle et remet le canal sur le courriel, afin que
+        vous puissiez vous reconnecter et reconfigurer l'application.
+    </p>
+    <form method="post" action="/compte/profil/nouvelle-cle">
+        <AntiforgeryToken />
+        <button type="submit" class="bouton-discret">Régénérer la clé</button>
+    </form>
+}
+
+@code {
+    private UtilisateurApplicatif? utilisateur;
+    private string? cle;
+
+    [SupplyParameterFromQuery(Name = "message")]
+    private string? CodeMessage { get; set; }
+
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    private string? Message => CodeMessage switch
+    {
+        "canal-modifie" => "Canal du second facteur modifié.",
+        "cle-regeneree" => "Clé régénérée. Le canal est revenu au courriel.",
+        _ => null
+    };
+
+    private string? Erreur => CodeErreur switch
+    {
+        "code" => "Code invalide. Le canal n'a pas été changé.",
+        _ => null
+    };
+
+    // Clé découpée en groupes de quatre : elle se recopie à la main sur un téléphone,
+    // et une suite de 32 caractères d'affilée se recopie mal.
+    private string CleFormatee =>
+        string.Join(' ', Decouper(cle ?? string.Empty, 4));
+
+    protected override async Task OnInitializedAsync()
+    {
+        var principal = Accesseur.HttpContext?.User;
+        if (principal is null)
+        {
+            return;
+        }
+
+        utilisateur = await Utilisateurs.GetUserAsync(principal);
+        if (utilisateur is null)
+        {
+            return;
+        }
+
+        cle = await Utilisateurs.GetAuthenticatorKeyAsync(utilisateur);
+        if (string.IsNullOrWhiteSpace(cle))
+        {
+            // Aucune clé encore générée pour ce compte : on la crée à la première visite,
+            // sans changer le canal actif. Tant qu'aucun code n'est vérifié, elle ne sert à rien.
+            await Utilisateurs.ResetAuthenticatorKeyAsync(utilisateur);
+            cle = await Utilisateurs.GetAuthenticatorKeyAsync(utilisateur);
+        }
+    }
+
+    private static string LibelleDuCanal(MethodeDeSecondFacteur methode) => methode switch
+    {
+        MethodeDeSecondFacteur.Courriel => "code envoyé par courriel",
+        MethodeDeSecondFacteur.ApplicationDAuthentification => "application d'authentification",
+        _ => methode.ToString()
+    };
+
+    private static IEnumerable<string> Decouper(string valeur, int taille)
+    {
+        for (var position = 0; position < valeur.Length; position += taille)
+        {
+            yield return valeur.Substring(position, Math.Min(taille, valeur.Length - position));
+        }
+    }
+}

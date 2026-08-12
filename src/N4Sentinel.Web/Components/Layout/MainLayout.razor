@@ -31,7 +31,7 @@
         <AuthorizeView>
             <Authorized>
                 <span class="identite">
-                    <span class="identite-nom">@context.User.Identity?.Name</span>
+                    <a class="identite-nom" href="/compte/profil">@context.User.Identity?.Name</a>
                     <span class="identite-profils">@Profils(context.User)</span>
                 </span>
                 <form method="post" action="/compte/deconnexion">

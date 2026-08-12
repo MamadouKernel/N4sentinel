@@ -153,6 +153,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.MapperLesPointsDEntreeDeCompte();
+app.MapperLesPointsDEntreeDeProfil();
 app.MapperLesPointsDEntreeDAdministration();
 
 // Sonde de disponibilité pour la supervision et le déploiement automatisé. Volontairement

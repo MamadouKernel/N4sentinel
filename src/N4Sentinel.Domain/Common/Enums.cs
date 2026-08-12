@@ -194,6 +194,23 @@ public enum EdiFileStatus
     Obsolete
 }
 
+/// <summary>
+/// SEC-001 — canal du second facteur. Le second facteur lui-même n'est pas optionnel :
+/// seule sa voie d'acheminement est laissée au choix de l'utilisateur.
+/// </summary>
+public enum MethodeDeSecondFacteur
+{
+    /// <summary>Code à usage unique envoyé à l'adresse professionnelle.</summary>
+    Courriel,
+
+    /// <summary>
+    /// Code généré par une application d'authentification (TOTP). Ne dépend d'aucun relais
+    /// de messagerie : reste utilisable quand la messagerie CIT est indisponible — ce qui,
+    /// sur un outil d'exploitation, arrive précisément quand on en a le plus besoin.
+    /// </summary>
+    ApplicationDAuthentification
+}
+
 /// <summary>Origine d'une entrée d'audit (SEC-008).</summary>
 public enum AuditOrigin
 {

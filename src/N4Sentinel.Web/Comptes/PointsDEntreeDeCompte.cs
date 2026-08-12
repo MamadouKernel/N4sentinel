@@ -59,7 +59,14 @@ public static class PointsDEntreeDeCompte
             var utilisateur = await connexions.GetTwoFactorAuthenticationUserAsync();
             if (utilisateur is not null)
             {
-                await EnvoyerLeCodeAsync(utilisateur, utilisateurs, courriel);
+                // Le canal dépend du choix de l'utilisateur. Avec une application
+                // d'authentification, il n'y a rien à envoyer : le code est déjà sur son
+                // téléphone, et lui en expédier un second n'aurait aucun sens.
+                if (utilisateur.MethodeDeSecondFacteur == MethodeDeSecondFacteur.Courriel)
+                {
+                    await EnvoyerLeCodeAsync(utilisateur, utilisateurs, courriel);
+                }
+
                 await TracerAsync(piste, identifiantSaisi, ActionsAuditees.SecondFacteurDemande,
                     adresseIp, autorisee: true, utilisateur.Id);
             }
@@ -107,11 +114,18 @@ public static class PointsDEntreeDeCompte
             return Results.Redirect("/compte/connexion?erreur=session");
         }
 
-        var resultat = await connexions.TwoFactorSignInAsync(
-            TokenOptions.DefaultEmailProvider,
-            (code ?? string.Empty).Trim(),
-            isPersistent: false,
-            rememberClient: false);
+        var codeSaisi = (code ?? string.Empty).Trim();
+
+        var resultat = utilisateur.MethodeDeSecondFacteur == MethodeDeSecondFacteur.Courriel
+            ? await connexions.TwoFactorSignInAsync(
+                TokenOptions.DefaultEmailProvider,
+                codeSaisi,
+                isPersistent: false,
+                rememberClient: false)
+            : await connexions.TwoFactorAuthenticatorSignInAsync(
+                codeSaisi,
+                isPersistent: false,
+                rememberClient: false);
 
         if (resultat.Succeeded)
         {

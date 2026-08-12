@@ -137,6 +137,41 @@ h1:focus {
     margin: 0 0 18px;
 }
 
+.alerte.succes {
+    background-color: rgba(16, 185, 129, 0.12);
+    border-color: var(--succes);
+}
+
+.etapes {
+    color: var(--texte-attenue);
+    line-height: 1.8;
+    padding-left: 20px;
+}
+
+.cle {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 7px 11px;
+    background-color: var(--fond);
+    border: 1px solid var(--bordure-accentuee);
+    border-radius: 6px;
+    font-family: var(--police-mono);
+    font-size: 15px;
+    letter-spacing: 1.5px;
+    color: var(--primaire);
+    user-select: all;
+}
+
+a.identite-nom {
+    color: var(--texte);
+    text-decoration: none;
+}
+
+a.identite-nom:hover {
+    color: var(--primaire);
+    text-decoration: underline;
+}
+
 .mention {
     margin-top: 22px;
     font-size: 12px;

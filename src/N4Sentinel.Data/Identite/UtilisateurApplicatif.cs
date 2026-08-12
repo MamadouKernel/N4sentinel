@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using N4Sentinel.Domain.Common;
 
 namespace N4Sentinel.Data.Identite;
 
@@ -13,6 +14,13 @@ public class UtilisateurApplicatif : IdentityUser
     public string? Fonction { get; set; }
 
     public bool Actif { get; set; } = true;
+
+    /// <summary>
+    /// Canal du second facteur choisi par l'utilisateur. Le courriel est la valeur par défaut :
+    /// c'est le seul canal utilisable sans démarche préalable, donc le seul qui puisse s'appliquer
+    /// à un compte que l'on vient de créer.
+    /// </summary>
+    public MethodeDeSecondFacteur MethodeDeSecondFacteur { get; set; } = MethodeDeSecondFacteur.Courriel;
 
     public DateTimeOffset CreeLe { get; set; } = DateTimeOffset.UtcNow;
 
