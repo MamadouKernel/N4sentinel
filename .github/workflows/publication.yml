@@ -28,7 +28,7 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Tests avant publication
-        run: dotnet test N4Sentinel.slnx --configuration Release
+        run: dotnet test N4Sentinel.sln --configuration Release
 
       # Publication autonome : le serveur applicatif CIT n'a pas nécessairement le runtime
       # .NET installé, et un déploiement ne doit pas dépendre d'un prérequis à installer à la main.

@@ -81,6 +81,12 @@ sens coûtera autant, et le code a été écrit pour que ce soit possible — un
 concerné, `IdentifiantSequentiel`, qui réimplémente `Guid.CreateVersion7()` absent de .NET 8 et
 porte le commentaire indiquant quoi remplacer.
 
+Le SDK est épinglé sur la ligne 8.0 par `global.json`. Sans cette épingle, la ligne de commande
+choisit le SDK le plus récent installé — .NET 10 —, régénère les fichiers de restauration pour
+`net10.0`, et Visual Studio échoue ensuite sur « aucune cible pour net8.0 » sans qu'une seule
+ligne de code ait changé. La solution est au format `.sln` classique pour la même raison : le
+format `.slnx` n'est pas reconnu par le SDK 8.
+
 ### Interface : pourquoi Blazor Server plutôt que la structure de la maquette
 
 La maquette de démonstration est une application à page unique en JavaScript s'appuyant sur une

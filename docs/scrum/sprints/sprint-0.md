@@ -97,8 +97,8 @@ Ces quatre livrables sont des documents, pas des décisions : leur clôture appa
 ## Vérification
 
 ```
-dotnet build N4Sentinel.slnx   → 0 avertissement, 0 erreur
-dotnet test N4Sentinel.slnx    → 27 tests, 0 échec
+dotnet build N4Sentinel.sln   → 0 avertissement, 0 erreur
+dotnet test N4Sentinel.sln    → 27 tests, 0 échec
 ```
 
 Détail : 20 tests de domaine (couverture du §3.18, racine commune, format des identifiants),

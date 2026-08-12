@@ -29,8 +29,8 @@ Le plan complet — 25 sprints, 4 lots, 148 exigences — est dans
 ## Démarrer
 
 ```bash
-dotnet build N4Sentinel.slnx
-dotnet test N4Sentinel.slnx
+dotnet build N4Sentinel.sln
+dotnet test N4Sentinel.sln
 dotnet run --project src/N4Sentinel.Web
 ```
 

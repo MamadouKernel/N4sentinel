@@ -28,13 +28,13 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restauration des dépendances
-        run: dotnet restore N4Sentinel.slnx
+        run: dotnet restore N4Sentinel.sln
 
       - name: Génération
-        run: dotnet build N4Sentinel.slnx --configuration Release --no-restore
+        run: dotnet build N4Sentinel.sln --configuration Release --no-restore
 
       - name: Tests
-        run: dotnet test N4Sentinel.slnx --configuration Release --no-build --logger "trx;LogFileName=tests.trx" --results-directory artefacts/tests
+        run: dotnet test N4Sentinel.sln --configuration Release --no-build --logger "trx;LogFileName=tests.trx" --results-directory artefacts/tests
 
       - name: Publication des résultats de tests
         if: always()
@@ -57,14 +57,14 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restauration des dépendances
-        run: dotnet restore N4Sentinel.slnx
+        run: dotnet restore N4Sentinel.sln
 
       # Échoue si une dépendance porte une vulnérabilité connue. Sur une application qui
       # pilote la production d'un terminal portuaire, une alerte non lue est une alerte inutile.
       - name: Recherche de vulnérabilités connues
         shell: pwsh
         run: |
-          $sortie = dotnet list N4Sentinel.slnx package --vulnerable --include-transitive
+          $sortie = dotnet list N4Sentinel.sln package --vulnerable --include-transitive
           $sortie
           if ($sortie -match 'a des vulnérabilités|has the following vulnerable') {
             Write-Error 'Dépendance vulnérable détectée.'
