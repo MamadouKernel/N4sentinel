@@ -34,6 +34,7 @@ public static class ActionsAuditees
     public const string DependanceRetiree = "Dépendance retirée";
     public const string ModificationRefusee = "Modification refusée";
     public const string ConfigurationTestee = "Configuration testée";
+    public const string CollecteDemandee = "Collecte de supervision demandée";
 }
 
 /// <summary>Types d'objets visés par une action tracée.</summary>

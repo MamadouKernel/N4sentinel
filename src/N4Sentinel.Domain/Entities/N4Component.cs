@@ -49,6 +49,12 @@ public class N4Component : Entity
 
     public ComponentHealth Sante { get; set; } = ComponentHealth.Inconnu;
 
+    /// <summary>
+    /// FR-052 — maintenance déclarée. Pendant une intervention, les signaux ne sont pas
+    /// interprétés comme des anomalies et aucune alerte n'est levée.
+    /// </summary>
+    public bool EnMaintenance { get; set; }
+
     public DateTimeOffset? DernierControle { get; set; }
 
     public ValidationStatus Statut { get; set; } = ValidationStatus.Brouillon;

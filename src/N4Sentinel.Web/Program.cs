@@ -3,12 +3,14 @@ using Microsoft.AspNetCore.Identity;
 using N4Sentinel.Application.Abstractions;
 using N4Sentinel.Connectors;
 using N4Sentinel.Data;
+using N4Sentinel.Data.Supervision;
 using N4Sentinel.Data.Amorcage;
 using N4Sentinel.Data.Identite;
 using N4Sentinel.Web.Components;
 using N4Sentinel.Web.Administration;
 using N4Sentinel.Web.Comptes;
 using N4Sentinel.Web.Referentiel;
+using N4Sentinel.Web.Supervision;
 using N4Sentinel.Web.Courriel;
 using N4Sentinel.Web.Securite;
 
@@ -33,7 +35,11 @@ if (string.IsNullOrWhiteSpace(chaineDeConnexion))
         + "L'application ne démarre pas sans base : l'audit ne peut pas être différé.");
 }
 
-builder.Services.AjouterLaCoucheDonnees(chaineDeConnexion);
+// FR-053 — cadence de la collecte de fond, réglable par environnement d'exécution.
+var optionsDeCollecte = new OptionsDeCollecte();
+builder.Configuration.GetSection(OptionsDeCollecte.Section).Bind(optionsDeCollecte);
+
+builder.Services.AjouterLaCoucheDonnees(chaineDeConnexion, optionsDeCollecte);
 builder.Services.AjouterLaCoucheConnecteurs();
 
 // — SEC-001 : identité applicative avec second facteur par courriel —
@@ -165,6 +171,7 @@ app.MapperLesPointsDEntreeDeCompte();
 app.MapperLesPointsDEntreeDeProfil();
 app.MapperLePointDEntreeDeTheme();
 app.MapperLesPointsDEntreeDuReferentiel();
+app.MapperLesPointsDEntreeDeSupervision();
 app.MapperLesPointsDEntreeDAdministration();
 
 // Sonde de disponibilité pour la supervision et le déploiement automatisé. Volontairement

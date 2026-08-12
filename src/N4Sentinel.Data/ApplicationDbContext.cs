@@ -22,6 +22,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 
     public DbSet<ComponentDependency> Dependances => Set<ComponentDependency>();
 
+    public DbSet<ControlSignal> Releves => Set<ControlSignal>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -126,6 +128,23 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             // effacerait des dépendances sans que personne le voie. Elles sont retirées
             // explicitement, et l'opération est auditée.
             dependance.HasIndex(d => new { d.ComponentId, d.ComposantRequisId }).IsUnique();
+        });
+
+        builder.Entity<ControlSignal>(releve =>
+        {
+            releve.ToTable("Releves");
+            releve.Property(r => r.Type).HasMaxLength(64).IsRequired();
+            releve.Property(r => r.Cible).HasMaxLength(512).IsRequired();
+            releve.Property(r => r.Valeur).HasMaxLength(1024);
+            releve.Property(r => r.Unite).HasMaxLength(32);
+            releve.Property(r => r.SeuilAttendu).HasMaxLength(128);
+            releve.Property(r => r.MotifIndisponibilite).HasMaxLength(1024);
+            releve.Property(r => r.ReferenceDeCorrelation).HasMaxLength(128);
+
+            // FR-053 — le tableau de bord lit le dernier relevé par composant et par type :
+            // sans cet index, chaque rafraîchissement parcourrait tout l'historique.
+            releve.HasIndex(r => new { r.ComposantCibleId, r.Type, r.ReleveLe });
+            releve.HasIndex(r => r.ReleveLe);
         });
 
         builder.Entity<EnvironmentResponsible>(responsable =>

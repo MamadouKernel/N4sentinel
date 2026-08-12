@@ -487,3 +487,5 @@ a.identite-nom:hover {
 .etat-consolide.etat-degrade { border-color: var(--alerte); color: var(--alerte); }
 .etat-consolide.etat-defavorable { border-color: var(--danger); color: var(--danger); }
 .etat-consolide.etat-indetermine { border-color: var(--bordure-accentuee); color: var(--texte-attenue); }
+
+.etat-consolide.etat-transition { border-color: var(--primaire); color: var(--primaire); }

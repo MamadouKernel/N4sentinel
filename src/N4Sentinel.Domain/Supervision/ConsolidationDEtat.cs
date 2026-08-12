@@ -28,11 +28,16 @@ public enum VerdictDeSignal
 /// <param name="SuffitSeulAConclure">
 /// Faux pour un signal qui, isolé, ne prouve rien — l'état d'un service Windows notamment.
 /// </param>
+/// <param name="Transition">
+/// Transition constatée par le connecteur. C'est lui qui la voit — un service « StartPending »
+/// n'est ni haut ni bas —, la consolidation ne peut pas la deviner après coup.
+/// </param>
 public sealed record SignalConsolidable(
     string Type,
     VerdictDeSignal Verdict,
     string? Detail = null,
-    bool SuffitSeulAConclure = true);
+    bool SuffitSeulAConclure = true,
+    TransitionObservee Transition = TransitionObservee.Aucune);
 
 /// <summary>État consolidé et sa justification.</summary>
 /// <param name="Etat">L'état retenu.</param>

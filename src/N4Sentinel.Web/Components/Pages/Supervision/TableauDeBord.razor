@@ -1,0 +1,219 @@
+@page "/supervision"
+@using System.Globalization
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Application.Supervision
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Supervision
+@attribute [Authorize(Policy = "Droit:Consulter")]
+@inject IServiceDeSupervision Supervision
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IHttpContextAccessor Accesseur
+
+<PageTitle>Supervision — N4 Sentinel</PageTitle>
+
+@if (cartographie is null)
+{
+    <h1>Supervision</h1>
+    <p>Aucun environnement sélectionné, ou environnement introuvable.</p>
+}
+else
+{
+    <h1>
+        Supervision — @cartographie.NomDeLEnvironnement
+        @if (cartographie.EstProduction)
+        {
+            <span class="pastille-environnement production">Production</span>
+        }
+    </h1>
+
+    @* FR-053 — la date de la dernière donnée est toujours visible. *@
+    <p class="mention">
+        Vue générée le @cartographie.GenereLe.UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", Culture) UTC.
+        Donnée la plus récente : @LibelleDeDate(DonneeLaPlusRecente).
+    </p>
+
+    <AuthorizeView Policy="Droit:GererLeReferentiel">
+        <form method="post" action="/supervision/collecte" class="ligne-action">
+            <AntiforgeryToken />
+            <input type="hidden" name="environnementId" value="@cartographie.EnvironmentId" />
+            <button type="submit" class="bouton-discret">Rafraîchir maintenant</button>
+        </form>
+    </AuthorizeView>
+
+    @if (Message is not null)
+    {
+        <p class="alerte succes" role="status">@Message</p>
+    }
+
+    <h2>Alertes (@cartographie.Alertes.Count)</h2>
+    @if (cartographie.Alertes.Count == 0)
+    {
+        <p>Aucune alerte.</p>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead><tr><th>Motif</th><th>Message</th><th>Portée</th></tr></thead>
+                <tbody>
+                    @foreach (var alerte in cartographie.Alertes)
+                    {
+                        <tr>
+                            <td>@LibelleDeMotif(alerte.Motif)</td>
+                            <td>@alerte.Message</td>
+                            <td>@(alerte.Critique ? "Composant critique" : "Standard")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <h2>Cartographie (@cartographie.Lignes.Count composants)</h2>
+    @if (cartographie.Lignes.Count == 0)
+    {
+        <p>Aucun composant enregistré sur cet environnement.</p>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead>
+                    <tr>
+                        <th>Composant</th>
+                        <th>Type N4</th>
+                        <th>État</th>
+                        <th>Dernière donnée</th>
+                        <th>Signaux</th>
+                        <th>Justification</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var ligne in cartographie.Lignes)
+                    {
+                        <tr>
+                            <td><a href="/referentiel/composant/@ligne.ComposantId">@ligne.Nom</a></td>
+                            <td>@ligne.Kind</td>
+                            <td>
+                                @* FR-055 — le libellé porte l'information, la couleur l'appuie. *@
+                                <span class="etat-consolide @ClasseDEtat(ligne.Etat.Etat)">
+                                    @EvaluationDeSupervision.Libelle(ligne.Etat.Etat)
+                                </span>
+                            </td>
+                            <td>@LibelleDeDate(ligne.Etat.DerniereDonnee)</td>
+                            <td>@ResumerLesSignaux(ligne)</td>
+                            <td>@ligne.Etat.Justification</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <p class="mention">
+        Les composants non activés au référentiel sont supervisés mais n'autorisent aucune
+        action, conformément à FR-050. Un composant sans contrôle de santé actif reste
+        « Inconnu » : c'est un composant dont l'application ne peut rien dire.
+    </p>
+}
+
+@code {
+    private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
+
+    private CartographieDeSupervision? cartographie;
+
+    [SupplyParameterFromQuery(Name = "message")]
+    private string? CodeMessage { get; set; }
+
+    private string? Message => CodeMessage switch
+    {
+        "collecte" => "Collecte effectuée.",
+        _ => null
+    };
+
+    private DateTimeOffset? DonneeLaPlusRecente =>
+        cartographie?.Lignes
+            .Select(l => l.Etat.DerniereDonnee)
+            .Where(d => d is not null)
+            .DefaultIfEmpty(null)
+            .Max();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        var choisi = Guid.TryParse(Accesseur.HttpContext?.Request.Cookies["environnement"], out var id)
+            ? id
+            : Guid.Empty;
+
+        var environnementId = await contexte.Environnements
+            .Where(e => e.Id == choisi)
+            .Select(e => e.Id)
+            .FirstOrDefaultAsync();
+
+        if (environnementId == Guid.Empty)
+        {
+            environnementId = await contexte.Environnements
+                .OrderBy(e => e.Type)
+                .Select(e => e.Id)
+                .FirstOrDefaultAsync();
+        }
+
+        if (environnementId != Guid.Empty)
+        {
+            cartographie = await Supervision.LireAsync(environnementId);
+        }
+    }
+
+    private static string ResumerLesSignaux(LigneDeSupervision ligne)
+    {
+        if (ligne.Signaux.Count == 0)
+        {
+            return "aucun";
+        }
+
+        var favorables = ligne.Signaux.Count(s => s.Verdict == VerdictDeSignal.Favorable);
+        var manquants = ligne.Signaux.Count(s => s.Verdict is VerdictDeSignal.Indisponible or VerdictDeSignal.Perime);
+
+        return $"{favorables}/{ligne.Signaux.Count} favorables"
+            + (manquants > 0 ? $", {manquants} manquant(s)" : string.Empty);
+    }
+
+    private string LibelleDeDate(DateTimeOffset? date)
+    {
+        if (date is null)
+        {
+            return "aucun relevé";
+        }
+
+        var age = (cartographie?.GenereLe ?? DateTimeOffset.UtcNow) - date.Value;
+
+        var anciennete = age.TotalSeconds < 90
+            ? $"il y a {(int)age.TotalSeconds} s"
+            : $"il y a {(int)age.TotalMinutes} min";
+
+        return $"{date.Value.UtcDateTime.ToString("HH:mm:ss", Culture)} UTC ({anciennete})";
+    }
+
+    private static string ClasseDEtat(EtatDeSupervision etat) => etat switch
+    {
+        EtatDeSupervision.Disponible => "etat-favorable",
+        EtatDeSupervision.Degrade => "etat-degrade",
+        EtatDeSupervision.Indisponible => "etat-defavorable",
+        EtatDeSupervision.Demarrage or EtatDeSupervision.Arret => "etat-transition",
+        _ => "etat-indetermine"
+    };
+
+    private static string LibelleDeMotif(MotifDAlerte motif) => motif switch
+    {
+        MotifDAlerte.Timeout => "Délai dépassé",
+        MotifDAlerte.Echec => "Échec",
+        MotifDAlerte.IncoherenceDEtat => "Incohérence d'état",
+        MotifDAlerte.FileQuiAugmente => "File en croissance",
+        MotifDAlerte.HeartbeatAncien => "Heartbeat ancien",
+        MotifDAlerte.RessourceCritique => "Ressource critique",
+        MotifDAlerte.DonneeTropAncienne => "Donnée trop ancienne",
+        _ => motif.ToString()
+    };
+}

@@ -53,11 +53,22 @@ public sealed class ConnecteurDeServiceWindows : IConnecteurDeSignaux
                 _ => VerdictDeSignal.Defavorable
             };
 
+            // Un service en attente de démarrage ou d'arrêt n'est ni haut ni bas : la
+            // transition est constatée ici, seul endroit où l'information existe.
+            var transition = statut switch
+            {
+                ServiceControllerStatus.StartPending => TransitionObservee.Demarrage,
+                ServiceControllerStatus.ContinuePending => TransitionObservee.Demarrage,
+                ServiceControllerStatus.StopPending => TransitionObservee.Arret,
+                _ => TransitionObservee.Aucune
+            };
+
             return Task.FromResult(new SignalConsolidable(
                 TypesDeControle.ServiceWindows,
                 verdict,
                 $"{service} : {statut}",
-                SuffitSeulAConclure: false));
+                SuffitSeulAConclure: false,
+                transition));
         }
         catch (InvalidOperationException erreur)
         {

@@ -1,4 +1,5 @@
 using N4Sentinel.Domain.Common;
+using N4Sentinel.Domain.Supervision;
 
 namespace N4Sentinel.Domain.Entities;
 
@@ -34,6 +35,15 @@ public class ControlSignal : Entity
 
     /// <summary>Motif d'indisponibilité, affiché tel quel plutôt que masqué derrière une valeur par défaut.</summary>
     public string? MotifIndisponibilite { get; set; }
+
+    /// <summary>Verdict retenu par le connecteur au moment du relevé.</summary>
+    public VerdictDeSignal Verdict { get; set; } = VerdictDeSignal.Indisponible;
+
+    /// <summary>Faux pour un signal qui, isolé, ne prouve rien.</summary>
+    public bool SuffitSeulAConclure { get; set; } = true;
+
+    /// <summary>Transition constatée lors du relevé.</summary>
+    public TransitionObservee Transition { get; set; } = TransitionObservee.Aucune;
 
     public string? ReferenceDeCorrelation { get; set; }
 }

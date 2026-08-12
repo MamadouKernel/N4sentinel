@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using N4Sentinel.Application.Abstractions;
 using N4Sentinel.Application.Habilitations;
+using N4Sentinel.Application.Supervision;
+using Microsoft.Extensions.Hosting;
 using N4Sentinel.Data.Audit;
 using N4Sentinel.Data.Habilitations;
 using N4Sentinel.Application.Connecteurs;
@@ -15,7 +17,8 @@ public static class ServicesDeDonnees
 {
     public static IServiceCollection AjouterLaCoucheDonnees(
         this IServiceCollection services,
-        string chaineDeConnexion)
+        string chaineDeConnexion,
+        OptionsDeCollecte? optionsDeCollecte = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(chaineDeConnexion);
 
@@ -39,6 +42,10 @@ public static class ServicesDeDonnees
         services.AddScoped<IAuditTrail, PisteDAudit>();
         services.AddScoped<IServiceDHabilitations, ServiceDHabilitations>();
         services.AddScoped<ITesteurDeConfiguration, TesteurDeConfiguration>();
+        services.AddScoped<IServiceDeSupervision, ServiceDeSupervision>();
+
+        services.AddSingleton(optionsDeCollecte ?? new OptionsDeCollecte());
+        services.AddHostedService<CollecteurPeriodique>();
 
         return services;
     }
