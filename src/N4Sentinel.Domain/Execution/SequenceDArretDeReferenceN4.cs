@@ -31,6 +31,15 @@ public static class SequenceDArretDeReferenceN4
         [N4ComponentKind.CenterNode] = 6
     };
 
+    /// <summary>
+    /// Rang d'arrêt d'un type, ou <c>null</c> s'il n'est pas contraint par la référence. Exposé
+    /// pour que la génération d'une séquence s'appuie sur la même table que sa vérification :
+    /// deux tables finiraient par diverger, et la séquence générée serait alors refusée par le
+    /// contrôle censé la valider.
+    /// </summary>
+    public static int? RangDe(N4ComponentKind kind) =>
+        Rangs.TryGetValue(kind, out var rang) ? rang : null;
+
     public static VerdictDeSequence EvaluerLOrdre(IReadOnlyList<(int Ordre, N4ComponentKind Kind)> etapes)
     {
         ArgumentNullException.ThrowIfNull(etapes);
