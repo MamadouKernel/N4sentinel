@@ -206,9 +206,11 @@ exactement l'écart qui avait laissé passer le `DefaultIfEmpty` non traduisible
 | Intervention manuelle : étape conclue, preuve masquée | Vérifié |
 | Verrou d'environnement : seconde exécution refusée (FR-015) | Vérifié |
 
-Ces tests ont été éprouvés par mutation : le masquage des secrets retiré du moteur,
-`La_preuve_est_persistee_avec_les_secrets_masques` échoue. Un test vert qui ne rougit jamais ne
-prouve rien.
+Ces tests ont été éprouvés par mutation, aux deux étages. Le masquage des secrets retiré du
+moteur, `La_preuve_est_persistee_avec_les_secrets_masques` échoue. Le garde-fou de confirmation
+neutralisé dans `EngagerAsync`, le test `AC-07` échoue — et lui seul, les 252 autres restant
+verts, ce qui montre au passage que la mutation touchait bien la règle visée et rien d'autre.
+Un test vert qui ne rougit jamais ne prouve rien.
 
 ### Les points d'entrée, traversés par de vraies requêtes
 
@@ -312,12 +314,9 @@ compilateur ni les tests ne voient.
   `confirmer`, `approuver` d'étape, `contournement` et `intervention` ne sont pas encore
   traversés par un test HTTP. Le contrat qu'ils partagent — droit vérifié sur l'environnement
   visé, refus tracé — l'est en revanche sur les cinq autres.
-- **La mutation n'a pas été rejouée sur la couche HTTP.** Elle l'a été sur le moteur. Sur les
-  points d'entrée, les tests ont d'abord échoué puis passé après correction, et ils affirment
-  des URL de redirection exactes ainsi que des motifs d'audit précis, ce qui laisse peu de
-  place à un vert de complaisance — mais l'application tournant sur ce poste verrouillait ses
-  binaires, la vérification par mutation n'a pas pu être refaite.
 - **L'IHM n'a pas été parcourue.** Écrans, formulaires et rendu restent vérifiés par lecture.
+  Ce que le navigateur a confirmé se limite au démarrage, à la feuille de style et au script
+  de rafraîchissement.
 
 ## Sprint suivant
 
