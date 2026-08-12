@@ -1,4 +1,4 @@
-<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+<Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
         @* Les attributs [Authorize] posés sur les pages sont honorés ici comme au niveau du
            point d'entrée : une page protégée le reste quel que soit le mode de rendu. *@
@@ -9,4 +9,10 @@
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(Layout.MainLayout)">
+            <h1>Page introuvable</h1>
+            <p>L'adresse demandée ne correspond à aucun écran de l'application.</p>
+        </LayoutView>
+    </NotFound>
 </Router>

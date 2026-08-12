@@ -6,5 +6,5 @@ namespace N4Sentinel.Domain.Common;
 /// </summary>
 public abstract class Entity
 {
-    public Guid Id { get; protected set; } = Guid.CreateVersion7();
+    public Guid Id { get; protected set; } = IdentifiantSequentiel.Nouveau();
 }

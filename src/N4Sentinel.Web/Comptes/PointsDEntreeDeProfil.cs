@@ -19,9 +19,8 @@ public static class PointsDEntreeDeProfil
     {
         ArgumentNullException.ThrowIfNull(routes);
 
-        // Pas d'AllowAnonymous : la règle de repli s'applique, il faut être connecté pour
-        // modifier son propre second facteur.
-        var groupe = routes.MapGroup("/compte/profil");
+        // Il faut être connecté pour modifier son propre second facteur.
+        var groupe = routes.MapGroup("/compte/profil").RequireAuthorization();
 
         groupe.MapPost("/second-facteur", ChoisirLeCanalAsync);
         groupe.MapPost("/nouvelle-cle", RegenererLaCleAsync);

@@ -55,12 +55,31 @@ inertes. C'est le comportement voulu — c'est l'usage qui crée le couplage.
 
 | Sujet | Choix | Motif |
 |---|---|---|
-| Plateforme | .NET 10 (LTS) | Support long, aligné sur le parc Windows Server CIT |
+| Plateforme | .NET 8 (LTS) | Contrainte d'outillage — voir la note ci-dessous |
 | Interface | Blazor Server | Formulaires, validation et autorisation côté serveur ; pas de couche JavaScript à maintenir sur 25 sprints |
 | Temps réel | SignalR (intégré à Blazor Server) | Le canal existe déjà pour le rendu ; pas de dépendance supplémentaire |
 | Hébergement | Service Windows, sans IIS | Démarrage automatique au boot ; une dépendance de moins à administrer |
 | Publication | Autonome `win-x64` | Le serveur cible n'a pas à disposer d'un runtime installé |
 | Identifiants | GUID v7 | Préfixe horodaté : ordre d'insertion préservé, index peu fragmentés |
+
+### Plateforme : .NET 8, et pourquoi ce n'est pas le choix technique idéal
+
+Le socle a d'abord été construit en **.NET 10**, seule version LTS pleinement supportée au
+moment du Sprint 0. Il a été **rétrogradé en .NET 8 au Sprint 4**, sur décision de la DSI, pour
+une raison d'outillage : Visual Studio 2022 17.14 ne sait pas cibler .NET 10, et refusait donc
+de restaurer les paquets — rendant l'application incompilable dans l'IDE de l'équipe.
+
+La conséquence doit être posée clairement : **le support de .NET 8 s'achève en novembre 2026.**
+Une montée de version sera donc nécessaire, et il vaut mieux la planifier que la subir. Deux
+voies existent :
+
+- mettre à jour l'IDE vers Visual Studio 2026 et remonter en .NET 10 ;
+- rester en .NET 8 jusqu'à sa fin de support, puis migrer dans l'urgence.
+
+La première est recommandée. La rétrogradation a coûté une demi-journée ; la faire dans l'autre
+sens coûtera autant, et le code a été écrit pour que ce soit possible — un seul point d'API est
+concerné, `IdentifiantSequentiel`, qui réimplémente `Guid.CreateVersion7()` absent de .NET 8 et
+porte le commentaire indiquant quoi remplacer.
 
 ### Interface : pourquoi Blazor Server plutôt que la structure de la maquette
 

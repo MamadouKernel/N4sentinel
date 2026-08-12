@@ -25,7 +25,7 @@ jobs:
       - name: Installation du SDK .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '8.0.x'
 
       - name: Tests avant publication
         run: dotnet test N4Sentinel.slnx --configuration Release

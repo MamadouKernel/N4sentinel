@@ -30,9 +30,8 @@ public static class PointsDEntreeDeCompte
         groupe.MapPost("/connexion", ConnexionAsync).AllowAnonymous();
         groupe.MapPost("/double-facteur", DoubleFacteurAsync).AllowAnonymous();
 
-        // La déconnexion, elle, reste soumise à la règle de repli : il n'y a rien à déconnecter
-        // pour un appelant qui n'est pas connecté.
-        groupe.MapPost("/deconnexion", DeconnexionAsync);
+        // Il n'y a rien à déconnecter pour un appelant qui n'est pas connecté.
+        groupe.MapPost("/deconnexion", DeconnexionAsync).RequireAuthorization();
 
         return routes;
     }

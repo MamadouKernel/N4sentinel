@@ -7,12 +7,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    <ResourcePreloader />
-    <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["N4Sentinel.Web.styles.css"]" />
-    @* La carte d'importation est un script en ligne : elle doit porter le jeton de la
-       requête, sinon la politique de contenu la bloque et les modules ne se chargent plus. *@
-    <ImportMap nonce="@Jeton" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="N4Sentinel.Web.styles.css" />
     <HeadOutlet />
 </head>
 
@@ -20,9 +16,15 @@
    couleur, sans le clignotement d'un basculement fait après coup en JavaScript. *@
 <body class="@ClasseDeTheme">
     <Routes />
-    <ReconnectModal />
-    <script src="@Assets["_framework/blazor.web.js"]"></script>
-    <script src="@Assets["js/interface.js"]"></script>
+
+    @* Bandeau de reconnexion du circuit Blazor : le script du cadriciel l'affiche
+       lui-même quand la liaison est perdue. *@
+    <div id="components-reconnect-modal" class="reconnexion">
+        Liaison interrompue avec le serveur. Tentative de reconnexion…
+    </div>
+
+    <script src="_framework/blazor.web.js"></script>
+    <script src="js/interface.js"></script>
 </body>
 
 </html>
@@ -34,7 +36,4 @@
     /// </summary>
     private string? ClasseDeTheme =>
         Accesseur.HttpContext?.Request.Cookies["theme"] == "clair" ? "theme-clair" : null;
-
-    /// <summary>Jeton de la politique de contenu, tiré par requête.</summary>
-    private string? Jeton => Accesseur.HttpContext.JetonDeScript();
 }

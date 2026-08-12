@@ -34,7 +34,11 @@ dotnet test N4Sentinel.slnx
 dotnet run --project src/N4Sentinel.Web
 ```
 
-Prérequis : SDK .NET 10 et SQL Server LocalDB.
+Prérequis : SDK .NET 8 et SQL Server LocalDB.
+
+> La solution ciblait .NET 10 jusqu'au Sprint 4. Elle a été rétrogradée en .NET 8 parce que
+> Visual Studio 2022 17.14 ne sait pas cibler .NET 10. **Le support de .NET 8 s'achève en
+> novembre 2026** : voir la note « Plateforme » du dossier d'architecture.
 
 Avant le premier démarrage, poser le compte d'amorçage — il n'est jamais versionné (SEC-003) :
 

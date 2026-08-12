@@ -77,13 +77,14 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
-// SEC-002 — une politique par droit élémentaire, plus une règle de repli : toute page qui ne
-// dit rien exige d'être authentifié. L'oubli d'un attribut ne peut donc pas ouvrir un écran.
+// SEC-002 — une politique par droit élémentaire.
+//
+// Pas de règle de repli globale : elle s'appliquerait aussi aux requêtes sans point d'entrée,
+// et renverrait vers la page de connexion le script du cadriciel Blazor lui-même, cassant
+// l'interactivité. L'exigence d'authentification est posée explicitement sur les pages et sur
+// les groupes de points d'entrée, juste en dessous.
 builder.Services.AddAuthorizationBuilder()
-    .AjouterLesPolitiquesDeDroits()
-    .SetFallbackPolicy(new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build());
+    .AjouterLesPolitiquesDeDroits();
 
 // SEC-001 — assouplissements réservés au développement, refusés ailleurs.
 var optionsDAuthentification = new OptionsDAuthentification();
@@ -152,20 +153,25 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseHttpsRedirection();
 app.UseSecurityHeaders();
+
+// Les ressources statiques sont servies avant l'autorisation. L'ordre n'est pas cosmétique :
+// la règle de repli s'applique aussi aux requêtes qui ne correspondent à aucun point d'entrée,
+// et renverrait donc la feuille de style de la page de connexion vers… la page de connexion.
+app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-// Les ressources statiques précèdent l'authentification : la page de connexion doit pouvoir
-// charger sa feuille de style avant que quiconque soit authentifié.
-app.MapStaticAssets().AllowAnonymous();
-
+// Toute page exige une authentification, sauf celles portant [AllowAnonymous] — connexion,
+// second facteur, accès refusé, page introuvable. L'oubli d'un attribut ne peut donc pas
+// ouvrir un écran.
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .RequireAuthorization();
 
 app.MapperLesPointsDEntreeDeCompte();
 app.MapperLesPointsDEntreeDeProfil();
