@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
@@ -30,6 +31,7 @@
     <ProjectReference Include="..\..\src\N4Sentinel.Application\N4Sentinel.Application.csproj" />
     <ProjectReference Include="..\..\src\N4Sentinel.Data\N4Sentinel.Data.csproj" />
     <ProjectReference Include="..\..\src\N4Sentinel.Orchestration\N4Sentinel.Orchestration.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Web\N4Sentinel.Web.csproj" />
   </ItemGroup>
 
 </Project>

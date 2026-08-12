@@ -172,11 +172,16 @@ Les intitulés reprennent le plan de sprints ; le cahier des charges fait foi.
 | AC-05 | Arrêt complet piloté d'un environnement UAT | **Non vérifiable** — pas d'UAT |
 | AC-13 | Volet d'aide à la décision sur étape lente ou bloquée | Fait |
 | AC-17 | Aucune escalade automatique : confirmation et autorisation exigées | Fait |
+| AC-07 | Action Production non approuvée : impossible et auditée | Fait — échue du Sprint 1 |
+
+`AC-07` ne figurait au périmètre d'aucun sprint. Le Sprint 1 l'avait notée « le scénario complet
+sera rejouable quand les opérations existeront (S7) », et personne ne l'a reprise à l'échéance.
+Elle est traitée ici.
 
 ## Vérification
 
-Suite automatisée : **246 tests, 0 échec** (212 domaine, 17 connecteurs, 10 application,
-7 architecture) — 188 au terme du Sprint 6, soit 58 ajoutés. Ils couvrent `SequenceDArretDeReferenceN4` (ordre conforme, Center Node avant
+Suite automatisée : **253 tests, 0 échec** (212 domaine, 17 connecteurs, 17 application,
+7 architecture) — 188 au terme du Sprint 6, soit 65 ajoutés. Ils couvrent `SequenceDArretDeReferenceN4` (ordre conforme, Center Node avant
 Cluster Nodes refusé, types hors catalogue non contraints), `EvaluationDeCommande` (aucun
 résultat brut ne conclut directement ; état non établi bloque ; cible déjà dans l'état visé),
 `PolitiqueDeLancement`, `PolitiqueDEscalade` (avant délai, au délai, après délai, étape jamais
@@ -205,11 +210,38 @@ Ces tests ont été éprouvés par mutation : le masquage des secrets retiré du
 `La_preuve_est_persistee_avec_les_secrets_masques` échoue. Un test vert qui ne rougit jamais ne
 prouve rien.
 
-> **Ce que ce parcours ne couvre pas.** Il exerce le moteur et sa persistance, pas la couche
-> HTTP : les points d'entrée du Sprint 7 — `engager`, `avancer`, `forcer`, `contournement`,
-> `intervention` — n'ont été traversés ni par un navigateur ni par un test. Les contrôles
-> d'habilitation par environnement et la séparation demandeur/approbateur qu'ils portent
-> restent donc vérifiés par lecture, pas par exécution. `AC-07` en fait partie (voir plus bas).
+### Les points d'entrée, traversés par de vraies requêtes
+
+Les règles portées par les handlers ne vivent ni dans le domaine ni dans le moteur : elles se
+tiennent entre l'autorisation ASP.NET et l'appel au moteur, qui enregistre une décision déjà
+autorisée. Un second jeu de tests monte donc l'application entière en mémoire — pipeline,
+autorisation et antiforgery compris — sur une base dédiée.
+
+L'authentification y est remplacée par un schéma de test qui désigne l'acteur par un en-tête et
+résout ses rôles globaux en base, exactement comme le fait le cookie réel. Rien d'autre ne
+change : le mot de passe n'a aucun rôle dans ce qui est vérifié, et l'ouverture de session est
+déjà couverte par le parcours du Sprint 1.
+
+| Ce que les points d'entrée vérifient | Résultat |
+|---|---|
+| **AC-07** — en Production, une opération non approuvée ne s'engage pas, et le refus est tracé | Vérifié |
+| Engagement sans habilitation sur l'environnement : refusé et tracé (SEC-004) | Vérifié |
+| Engagement habilité et confirmé : accepté, exécution `EnCours` | Vérifié |
+| Soumission sans case cochée : refusée, `ConfirmeeLe` reste nul, refus tracé (FR-011) | Vérifié |
+| Soumission confirmée : horodatée, circuit ouvert | Vérifié |
+| Le demandeur ne peut pas approuver sa propre opération, aucune approbation écrite (§2.3.2) | Vérifié |
+| Arrêt forcé avec le seul droit d'exécution ordinaire : refusé et tracé | Vérifié |
+
+Chaque refus est vérifié deux fois — l'action n'a pas eu lieu **et** elle a été tracée. Un refus
+non tracé ne vaut pas refus (SEC-008). Deux cas passants encadrent les refus : sans eux, ces
+tests passeraient encore si le point d'entrée refusait tout le monde.
+
+Le premier jet de ces sept tests échouait tous de la même façon, sur un 400 émis par Blazor —
+« The POST request does not specify which form is being submitted ». Le message désignait mal sa
+cause : la politique du groupe refusait la requête faute de rôle global sur le principal de
+test, et `UseStatusCodePagesWithReExecute("/not-found")` ré-exécutait alors le POST sur une page
+de composant, qui protestait à son tour. Le symptôme parlait de formulaire, la cause était une
+autorisation.
 
 Application lancée, environnement de développement, base LocalDB :
 
@@ -276,15 +308,16 @@ compilateur ni les tests ne voient.
   transporte aucun secret.
 - **`ForcerLArretAsync` ne couvre que l'arrêt de service Windows.** Les autres actions n'ont pas
   de variante forcée au catalogue, et la demande est refusée explicitement plutôt que ignorée.
-- **La couche HTTP n'est couverte par aucun test.** Les points d'entrée portent les contrôles
-  d'habilitation par environnement (SEC-004) et la séparation des responsabilités ; ils ne sont
-  aujourd'hui vérifiables qu'en parcourant l'application authentifié. Les couvrir demanderait
-  un hôte de test ASP.NET Core, non introduit ici.
-- **`AC-07` reste dû.** L'exigence du Sprint 1 — « action Production non approuvée : impossible
-  et auditée » — était explicitement reportée à ce sprint, au motif que « le scénario complet
-  sera rejouable quand les opérations existeront (S7) ». Les opérations existent ; le scénario
-  n'a pas été rejoué et ne figurait dans aucune table d'exigences de ce sprint. Il relève de la
-  couche HTTP ci-dessus.
+- **Sept points d'entrée sur douze sont couverts.** `preparer`, `refuser`, `avancer`,
+  `confirmer`, `approuver` d'étape, `contournement` et `intervention` ne sont pas encore
+  traversés par un test HTTP. Le contrat qu'ils partagent — droit vérifié sur l'environnement
+  visé, refus tracé — l'est en revanche sur les cinq autres.
+- **La mutation n'a pas été rejouée sur la couche HTTP.** Elle l'a été sur le moteur. Sur les
+  points d'entrée, les tests ont d'abord échoué puis passé après correction, et ils affirment
+  des URL de redirection exactes ainsi que des motifs d'audit précis, ce qui laisse peu de
+  place à un vert de complaisance — mais l'application tournant sur ce poste verrouillait ses
+  binaires, la vérification par mutation n'a pas pu être refaite.
+- **L'IHM n'a pas été parcourue.** Écrans, formulaires et rendu restent vérifiés par lecture.
 
 ## Sprint suivant
 
