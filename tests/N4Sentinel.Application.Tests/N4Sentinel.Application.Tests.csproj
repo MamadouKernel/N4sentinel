@@ -19,8 +19,17 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!--
+    Ces tests exercent le moteur contre une vraie base SQL Server LocalDB, migrations
+    appliquées : c'est la seule façon d'attraper ce qui ne se voit ni à la compilation ni en
+    test de domaine — requête non traduisible par EF Core, ajout confondu avec une
+    modification, valeur persistée différente de la valeur calculée. Trois des quatre défauts
+    du Sprint 6 étaient exactement de cette nature.
+  -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\N4Sentinel.Application\N4Sentinel.Application.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Data\N4Sentinel.Data.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Orchestration\N4Sentinel.Orchestration.csproj" />
   </ItemGroup>
 
 </Project>

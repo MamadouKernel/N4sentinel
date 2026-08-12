@@ -33,6 +33,12 @@ secrets dans les preuves (S7).
 > poste de développement ; **aucune commande n'a été émise vers un composant N4 réel**. Le
 > Sprint 8 dépend de cette démonstration.
 
+Le parcours d'exécution est joué à chaque génération contre une vraie base SQL Server LocalDB
+(`tests/N4Sentinel.Application.Tests`) : commande évitée sur un composant déjà arrêté, effet
+relu avant de conclure, arrêt forcé refusé avant délai, secrets masqués à la persistance,
+verrou d'environnement. La couche HTTP, elle, n'est couverte par aucun test — voir les limites
+du [Sprint 7](docs/scrum/sprints/sprint-7.md).
+
 Le plan complet — 25 sprints, 4 lots, 148 exigences — est dans
 [`docs/plan-de-sprints.html`](docs/plan-de-sprints.html).
 

@@ -1378,3 +1378,118 @@ body.theme-clair .noeud-texte-titre {
 .texte-appuye {
     font-weight: 600;
 }
+
+/* — ADAPTABILITÉ RESPONSIVE HAUTE PERFORMANCE (MOBILE, TABLETTE, NOC CONSOLE) — */
+
+@media (max-width: 1024px) {
+    .bandeau {
+        padding: 10px 16px;
+        gap: 12px;
+    }
+
+    .bandeau-nav {
+        overflow-x: auto;
+        max-width: 100%;
+        padding: 3px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .bandeau-nav a {
+        padding: 6px 10px;
+        font-size: 12.5px;
+        white-space: nowrap;
+    }
+
+    .contenu {
+        padding: 20px 16px;
+    }
+
+    .grille-cartes {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+    }
+
+    .diagramme-navis-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .legende {
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .bandeau {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 12px 14px;
+    }
+
+    .bandeau-droite {
+        justify-content: space-between;
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .selecteur-environnement-wrapper {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .en-tete-page {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .carte {
+        padding: 16px;
+    }
+
+    .carte-valeur {
+        font-size: 22px;
+    }
+
+    .page-auth {
+        padding: 20px 12px;
+    }
+
+    .carte-auth {
+        padding: 24px 18px;
+        border-radius: 14px;
+    }
+
+    .barre-theme {
+        top: 12px;
+        right: 14px;
+    }
+
+    .stepper-container {
+        padding: 10px 0;
+    }
+
+    .stepper-item {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .grille-cartes {
+        grid-template-columns: 1fr;
+    }
+
+    .bandeau-titre {
+        font-size: 15px;
+    }
+
+    .en-tete-page h1 {
+        font-size: 19px;
+    }
+}
+

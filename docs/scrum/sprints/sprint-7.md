@@ -175,16 +175,41 @@ Les intitulés reprennent le plan de sprints ; le cahier des charges fait foi.
 
 ## Vérification
 
-Suite automatisée : **236 tests, 0 échec** (212 domaine, 17 connecteurs, 7 architecture) —
-188 au terme du Sprint 6, soit 48 ajoutés. Ils couvrent `SequenceDArretDeReferenceN4` (ordre conforme, Center Node avant
+Suite automatisée : **246 tests, 0 échec** (212 domaine, 17 connecteurs, 10 application,
+7 architecture) — 188 au terme du Sprint 6, soit 58 ajoutés. Ils couvrent `SequenceDArretDeReferenceN4` (ordre conforme, Center Node avant
 Cluster Nodes refusé, types hors catalogue non contraints), `EvaluationDeCommande` (aucun
 résultat brut ne conclut directement ; état non établi bloque ; cible déjà dans l'état visé),
 `PolitiqueDeLancement`, `PolitiqueDEscalade` (avant délai, au délai, après délai, étape jamais
 lancée, timeout absent ou négatif), `MasquageDesSecrets` et le connecteur de commande de
 processus.
 
-Le projet `N4Sentinel.Application.Tests` reste vide : la logique testable est en domaine, les
-points d'entrée sont vérifiés par le parcours réel.
+`N4Sentinel.Application.Tests`, resté vide depuis le Sprint 0, porte désormais le **parcours
+d'exécution joué contre une vraie base SQL Server LocalDB**, migrations appliquées, base créée
+et supprimée par test. Une base réelle et non un double en mémoire : le fournisseur en mémoire
+accepte des requêtes que SQL Server refuse et ignore les contraintes de colonnes — c'est
+exactement l'écart qui avait laissé passer le `DefaultIfEmpty` non traduisible du Sprint 6.
+
+| Ce que le parcours vérifie | Résultat |
+|---|---|
+| Composant déjà arrêté : aucune commande émise, étape `Ignore` | Vérifié |
+| Composant opérationnel : commande émise, étape conclue sur l'état **relu** | Vérifié |
+| État réel non conforme à l'état visé : l'exécution échoue | Vérifié |
+| Preuve persistée en base, secret masqué, reste du diagnostic lisible | Vérifié |
+| Arrêt forcé refusé à 30 s d'un délai de 120 s, accepté à 130 s | Vérifié |
+| Étape à confirmation : rien n'est émis avant la décision, tout l'est après | Vérifié |
+| Contournement refusé si non déclaré, accepté et étape ignorée si déclaré | Vérifié |
+| Intervention manuelle : étape conclue, preuve masquée | Vérifié |
+| Verrou d'environnement : seconde exécution refusée (FR-015) | Vérifié |
+
+Ces tests ont été éprouvés par mutation : le masquage des secrets retiré du moteur,
+`La_preuve_est_persistee_avec_les_secrets_masques` échoue. Un test vert qui ne rougit jamais ne
+prouve rien.
+
+> **Ce que ce parcours ne couvre pas.** Il exerce le moteur et sa persistance, pas la couche
+> HTTP : les points d'entrée du Sprint 7 — `engager`, `avancer`, `forcer`, `contournement`,
+> `intervention` — n'ont été traversés ni par un navigateur ni par un test. Les contrôles
+> d'habilitation par environnement et la séparation demandeur/approbateur qu'ils portent
+> restent donc vérifiés par lecture, pas par exécution. `AC-07` en fait partie (voir plus bas).
 
 Application lancée, environnement de développement, base LocalDB :
 
@@ -196,10 +221,10 @@ Application lancée, environnement de développement, base LocalDB :
 | Classes de remplacement effectivement appliquées | `margin-top: 24px`, `text-align: center`, `#f59e0b` relus par `getComputedStyle` |
 | `js/interface.js` chargé sous la politique de contenu | Oui, fonctions de bascule et de rafraîchissement présentes |
 
-> **Le parcours opérationnel — préparer, approuver, engager, franchir les étapes — n'a pas
-> encore été rejoué**, faute d'une session authentifiée. Tant qu'il ne l'est pas, ce sprint
-> reste non vérifié sur sa partie métier, quel que soit le nombre de tests au vert : quatre
-> défauts du seul Sprint 6 n'étaient visibles ni à la compilation ni dans la suite automatisée.
+Le parcours métier lui-même n'a pas été rejoué depuis un navigateur, faute de session
+authentifiée. Il est en revanche couvert de bout en bout par les tests d'intégration décrits
+ci-dessous, qui exercent le moteur contre une vraie base — une couverture rejouable à chaque
+génération, là où un clic manuel ne vaut que le jour où il est fait.
 
 ## Défauts trouvés par la vérification en conditions réelles
 
@@ -251,6 +276,15 @@ compilateur ni les tests ne voient.
   transporte aucun secret.
 - **`ForcerLArretAsync` ne couvre que l'arrêt de service Windows.** Les autres actions n'ont pas
   de variante forcée au catalogue, et la demande est refusée explicitement plutôt que ignorée.
+- **La couche HTTP n'est couverte par aucun test.** Les points d'entrée portent les contrôles
+  d'habilitation par environnement (SEC-004) et la séparation des responsabilités ; ils ne sont
+  aujourd'hui vérifiables qu'en parcourant l'application authentifié. Les couvrir demanderait
+  un hôte de test ASP.NET Core, non introduit ici.
+- **`AC-07` reste dû.** L'exigence du Sprint 1 — « action Production non approuvée : impossible
+  et auditée » — était explicitement reportée à ce sprint, au motif que « le scénario complet
+  sera rejouable quand les opérations existeront (S7) ». Les opérations existent ; le scénario
+  n'a pas été rejoué et ne figurait dans aucune table d'exigences de ce sprint. Il relève de la
+  couche HTTP ci-dessus.
 
 ## Sprint suivant
 
