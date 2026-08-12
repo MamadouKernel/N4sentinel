@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\N4Sentinel.Domain\N4Sentinel.Domain.csproj" />
@@ -23,6 +23,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <UserSecretsId>aabb8240-e12a-4e57-9033-488b61b19837</UserSecretsId>
   </PropertyGroup>
 
 </Project>
