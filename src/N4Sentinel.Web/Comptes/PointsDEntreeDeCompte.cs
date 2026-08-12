@@ -5,6 +5,7 @@ using N4Sentinel.Application.Audit;
 using N4Sentinel.Data.Identite;
 using N4Sentinel.Domain.Common;
 using N4Sentinel.Domain.Entities;
+using N4Sentinel.Web.Securite;
 
 namespace N4Sentinel.Web.Comptes;
 
@@ -43,7 +44,8 @@ public static class PointsDEntreeDeCompte
         SignInManager<UtilisateurApplicatif> connexions,
         UserManager<UtilisateurApplicatif> utilisateurs,
         IEnvoiDeCourriel courriel,
-        IAuditTrail piste)
+        IAuditTrail piste,
+        OptionsDAuthentification options)
     {
         var adresseIp = contexte.Connection.RemoteIpAddress?.ToString();
         var identifiantSaisi = email?.Trim() ?? string.Empty;
@@ -57,6 +59,21 @@ public static class PointsDEntreeDeCompte
         if (resultat.RequiresTwoFactor)
         {
             var utilisateur = await connexions.GetTwoFactorAuthenticationUserAsync();
+
+            // Écart de développement (SEC-001). Le compte garde son second facteur activé :
+            // seule l'étape est court-circuitée, et la connexion est tracée comme telle.
+            if (options.SecondFacteurDesactive && utilisateur is not null)
+            {
+                await connexions.SignInAsync(utilisateur, isPersistent: false);
+                await MarquerLaConnexionAsync(identifiantSaisi, utilisateurs);
+
+                await TracerAsync(piste, identifiantSaisi, ActionsAuditees.SecondFacteurContourne,
+                    adresseIp, autorisee: true, utilisateur.Id,
+                    "Contournement de développement : Authentification:SecondFacteurDesactive.");
+
+                return Results.Redirect("/");
+            }
+
             if (utilisateur is not null)
             {
                 // Le canal dépend du choix de l'utilisateur. Avec une application
@@ -217,7 +234,10 @@ public static class PointsDEntreeDeCompte
             IdentifiantDObjet = identifiantDObjet,
             AdresseIp = adresseIp,
             Autorisee = autorisee,
-            MotifDeRefus = motif,
+            // Le motif d'une action autorisée n'est pas un motif de refus : il documente
+            // la circonstance, et se lit donc dans la valeur après plutôt qu'à côté.
+            MotifDeRefus = autorisee ? null : motif,
+            ValeurApres = autorisee ? motif : null,
             Origine = AuditOrigin.InterfaceWeb
         });
 }

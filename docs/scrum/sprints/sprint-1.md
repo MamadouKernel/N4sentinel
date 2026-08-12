@@ -145,6 +145,40 @@ Parcours vérifié sur l'application réellement lancée, requête par requête 
 La dernière ligne est la démonstration de SEC-004 : le même compte, le même instant, deux
 environnements, deux jeux de droits.
 
+### Thème clair ou sombre, au choix
+
+Bascule disponible sur tous les écrans, y compris avant connexion. Le choix est retenu dans un
+cookie et **appliqué au rendu côté serveur** : la page arrive dans la bonne couleur, sans le
+clignotement d'un basculement fait après coup en JavaScript.
+
+Les valeurs du thème clair sont celles de `body.theme-light` dans la maquette de référence.
+Un jeton supplémentaire — la couleur du texte posé sur un aplat primaire — a dû être introduit :
+sans lui, le libellé des boutons devenait illisible en clair.
+
+## Écart assumé — second facteur désactivé en développement
+
+Demandé par la DSI en cours de sprint. `Authentification:SecondFacteurDesactive` court-circuite
+l'étape de second facteur. C'est un écart à SEC-001, qui classe le MFA en « Must » : il est
+documenté ici comme tel, et non présenté comme une fonctionnalité.
+
+Trois garanties l'encadrent :
+
+1. **L'application refuse de démarrer** si le réglage est actif hors développement — une
+   exception au démarrage, pas un avertissement au journal : personne ne lit les journaux de
+   démarrage d'un service Windows.
+2. **Chaque connexion ainsi obtenue est tracée** sous « Second facteur contourné
+   (développement) », jamais sous « Connexion réussie ». Le journal ne ment pas sur ce qui s'est
+   réellement passé.
+3. **La mécanique n'est pas retirée**, seulement court-circuitée. Les comptes gardent
+   `TwoFactorEnabled` à vrai ; repasser le réglage à false rétablit le parcours complet sans
+   redéploiement de code.
+
+L'écran de connexion l'annonce lui aussi : quand le contournement est actif, il n'affiche plus
+la promesse d'un code à recevoir.
+
+Vérifié : démarrage refusé en Production avec ce réglage (`InvalidOperationException` citant
+SEC-001), connexion directe en développement, entrée de contournement présente au journal.
+
 ## Écarts et limites
 
 - **Aucun relais SMTP n'est configuré en développement** : les codes sont écrits dans

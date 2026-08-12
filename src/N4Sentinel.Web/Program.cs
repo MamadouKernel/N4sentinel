@@ -76,6 +76,12 @@ builder.Services.AddAuthorizationBuilder()
         .RequireAuthenticatedUser()
         .Build());
 
+// SEC-001 — assouplissements réservés au développement, refusés ailleurs.
+var optionsDAuthentification = new OptionsDAuthentification();
+builder.Configuration.GetSection(OptionsDAuthentification.Section).Bind(optionsDAuthentification);
+optionsDAuthentification.Verifier(builder.Environment);
+builder.Services.AddSingleton(optionsDAuthentification);
+
 builder.Services.AddScoped<IUtilisateurCourant, UtilisateurCourant>();
 builder.Services.AddSingleton<ISecretResolver, CoffreDeConfiguration>();
 
@@ -154,6 +160,7 @@ app.MapRazorComponents<App>()
 
 app.MapperLesPointsDEntreeDeCompte();
 app.MapperLesPointsDEntreeDeProfil();
+app.MapperLePointDEntreeDeTheme();
 app.MapperLesPointsDEntreeDAdministration();
 
 // Sonde de disponibilité pour la supervision et le déploiement automatisé. Volontairement

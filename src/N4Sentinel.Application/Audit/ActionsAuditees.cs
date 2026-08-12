@@ -10,6 +10,7 @@ public static class ActionsAuditees
     public const string ConnexionRefusee = "Connexion refusée";
     public const string CompteVerrouille = "Compte verrouillé";
     public const string SecondFacteurDemande = "Second facteur demandé";
+    public const string SecondFacteurContourne = "Second facteur contourné (développement)";
     public const string SecondFacteurRefuse = "Second facteur refusé";
     public const string Deconnexion = "Déconnexion";
     public const string MethodeDeSecondFacteurModifiee = "Méthode de second facteur modifiée";

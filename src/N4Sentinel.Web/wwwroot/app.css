@@ -24,8 +24,30 @@
     --texte-attenue: #94a3b8;
     --texte-efface: #64748b;
 
+    /* Couleur du texte posé sur un aplat primaire : elle suit le thème, sinon le
+       contraste s'inverse en clair et le libellé des boutons devient illisible. */
+    --texte-sur-primaire: #041020;
+
     --police: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --police-mono: "Cascadia Mono", Consolas, "Courier New", monospace;
+}
+
+/* Thème clair — valeurs reprises de body.theme-light dans la maquette de référence. */
+body.theme-clair {
+    --fond: #f1f5f9;
+    --fond-carte: #ffffff;
+    --fond-carte-survol: #f8fafc;
+    --bordure: #cbd5e1;
+    --bordure-accentuee: #94a3b8;
+
+    --primaire: #0284c7;
+    --primaire-halo: rgba(2, 132, 199, 0.15);
+
+    --texte: #0f172a;
+    --texte-attenue: #475569;
+    --texte-efface: #64748b;
+
+    --texte-sur-primaire: #ffffff;
 }
 
 * {
@@ -38,6 +60,18 @@ body {
     color: var(--texte);
     font-family: var(--police);
     min-height: 100vh;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Bascule de thème sur les écrans sans bandeau — connexion, second facteur. */
+.barre-theme {
+    display: flex;
+    justify-content: flex-end;
+    padding: 18px 24px 0;
+}
+
+.selecteur-theme {
+    margin: 0;
 }
 
 h1:focus {
@@ -47,7 +81,8 @@ h1:focus {
 /* — Écrans d'authentification — */
 
 .page-auth {
-    min-height: 100vh;
+    /* La barre de thème occupe le haut : la carte reste centrée sur ce qu'il reste. */
+    min-height: calc(100vh - 64px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -113,7 +148,7 @@ h1:focus {
 .formulaire button {
     margin-top: 24px;
     background-color: var(--primaire);
-    color: #041020;
+    color: var(--texte-sur-primaire);
     border: none;
     border-radius: 8px;
     padding: 12px;

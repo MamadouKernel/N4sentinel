@@ -1,0 +1,32 @@
+@inject IHttpContextAccessor Accesseur
+
+@* Un formulaire plutôt qu'un bouton JavaScript : le choix doit survivre au rechargement,
+   et la politique de contenu n'autorise aucun script hors de l'application. *@
+<form method="post" action="/theme" class="selecteur-theme">
+    <AntiforgeryToken />
+    <input type="hidden" name="theme" value="@ThemeOppose" />
+    <input type="hidden" name="retour" value="@CheminCourant" />
+    <button type="submit" class="bouton-discret" title="@Infobulle">@Libelle</button>
+</form>
+
+@code {
+    private bool EstClair =>
+        Accesseur.HttpContext?.Request.Cookies["theme"] == "clair";
+
+    private string ThemeOppose => EstClair ? "sombre" : "clair";
+
+    private string Libelle => EstClair ? "Thème sombre" : "Thème clair";
+
+    private string Infobulle => EstClair
+        ? "Basculer vers le thème sombre"
+        : "Basculer vers le thème clair";
+
+    private string CheminCourant
+    {
+        get
+        {
+            var requete = Accesseur.HttpContext?.Request;
+            return requete is null ? "/" : $"{requete.Path}{requete.QueryString}";
+        }
+    }
+}

@@ -1,7 +1,9 @@
 @page "/compte/connexion"
 @using Microsoft.AspNetCore.Authorization
+@using N4Sentinel.Web.Securite
 @attribute [AllowAnonymous]
 @layout Components.Layout.MiseEnPageDAuthentification
+@inject OptionsDAuthentification Options
 
 <PageTitle>Connexion — N4 Sentinel</PageTitle>
 
@@ -29,8 +31,21 @@
     </form>
 
     <p class="mention">
-        Un code à usage unique vous sera envoyé par courriel pour valider la connexion.
-        Toute tentative, réussie ou non, est enregistrée dans le journal d'audit.
+        @if (Options.SecondFacteurDesactive)
+        {
+            @* Annoncer un second facteur qui n'aura pas lieu ferait mentir l'écran. *@
+            <text>
+                Second facteur désactivé sur cet environnement de développement.
+                Toute tentative, réussie ou non, est enregistrée dans le journal d'audit.
+            </text>
+        }
+        else
+        {
+            <text>
+                Un code à usage unique vous sera envoyé pour valider la connexion.
+                Toute tentative, réussie ou non, est enregistrée dans le journal d'audit.
+            </text>
+        }
     </p>
 </div>
 

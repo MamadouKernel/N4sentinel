@@ -1,5 +1,6 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+@inject IHttpContextAccessor Accesseur
+<!DOCTYPE html>
+<html lang="fr">
 
 <head>
     <meta charset="utf-8" />
@@ -12,10 +13,21 @@
     <HeadOutlet />
 </head>
 
-<body>
+@* Le thème est appliqué côté serveur, au rendu : la page arrive déjà dans la bonne
+   couleur, sans le clignotement d'un basculement fait après coup en JavaScript. *@
+<body class="@ClasseDeTheme">
     <Routes />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
 </html>
+
+@code {
+    /// <summary>
+    /// Thème retenu, lu dans un cookie. Le sombre est le défaut — c'est celui de la maquette
+    /// validée, et celui d'un écran de supervision consulté en salle technique.
+    /// </summary>
+    private string? ClasseDeTheme =>
+        Accesseur.HttpContext?.Request.Cookies["theme"] == "clair" ? "theme-clair" : null;
+}
