@@ -155,6 +155,31 @@ Les valeurs du thème clair sont celles de `body.theme-light` dans la maquette d
 Un jeton supplémentaire — la couleur du texte posé sur un aplat primaire — a dû être introduit :
 sans lui, le libellé des boutons devenait illisible en clair.
 
+La bascule est un bouton d'icône — soleil ou lune selon le thème proposé —, avec `aria-label`
+et infobulle : une icône sans nom accessible n'est pas un contrôle utilisable.
+
+### Affichage du mot de passe saisi
+
+Une icône d'œil dans le champ de mot de passe bascule l'affichage de la saisie. Le champ reste
+masqué par défaut : c'est l'utilisateur qui décide de montrer, jamais l'inverse.
+
+Les icônes sont des SVG intégrés et le comportement vit dans un fichier servi par l'application
+(`wwwroot/js/interface.js`). Ni police d'icônes externe, ni gestionnaire `onclick` en ligne :
+la première serait injoignable sur un réseau isolé, le second est bloqué par la politique de
+contenu. Les écouteurs sont reposés après une navigation améliorée de Blazor, sinon la bascule
+cesserait de répondre dès la deuxième page visitée.
+
+### Défaut corrigé — politique de contenu contre carte d'importation
+
+La politique posée au Sprint 0 (`script-src 'self'`) bloquait la carte d'importation que Blazor
+émet en ligne : les modules JavaScript du cadriciel ne se chargeaient plus. Le défaut existait
+depuis le Sprint 0 et n'avait pas été vu, faute d'avoir regardé la console du navigateur.
+
+Corrigé par un jeton aléatoire tiré à chaque réponse, présent dans l'en-tête et porté par la
+carte d'importation. Ouvrir la politique à `'unsafe-inline'` aurait été plus simple et aurait
+autorisé, du même coup, tout script injecté. Vérifié : aucune erreur de console sur un onglet
+neuf.
+
 ## Écart assumé — second facteur désactivé en développement
 
 Demandé par la DSI en cours de sprint. `Authentification:SecondFacteurDesactive` court-circuite

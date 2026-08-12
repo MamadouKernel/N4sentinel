@@ -1,3 +1,4 @@
+@using N4Sentinel.Web.Securite
 @inject IHttpContextAccessor Accesseur
 <!DOCTYPE html>
 <html lang="fr">
@@ -9,7 +10,9 @@
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["N4Sentinel.Web.styles.css"]" />
-    <ImportMap />
+    @* La carte d'importation est un script en ligne : elle doit porter le jeton de la
+       requête, sinon la politique de contenu la bloque et les modules ne se chargent plus. *@
+    <ImportMap nonce="@Jeton" />
     <HeadOutlet />
 </head>
 
@@ -19,6 +22,7 @@
     <Routes />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="@Assets["js/interface.js"]"></script>
 </body>
 
 </html>
@@ -30,4 +34,7 @@
     /// </summary>
     private string? ClasseDeTheme =>
         Accesseur.HttpContext?.Request.Cookies["theme"] == "clair" ? "theme-clair" : null;
+
+    /// <summary>Jeton de la politique de contenu, tiré par requête.</summary>
+    private string? Jeton => Accesseur.HttpContext.JetonDeScript();
 }
