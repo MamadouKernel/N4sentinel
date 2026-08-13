@@ -84,11 +84,20 @@ internal sealed class ActeurDeTest(string nom) : IUtilisateurCourant
 /// </summary>
 internal sealed class SupervisionSimulee : IServiceDeSupervision
 {
-    private readonly Dictionary<Guid, EtatDeSupervision> etats = [];
+    private readonly Dictionary<Guid, (EtatDeSupervision Etat, N4ComponentKind Kind)> etats = [];
 
     public int NombreDeCollectes { get; private set; }
 
-    public void Poser(Guid composantId, EtatDeSupervision etat) => etats[composantId] = etat;
+    /// <summary>
+    /// Le type du composant fait partie de ce que la supervision rapporte, et certaines règles
+    /// s'en servent — le prérequis de XPS cherche un Bridge par son type. Le forcer à une valeur
+    /// unique ferait passer des tests de blocage pour la mauvaise raison.
+    /// </summary>
+    public void Poser(
+        Guid composantId,
+        EtatDeSupervision etat,
+        N4ComponentKind kind = N4ComponentKind.CenterNode) =>
+        etats[composantId] = (etat, kind);
 
     public Task<CartographieDeSupervision?> LireAsync(
         Guid environnementId,
@@ -98,11 +107,11 @@ internal sealed class SupervisionSimulee : IServiceDeSupervision
             .Select(paire => new LigneDeSupervision(
                 paire.Key,
                 $"Composant {paire.Key:N}",
-                N4ComponentKind.CenterNode,
+                paire.Value.Kind,
                 Criticality.Haute,
                 ModeDePilotage.Pilotable,
                 ValidationStatus.Actif,
-                new EtatDeSupervisionDuComposant(paire.Value, "État posé par le test", null, []),
+                new EtatDeSupervisionDuComposant(paire.Value.Etat, "État posé par le test", null, []),
                 [],
                 []))
             .ToList();
@@ -244,5 +253,106 @@ internal static class Semis
         await contexte.SaveChangesAsync(jeton);
 
         return new ScenarioSeme(environnement.Id, composant.Id, execution.Id, etape.Id);
+    }
+
+    /// <summary>
+    /// Sème un démarrage de XPS, avec le Bridge dont il dépend. Deux composants distincts sur
+    /// le même hôte : c'est la topologie réelle, et elle ne doit pas les confondre.
+    /// </summary>
+    public static async Task<(Guid EnvironnementId, Guid XpsId, Guid BridgeId, Guid ExecutionId, Guid EtapeId)>
+        SemerUnDemarrageDeXpsAsync(ApplicationDbContext contexte, CancellationToken jeton)
+    {
+        ArgumentNullException.ThrowIfNull(contexte);
+
+        var environnement = new N4Environment
+        {
+            Nom = "UAT-" + Guid.NewGuid().ToString("N")[..8],
+            Type = EnvironmentType.Uat
+        };
+
+        var bridge = new N4Component
+        {
+            EnvironmentId = environnement.Id,
+            Nom = "XPS Bridge Daemon",
+            Role = "Bridge",
+            Serveur = "N4XPSBRIDGE01",
+            Kind = N4ComponentKind.BridgeDaemon,
+            NomDuService = "Navis XPS Bridge Daemon",
+            ModeDePilotage = ModeDePilotage.Pilotable,
+            Statut = ValidationStatus.Actif
+        };
+
+        var xps = new N4Component
+        {
+            EnvironmentId = environnement.Id,
+            Nom = "XPS",
+            Role = "XPS",
+            Serveur = "N4XPSBRIDGE01",
+            Kind = N4ComponentKind.Xps,
+            NomDuService = "Navis XPS Service",
+            ModeDePilotage = ModeDePilotage.Pilotable,
+            Statut = ValidationStatus.Actif
+        };
+
+        var workflow = new Workflow
+        {
+            EnvironmentId = environnement.Id,
+            Nom = "DemarrageComplet",
+            Type = WorkflowType.DemarrageComplet
+        };
+
+        var version = new WorkflowVersion
+        {
+            WorkflowId = workflow.Id,
+            Statut = ValidationStatus.Actif,
+            CreePar = "Semis"
+        };
+
+        var definition = new WorkflowStepDefinition
+        {
+            WorkflowVersionId = version.Id,
+            Ordre = 1,
+            Libelle = "Démarrer XPS",
+            Action = ActionsDePilotage.DemarrerServiceWindows,
+            ComposantCibleId = xps.Id,
+            TimeoutSecondes = 120
+        };
+
+        var execution = new OperationExecution
+        {
+            EnvironmentId = environnement.Id,
+            WorkflowVersionId = version.Id,
+            Reference = "OP-START-" + Guid.NewGuid().ToString("N")[..8],
+            DemandePar = "Demandeur",
+            Motif = "Vérification des verrous de démarrage",
+            ReferenceDeCorrelation = "COR-" + Guid.NewGuid().ToString("N")[..8],
+            Statut = ExecutionStatus.EnPreparation,
+            ConfirmeeLe = DateTimeOffset.UtcNow
+        };
+
+        var etape = new ExecutionStep
+        {
+            ExecutionId = execution.Id,
+            WorkflowStepDefinitionId = definition.Id,
+            Ordre = 1,
+            Libelle = definition.Libelle,
+            Action = definition.Action,
+            ComposantCibleId = xps.Id,
+            Statut = StepStatus.AVenir
+        };
+
+        execution.Etapes.Add(etape);
+        version.Etapes.Add(definition);
+        workflow.Versions.Add(version);
+
+        contexte.Environnements.Add(environnement);
+        contexte.Composants.Add(bridge);
+        contexte.Composants.Add(xps);
+        contexte.Workflows.Add(workflow);
+        contexte.Executions.Add(execution);
+
+        await contexte.SaveChangesAsync(jeton);
+
+        return (environnement.Id, xps.Id, bridge.Id, execution.Id, etape.Id);
     }
 }

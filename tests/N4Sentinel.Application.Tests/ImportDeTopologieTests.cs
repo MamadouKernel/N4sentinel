@@ -15,6 +15,7 @@ namespace N4Sentinel.Application.Tests;
 /// couvrent — mais les trois promesses de l'import : rien n'est activé, rien n'est supprimé,
 /// et réimporter ne duplique pas.
 /// </summary>
+[Collection(CollectionDHoteHttp.Nom)]
 public sealed class ImportDeTopologieTests(BaseDeTest baseDeTest) : IClassFixture<BaseDeTest>
 {
     private static readonly DateTimeOffset Depart = new(2026, 8, 12, 10, 0, 0, TimeSpan.Zero);

@@ -21,18 +21,24 @@ using N4Sentinel.Domain.Habilitations;
 namespace N4Sentinel.Application.Tests;
 
 /// <summary>
-/// Regroupe les classes qui montent un hôte ASP.NET, pour qu'elles s'exécutent l'une après
-/// l'autre. Deux <c>WebApplicationFactory</c> démarrées en parallèle invoquent par réflexion le
-/// même point d'entrée applicatif, et cette initialisation concurrente échoue de façon
-/// intermittente — chaque classe passe seule, plusieurs ensemble non.
+/// Regroupe toutes les classes qui touchent une base de données, pour qu'elles s'exécutent
+/// l'une après l'autre.
+///
+/// Deux raisons, découvertes l'une après l'autre. Deux <c>WebApplicationFactory</c> démarrées
+/// en parallèle invoquent par réflexion le même point d'entrée applicatif, et cette
+/// initialisation concurrente échoue par intermittence. Et chaque classe crée sa base puis y
+/// applique les migrations : cinq de ces chantiers menés de front sur la même instance SQL
+/// Server finissent par expirer.
 ///
 /// Le regroupement ne partage aucun état : chaque classe conserve sa propre base par
-/// <c>IClassFixture</c>. Seule l'exécution est sérialisée.
+/// <c>IClassFixture</c>. Seule l'exécution est sérialisée — on échange quelques secondes
+/// d'horloge contre un résultat déterministe, ce qui est le bon sens du marché pour une suite
+/// que l'on croit sur parole.
 /// </summary>
 [CollectionDefinition(Nom)]
 public sealed class CollectionDHoteHttp
 {
-    public const string Nom = "Hôte HTTP";
+    public const string Nom = "Accès base de données";
 }
 
 /// <summary>

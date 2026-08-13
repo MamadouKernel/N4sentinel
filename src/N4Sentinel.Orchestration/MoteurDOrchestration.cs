@@ -516,6 +516,24 @@ public sealed class MoteurDOrchestration(
                 $"Étape {etape.Ordre} ignorée — {etape.Preuve}");
         }
 
+        // Sprint 8 — les verrous du démarrage complet, appliqués juste avant d'émettre. Ils ne
+        // valent que là : évalués à la préparation, ils porteraient sur un état déjà périmé
+        // quand la commande partira.
+        if (etatVise == ComponentHealth.Operationnel && composant is not null)
+        {
+            var verrou = await VerifierLesPrerequisDeDemarrageAsync(
+                execution, etape, composant, cancellationToken);
+
+            if (!verrou.Autorise)
+            {
+                etape.Statut = StepStatus.Bloque;
+                etape.TypeDErreur = StepErrorKind.PrerequisNonSatisfait;
+                etape.MessageDErreur = verrou.Motif;
+                await etat.EnregistrerAsync(cancellationToken);
+                return new ReponseDuMoteur(true, execution.Statut, verrou.Motif);
+            }
+        }
+
         var cible = ResoudreLaCible(composant, definition);
 
         etape.Statut = StepStatus.EnCours;
@@ -650,6 +668,69 @@ public sealed class MoteurDOrchestration(
 
         return (execution, etape, definition, null);
     }
+
+    /// <summary>
+    /// Sprint 8 — prérequis propres au démarrage d'un composant, évalués sur l'état relu.
+    ///
+    /// Deux verrous sont branchés ici, ceux dont la supervision porte déjà les signaux : XPS
+    /// attend un Bridge confirmé opérationnel, et un nœud de cluster attend que le précédent
+    /// ait terminé son initialisation.
+    ///
+    /// Le troisième verrou du sprint — deux Center détenant simultanément le rôle actif — reste
+    /// hors d'atteinte : aucun signal collecté ne distingue aujourd'hui l'instance active de
+    /// celle en veille, et le déduire de l'état du service serait précisément l'erreur que la
+    /// règle existe pour empêcher. La règle est écrite et testée en domaine ; elle attend sa
+    /// source, pas son implémentation.
+    /// </summary>
+    private async Task<VerdictDeDemarrage> VerifierLesPrerequisDeDemarrageAsync(
+        OperationExecution execution,
+        ExecutionStep etape,
+        N4Component composant,
+        CancellationToken cancellationToken)
+    {
+        var cartographie = await supervision.LireAsync(execution.EnvironmentId, cancellationToken);
+        if (cartographie is null)
+        {
+            return new VerdictDeDemarrage(
+                false,
+                "Aucune cartographie disponible : les prérequis de démarrage ne peuvent pas être "
+                + "vérifiés, donc pas être tenus pour satisfaits.",
+                []);
+        }
+
+        var etats = cartographie.Lignes.ToDictionary(
+            l => l.ComposantId,
+            l => new EtatConstateDUnComposant(l.Nom, l.Kind, Convertir(l.Etat.Etat)));
+
+        if (composant.Kind == N4ComponentKind.Xps)
+        {
+            var bridge = etats.Values.FirstOrDefault(e => e.Kind == N4ComponentKind.BridgeDaemon);
+            return ControlesDeDemarrage.VerifierLePrerequisDeXps(bridge);
+        }
+
+        if (composant.Kind == N4ComponentKind.ClusterNode)
+        {
+            return ControlesDeDemarrage.VerifierLeNoeudPrecedent(
+                TrouverLeNoeudPrecedent(execution, etape, etats));
+        }
+
+        return new VerdictDeDemarrage(true, "Aucun prérequis particulier pour ce rôle.", []);
+    }
+
+    /// <summary>
+    /// Nœud de cluster démarré juste avant celui-ci dans la séquence. Cherché dans les étapes de
+    /// l'exécution et non dans le référentiel : c'est l'ordre du workflow qui fait foi, pas
+    /// l'ordre alphabétique des composants.
+    /// </summary>
+    private static EtatConstateDUnComposant? TrouverLeNoeudPrecedent(
+        OperationExecution execution,
+        ExecutionStep etape,
+        Dictionary<Guid, EtatConstateDUnComposant> etats) =>
+        execution.Etapes
+            .Where(e => e.Ordre < etape.Ordre && e.ComposantCibleId is not null)
+            .OrderByDescending(e => e.Ordre)
+            .Select(e => etats.TryGetValue(e.ComposantCibleId!.Value, out var trouve) ? trouve : null)
+            .FirstOrDefault(e => e?.Kind == N4ComponentKind.ClusterNode);
 
     /// <summary>
     /// État réel d'un composant, relu à la supervision. Utilisé aux deux bouts d'une commande :

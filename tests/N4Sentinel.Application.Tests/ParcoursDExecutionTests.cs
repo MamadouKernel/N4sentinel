@@ -21,6 +21,7 @@ namespace N4Sentinel.Application.Tests;
 /// Le jeton d'annulation est propagé partout : sur des tests qui frappent une vraie base, une
 /// requête bloquée doit rester interruptible.
 /// </summary>
+[Collection(CollectionDHoteHttp.Nom)]
 public sealed class ParcoursDExecutionTests(BaseDeTest baseDeTest) : IClassFixture<BaseDeTest>
 {
     private static readonly DateTimeOffset Depart = new(2026, 8, 12, 10, 0, 0, TimeSpan.Zero);
@@ -290,6 +291,70 @@ public sealed class ParcoursDExecutionTests(BaseDeTest baseDeTest) : IClassFixtu
         Assert.DoesNotContain("abcdef123456", etape.Preuve!, StringComparison.Ordinal);
     }
 
+    // — Sprint 8 : les verrous du démarrage, appliqués par le moteur —
+
+    [Fact]
+    public async Task Xps_ne_demarre_pas_tant_que_le_bridge_n_est_pas_operationnel()
+    {
+        var banc = CreerLeBanc();
+        await using var contexte = banc.Contexte;
+
+        var scenario = await Semis.SemerUnDemarrageDeXpsAsync(contexte, Jeton);
+
+        // Bridge à l'arrêt, XPS à l'arrêt : la séquence voudrait démarrer XPS.
+        banc.Supervision.Poser(scenario.BridgeId, EtatDeSupervision.Indisponible, N4ComponentKind.BridgeDaemon);
+        banc.Supervision.Poser(scenario.XpsId, EtatDeSupervision.Indisponible, N4ComponentKind.Xps);
+
+        await banc.Moteur.DemarrerAsync(scenario.ExecutionId, Jeton);
+        await banc.Moteur.AvancerAsync(scenario.ExecutionId, Jeton);
+
+        // La propriété qui compte : aucune commande n'est partie.
+        Assert.Empty(banc.Commandes.Demandes);
+
+        var etape = await RelireLEtapeParIdAsync(scenario.ExecutionId, scenario.EtapeId);
+        Assert.Equal(StepStatus.Bloque, etape.Statut);
+        Assert.Equal(StepErrorKind.PrerequisNonSatisfait, etape.TypeDErreur);
+        Assert.Contains("Bridge", etape.MessageDErreur!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Un_bridge_degrade_ne_suffit_pas_a_debloquer_xps()
+    {
+        // Un Bridge qui répond mal n'est pas un Bridge sur lequel on démarre XPS.
+        var banc = CreerLeBanc();
+        await using var contexte = banc.Contexte;
+
+        var scenario = await Semis.SemerUnDemarrageDeXpsAsync(contexte, Jeton);
+        banc.Supervision.Poser(scenario.BridgeId, EtatDeSupervision.Degrade, N4ComponentKind.BridgeDaemon);
+        banc.Supervision.Poser(scenario.XpsId, EtatDeSupervision.Indisponible, N4ComponentKind.Xps);
+
+        await banc.Moteur.DemarrerAsync(scenario.ExecutionId, Jeton);
+        await banc.Moteur.AvancerAsync(scenario.ExecutionId, Jeton);
+
+        Assert.Empty(banc.Commandes.Demandes);
+        Assert.Equal(StepStatus.Bloque, (await RelireLEtapeParIdAsync(scenario.ExecutionId, scenario.EtapeId)).Statut);
+    }
+
+    [Fact]
+    public async Task Xps_demarre_une_fois_le_bridge_confirme_operationnel()
+    {
+        var banc = CreerLeBanc();
+        await using var contexte = banc.Contexte;
+
+        var scenario = await Semis.SemerUnDemarrageDeXpsAsync(contexte, Jeton);
+        banc.Supervision.Poser(scenario.BridgeId, EtatDeSupervision.Disponible, N4ComponentKind.BridgeDaemon);
+        banc.Supervision.Poser(scenario.XpsId, EtatDeSupervision.Indisponible, N4ComponentKind.Xps);
+
+        banc.Commandes.ApresExecution =
+            () => banc.Supervision.Poser(scenario.XpsId, EtatDeSupervision.Disponible, N4ComponentKind.Xps);
+
+        await banc.Moteur.DemarrerAsync(scenario.ExecutionId, Jeton);
+        await banc.Moteur.AvancerAsync(scenario.ExecutionId, Jeton);
+
+        Assert.True(banc.Commandes.ARecu(ActionsDePilotage.DemarrerServiceWindows));
+        Assert.Equal(StepStatus.Reussi, (await RelireLEtapeParIdAsync(scenario.ExecutionId, scenario.EtapeId)).Statut);
+    }
+
     // — FR-015 : un environnement, une opération mutative à la fois —
 
     [Fact]
@@ -311,6 +376,17 @@ public sealed class ParcoursDExecutionTests(BaseDeTest baseDeTest) : IClassFixtu
     }
 
     // — Utilitaires de relecture : toujours depuis la base, jamais depuis l'objet suivi —
+
+    private async Task<ExecutionStep> RelireLEtapeParIdAsync(Guid executionId, Guid etapeId)
+    {
+        await using var contexte = baseDeTest.CreerLeContexte();
+
+        return await contexte.Executions
+            .AsNoTracking()
+            .Where(e => e.Id == executionId)
+            .SelectMany(e => e.Etapes)
+            .FirstAsync(e => e.Id == etapeId, Jeton);
+    }
 
     private async Task<ExecutionStep> RelireLEtapeAsync(ScenarioSeme scenario)
     {
