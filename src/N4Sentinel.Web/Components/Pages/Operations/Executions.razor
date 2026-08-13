@@ -2,155 +2,402 @@
 @page "/operations/{ExecutionId:guid}"
 @using System.Globalization
 @using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Application.Abstractions
+@using N4Sentinel.Application.Connecteurs
+@using N4Sentinel.Application.Habilitations
 @using N4Sentinel.Data
 @using N4Sentinel.Domain.Common
 @using N4Sentinel.Domain.Entities
+@using N4Sentinel.Domain.Execution
+@using N4Sentinel.Domain.Habilitations
+@using N4Sentinel.Domain.Operations
 @using N4Sentinel.Domain.Orchestration
 @attribute [Authorize(Policy = "Droit:Consulter")]
 @inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IServiceDHabilitations Habilitations
+@inject IHttpContextAccessor Accesseur
+@inject IClock Horloge
 
-<PageTitle>Opérations — N4 Sentinel</PageTitle>
+<PageTitle>Console d'Orchestration — N4 Sentinel Control Room</PageTitle>
 
-<h1>Opérations</h1>
-<p>
-    FR-020 — vue pas-à-pas : chaque étape dans son ordre d'exécution, avec son état parmi les
-    dix que définit le cahier des charges. Le moteur est persistant : une exécution retrouvée
-    « en cours » après un redémarrage du serveur n'est jamais reprise sans que l'état réel des
-    composants ait été recollecté et comparé au mémorisé.
-</p>
+<div class="en-tete-page">
+    <div>
+        <h1>
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--primaire)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+            Console d'Orchestration des Workflows
+        </h1>
+        <p class="mention">
+            FR-020 — Suivi temps réel et résilience du moteur d'exécution persistant à 20 états fermés.
+        </p>
+    </div>
 
-<p><a class="lien-retour" href="/operations/nouvelle">Préparer une opération</a></p>
+    <div>
+        <a class="bouton-primaire" href="/operations/nouvelle">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            Préparer une Opération
+        </a>
+    </div>
+</div>
 
 @if (executions.Count == 0)
 {
-    <p>
-        Aucune opération enregistrée. La préparation d'une opération et le mode simulation
-        arrivent au Sprint 6 ; l'exécution réelle au Sprint 7.
-    </p>
+    <div class="carte carte-vide">
+        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--texte-efface)" stroke-width="1.5">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <h3>Aucune exécution enregistrée</h3>
+        <p class="mention">La préparation d'opération et la simulation démarrent avec les modèles de workflows.</p>
+    </div>
 }
 else
 {
-    <h2>Exécutions</h2>
-    <div class="defilement">
-        <table class="tableau">
-            <thead>
-                <tr><th>Référence</th><th>État</th><th>Demandée par</th><th>Motif</th><th>Début</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var e in executions)
-                {
+    <div class="carte bloc-espace">
+        <div class="carte-en-tete">
+            <h2 class="carte-titre">Historique des Exécutions d'Exploitation (@executions.Count)</h2>
+        </div>
+
+        <div class="defilement">
+            <table class="tableau">
+                <thead>
                     <tr>
-                        <td><a href="/operations/@e.Id">@e.Reference</a></td>
-                        <td><span class="etat-consolide @ClasseDExecution(e.Statut)">@LibelleDExecution(e.Statut)</span></td>
-                        <td>@e.DemandePar</td>
-                        <td>@e.Motif</td>
-                        <td>@Date(e.DebutLe)</td>
+                        <th>Référence</th>
+                        <th>Statut du Moteur</th>
+                        <th>Opérateur Demandeur</th>
+                        <th>Motif de l'Opération</th>
+                        <th>Horodatage Début</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var e in executions)
+                    {
+                        var estCourante = e.Id == ExecutionId;
+                        <tr class="@(estCourante ? "ligne-courante" : null)">
+                            <td>
+                                <a href="/operations/@e.Id" class="lien-reference">
+                                    ⚡ @e.Reference
+                                </a>
+                            </td>
+                            <td>
+                                <span class="etat-consolide @ClasseDExecution(e.Statut)">
+                                    @LibelleDExecution(e.Statut)
+                                </span>
+                            </td>
+                            <td>@e.DemandePar</td>
+                            <td><span class="mention">@e.Motif</span></td>
+                            <td>@Date(e.DebutLe)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     </div>
 }
 
 @if (execution is not null)
 {
-    <h2>@execution.Reference — @LibelleDExecution(execution.Statut)</h2>
+    @* FR-021 — l'attribut n'est posé que sur une exécution qui avance d'elle-même : recharger
+       en boucle une exécution close n'apporterait rien et interrogerait le serveur pour rien.
+       Le minuteur vit dans js/interface.js, la politique de contenu interdisant l'inline. *@
+    <div class="carte carte-detail anim-entree"
+         data-rafraichir-secondes="@(RafraichissementAutomatique ? "5" : null)">
+        <div class="carte-en-tete">
+            <h2 class="carte-titre">
+                🔍 Vue Détaillée : @execution.Reference
+            </h2>
+            <span class="etat-consolide etat-large @ClasseDExecution(execution.Statut)">
+                @LibelleDExecution(execution.Statut)
+            </span>
+        </div>
 
-    @if (!string.IsNullOrWhiteSpace(execution.Resultat))
-    {
-        <p class="mention">@execution.Resultat</p>
-    }
+        @if (Erreur is not null)
+        {
+            <p class="alerte" role="alert">@Erreur</p>
+        }
 
-    @if (execution.Statut == ExecutionStatus.ReconciliationRequise)
-    {
-        <p class="alerte" role="alert">
-            Réconciliation requise : l'état réel des composants ne correspond pas à l'état
-            mémorisé par le moteur. Aucune reprise n'est possible avant qu'une décision humaine
-            ait tranché ce qui a réellement été fait.
+        @if (!string.IsNullOrWhiteSpace(execution.Resultat))
+        {
+            <div class="mention resultat-moteur">
+                @execution.Resultat
+            </div>
+        }
+
+        @if (execution.Statut == ExecutionStatus.ReconciliationRequise)
+        {
+            <div class="alerte alerte-espacee" role="alert">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <div>
+                    <strong>⚠️ RÉCONCILIATION REQUISE APRÈS CRASH SERVEUR</strong><br/>
+                    Le moteur a détecté un redémarrage applicatif alors qu'une exécution était engagée.<br/>
+                    <em>Conformément à la règle de sécurité, aucune reprise automatique n'est tentée sans levée de doute humaine.</em>
+                </div>
+            </div>
+        }
+
+        @if (peutEngager || peutAvancer)
+        {
+            <div class="panneau panneau-actions">
+                @if (peutEngager)
+                {
+                    <form method="post" action="/operations/@execution.Id/engager" class="formulaire formulaire-compact">
+                        <AntiforgeryToken />
+                        <button type="submit" class="bouton-primaire">🚀 Engager l'exécution — émettre les commandes réelles</button>
+                    </form>
+                }
+                @if (peutAvancer)
+                {
+                    <form method="post" action="/operations/@execution.Id/avancer" class="formulaire formulaire-compact">
+                        <AntiforgeryToken />
+                        <button type="submit" class="bouton-discret">↻ Avancer d'un pas maintenant</button>
+                    </form>
+                }
+            </div>
+        }
+
+        @* Volet d'aide à la décision (plan de sprints, S7) — s'ouvre dès qu'une étape ralentit
+           ou bloque. Il n'agit pas et ne recommande rien : il dit ce qui est possible, ce qui ne
+           l'est pas, et pourquoi. La décision reste à l'exploitant. *@
+        @if (EtapesAExaminer.Count > 0)
+        {
+            <div class="panneau panneau-aide">
+                <h3>
+                    🧭 Aide à la décision — @EtapesAExaminer.Count étape@(EtapesAExaminer.Count > 1 ? "s" : "") à examiner
+                </h3>
+                <p class="mention">
+                    Aucune action n'est engagée depuis ce volet : il récapitule l'état constaté, la preuve
+                    déjà collectée et les options ouvertes. Chacune reste soumise à son propre contrôle
+                    d'autorisation et, pour l'arrêt forcé, à une confirmation explicite.
+                </p>
+
+                @foreach (var etape in EtapesAExaminer)
+                {
+                    var definition = definitionsParId.GetValueOrDefault(etape.WorkflowStepDefinitionId);
+
+                    <div class="etape-a-examiner">
+                        <div class="etape-a-examiner-entete">
+                            <strong>#@etape.Ordre — @etape.Libelle</strong>
+                            <span class="etat-consolide @ClasseDEtape(etape.Statut)">@LibelleDEtape(etape.Statut)</span>
+                            <span class="mention">@Ecoule(etape)</span>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(etape.MessageDErreur))
+                        {
+                            <div class="mention mention-serree">@etape.MessageDErreur</div>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(etape.Preuve))
+                        {
+                            <div class="bloc-preuve">
+                                <code class="preuve">@etape.Preuve</code>
+                            </div>
+                        }
+
+                        <ul class="liste-options">
+                            @foreach (var option in OptionsDAide(etape, definition))
+                            {
+                                <li>
+                                    <strong>@(option.Disponible ? "Possible" : "Indisponible") — @option.Libelle</strong>
+                                    <span class="mention"> : @option.Motif</span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Stepper visuel d'étapes -->
+        @if (execution.Etapes.Count > 0)
+        {
+            <h3 class="titre-section">Progression de la Séquence d'Étapes</h3>
+            <div class="stepper-container">
+                @foreach (var etape in execution.Etapes.OrderBy(e => e.Ordre))
+                {
+                    <div class="stepper-item @(etape.Statut == StepStatus.EnCours ? "actif" : etape.Statut == StepStatus.Reussi ? "succes" : etape.Statut == StepStatus.Echec ? "erreur" : "")">
+                        <span class="rang-etape">#@etape.Ordre</span>
+                        <span>@etape.Libelle</span>
+                        <span class="etat-consolide etat-compact @ClasseDEtape(etape.Statut)">
+                            @LibelleDEtape(etape.Statut)
+                        </span>
+                    </div>
+                }
+            </div>
+
+            <div class="defilement">
+                <table class="tableau">
+                    <thead>
+                        <tr>
+                            <th>Rang</th>
+                            <th>Libellé de l'Étape</th>
+                            <th>Commande / Action Executée</th>
+                            <th>Statut Détaillé</th>
+                            <th>Début</th>
+                            <th>Durée</th>
+                            <th>Essais</th>
+                            <th>Motif / Diagnostic d'Erreur</th>
+                            <th>Preuve Collectée</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var etape in execution.Etapes.OrderBy(e => e.Ordre))
+                        {
+                            var definition = definitionsParId.GetValueOrDefault(etape.WorkflowStepDefinitionId);
+                            <tr>
+                                <td><strong>#@etape.Ordre</strong></td>
+                                <td>@etape.Libelle</td>
+                                <td><code class="code-action">@etape.Action</code></td>
+                                <td>
+                                    <span class="etat-consolide @ClasseDEtape(etape.Statut)">
+                                        @LibelleDEtape(etape.Statut)
+                                    </span>
+                                    @if (!string.IsNullOrWhiteSpace(etape.Decision))
+                                    {
+                                        <div class="mention mention-collee">@etape.Decision</div>
+                                    }
+                                </td>
+                                <td>@Date(etape.DebutLe)</td>
+                                <td>@Duree(etape.Duree)</td>
+                                <td>@etape.NombreDeTentatives</td>
+                                <td>
+                                    @(etape.TypeDErreur == StepErrorKind.Aucune ? "—" : $"{etape.TypeDErreur} : {etape.MessageDErreur}")
+                                    @if (!string.IsNullOrWhiteSpace(etape.MessageDErreur) && etape.TypeDErreur == StepErrorKind.Aucune)
+                                    {
+                                        <div class="mention">@etape.MessageDErreur</div>
+                                    }
+                                </td>
+                                <td class="cellule-preuve">
+                                    @* Preuve déjà masquée à la persistance (SEC-003) : rien à
+                                       filtrer ici, l'écran n'est pas le dernier rempart. *@
+                                    @if (string.IsNullOrWhiteSpace(etape.Preuve))
+                                    {
+                                        <span class="mention">—</span>
+                                    }
+                                    else
+                                    {
+                                        <code class="preuve">@etape.Preuve</code>
+                                    }
+                                </td>
+                                <td class="cellule-actions">
+                                    @if (PeutConfirmer(etape, definition))
+                                    {
+                                        <form method="post" action="/operations/@execution.Id/etapes/@etape.Id/confirmer" class="formulaire-compact">
+                                            <AntiforgeryToken />
+                                            <button type="submit" class="bouton-discret">Confirmer l'étape</button>
+                                        </form>
+                                    }
+                                    @if (PeutApprouverEtape(etape, definition))
+                                    {
+                                        <form method="post" action="/operations/@execution.Id/etapes/@etape.Id/approuver" class="formulaire-compact">
+                                            <AntiforgeryToken />
+                                            <button type="submit" class="bouton-discret">Approuver l'étape</button>
+                                        </form>
+                                    }
+                                    @if (PeutDemanderContournement(etape, definition))
+                                    {
+                                        <form method="post" action="/operations/@execution.Id/etapes/@etape.Id/contournement/demander" class="formulaire formulaire-en-ligne">
+                                            <AntiforgeryToken />
+                                            <input name="motif" type="text" maxlength="1024" placeholder="Motif du contournement" required class="champ-motif" />
+                                            <button type="submit" class="bouton-discret">Demander un contournement</button>
+                                        </form>
+                                    }
+                                    @if (PeutApprouverContournement(etape))
+                                    {
+                                        <form method="post" action="/operations/@execution.Id/etapes/@etape.Id/contournement/approuver" class="formulaire-compact">
+                                            <AntiforgeryToken />
+                                            <button type="submit" class="bouton-discret">Approuver le contournement</button>
+                                        </form>
+                                    }
+                                    @if (PeutForcer(etape, definition))
+                                    {
+                                        <form method="post" action="/operations/@execution.Id/etapes/@etape.Id/forcer" class="formulaire formulaire-en-ligne formulaire-en-ligne-centre">
+                                            <AntiforgeryToken />
+                                            <label class="case-confirmation">
+                                                <input type="checkbox" name="confirmation" value="true" required />
+                                                Je confirme
+                                            </label>
+                                            <button type="submit" class="bouton-discret bouton-danger">Forcer l'arrêt</button>
+                                        </form>
+                                    }
+                                    @if (PeutIntervenir(etape))
+                                    {
+                                        <form method="post" action="/operations/@execution.Id/etapes/@etape.Id/intervention" class="formulaire formulaire-empile">
+                                            <AntiforgeryToken />
+                                            <select name="succes">
+                                                <option value="true">Constatée réussie</option>
+                                                <option value="false">Constatée échouée</option>
+                                            </select>
+                                            <input name="preuve" type="text" maxlength="2048" placeholder="Preuve de l'intervention" required />
+                                            <button type="submit" class="bouton-discret">Consigner l'intervention</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <p class="mention mention-espacee">
+            💡 <strong>Transitions autorisées par la machine à états</strong> :
+            @(TransitionsPossibles.Count == 0
+                ? "aucune — l'exécution est close."
+                : string.Join(", ", TransitionsPossibles.Select(LibelleDExecution)))
         </p>
-    }
 
-    <h3>Étapes</h3>
-    @if (execution.Etapes.Count == 0)
-    {
-        <p>Aucune étape planifiée.</p>
-    }
-    else
-    {
-        <div class="defilement">
-            <table class="tableau">
-                <thead>
-                    <tr>
-                        <th>Ordre</th><th>Étape</th><th>Action</th><th>État</th>
-                        <th>Début</th><th>Durée</th><th>Tentatives</th><th>Erreur</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var etape in execution.Etapes.OrderBy(e => e.Ordre))
-                    {
-                        <tr>
-                            <td>@etape.Ordre</td>
-                            <td>@etape.Libelle</td>
-                            <td>@etape.Action</td>
-                            <td><span class="etat-consolide @ClasseDEtape(etape.Statut)">@LibelleDEtape(etape.Statut)</span></td>
-                            <td>@Date(etape.DebutLe)</td>
-                            <td>@Duree(etape.Duree)</td>
-                            <td>@etape.NombreDeTentatives</td>
-                            <td>@(etape.TypeDErreur == StepErrorKind.Aucune ? "—" : $"{etape.TypeDErreur} : {etape.MessageDErreur}")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
+        @if (execution.Approbations.Count > 0)
+        {
+            <h3 class="titre-registre">Registre des Approbations (FR-013)</h3>
+            <div class="defilement">
+                <table class="tableau">
+                    <thead>
+                        <tr><th>Acteur Approbateur</th><th>Décision Rendue</th><th>Horodatage</th><th>Motif Explicite</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var approbation in execution.Approbations.OrderBy(a => a.DecideLe))
+                        {
+                            <tr>
+                                <td><strong>@approbation.ApprouvePar</strong></td>
+                                <td><span class="etat-consolide etat-favorable">@approbation.Decision</span></td>
+                                <td>@Date(approbation.DecideLe)</td>
+                                <td><span class="mention">@(approbation.Motif ?? "—")</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
 
-    <p class="mention">
-        Transitions possibles depuis l'état courant :
-        @(TransitionsPossibles.Count == 0
-            ? "aucune — l'exécution est close."
-            : string.Join(", ", TransitionsPossibles.Select(LibelleDExecution)))
-    </p>
+        @if (execution.Statut == ExecutionStatus.EnAttenteDApprobation && peutApprouver)
+        {
+            <div class="panneau panneau-approbation">
+                <h3>Double Validation Requise — Décision d'Approbation</h3>
+                <form method="post" action="/operations/@execution.Id/approuver" class="formulaire formulaire-approbation">
+                    <AntiforgeryToken />
+                    <label for="motifApprobation">Motif de la décision d'approbation (optionnel)</label>
+                    <input id="motifApprobation" name="motif" type="text" maxlength="1024" placeholder="Ex: Intervention programmée en fenêtre de maintenance..." />
+                    <button type="submit" class="bouton-primaire">✔️ Valider et Autoriser l'Opération</button>
+                </form>
 
-    @if (execution.Approbations.Count > 0)
-    {
-        <h3>Approbations (FR-013)</h3>
-        <div class="defilement">
-            <table class="tableau">
-                <thead><tr><th>Acteur</th><th>Décision</th><th>Date</th><th>Motif</th></tr></thead>
-                <tbody>
-                    @foreach (var approbation in execution.Approbations.OrderBy(a => a.DecideLe))
-                    {
-                        <tr>
-                            <td>@approbation.ApprouvePar</td>
-                            <td>@approbation.Decision</td>
-                            <td>@Date(approbation.DecideLe)</td>
-                            <td>@(approbation.Motif ?? "—")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
-
-    @if (execution.Statut == ExecutionStatus.EnAttenteDApprobation)
-    {
-        <AuthorizeView Policy="Droit:Approuver">
-            <h3>Se prononcer sur cette opération</h3>
-            <form method="post" action="/operations/@execution.Id/approuver" class="formulaire">
-                <AntiforgeryToken />
-                <label for="motifApprobation">Motif (facultatif)</label>
-                <input id="motifApprobation" name="motif" type="text" maxlength="1024" />
-                <button type="submit">Approuver</button>
-            </form>
-
-            <form method="post" action="/operations/@execution.Id/refuser" class="formulaire">
-                <AntiforgeryToken />
-                <label for="motifRefus">Motif du refus</label>
-                <input id="motifRefus" name="motif" type="text" maxlength="1024" required />
-                <button type="submit" class="bouton-discret">Refuser</button>
-            </form>
-        </AuthorizeView>
-    }
+                <form method="post" action="/operations/@execution.Id/refuser" class="formulaire">
+                    <AntiforgeryToken />
+                    <label for="motifRefus">Motif du refus obligatoirement motivé</label>
+                    <input id="motifRefus" name="motif" type="text" maxlength="1024" placeholder="Ex: Conditions météo portuaires défavorables..." required />
+                    <button type="submit" class="bouton-discret bouton-danger">❌ Refuser et Suspendre L'Opération</button>
+                </form>
+            </div>
+        }
+    </div>
 }
 
 @code {
@@ -159,14 +406,62 @@ else
     [Parameter]
     public Guid? ExecutionId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
     private List<OperationExecution> executions = [];
     private OperationExecution? execution;
+    private Dictionary<Guid, WorkflowStepDefinition> definitionsParId = [];
+    private IReadOnlySet<Droit> droitsEffectifs = new HashSet<Droit>();
+    private bool peutApprouver;
+    private bool peutEngager;
+    private bool peutAvancer;
+
+    /// <summary>
+    /// Instant de référence du rendu, lu une seule fois : deux appels à l'horloge dans le même
+    /// affichage produiraient un délai restant et un bouton qui se contredisent.
+    /// </summary>
+    private DateTimeOffset maintenant;
+
+    /// <summary>
+    /// Étapes qui ralentissent ou bloquent, celles dont le volet d'aide à la décision parle.
+    /// Une étape encore « En cours » y figure aussi : c'est précisément avant l'échéance que
+    /// l'exploitant a besoin de savoir ce qu'il pourra faire, et quand.
+    /// </summary>
+    private IReadOnlyList<ExecutionStep> EtapesAExaminer =>
+        execution is null
+            ? []
+            : [.. execution.Etapes
+                .Where(e => e.Statut is StepStatus.EnCours or StepStatus.Bloque)
+                .OrderBy(e => e.Ordre)];
+
+    /// <summary>
+    /// FR-021 — seules les exécutions qui progressent sans intervention méritent d'être
+    /// rafraîchies : ce sont celles que l'exécuteur de fond fait avancer entre deux affichages.
+    /// Une exécution en pause ou close ne bouge que sur action, donc au prochain POST.
+    /// </summary>
+    private bool RafraichissementAutomatique =>
+        execution?.Statut is ExecutionStatus.EnCours or ExecutionStatus.AnnulationDemandee;
 
     private IReadOnlyList<ExecutionStatus> TransitionsPossibles =>
         execution is null ? [] : MachineAEtats.SuivantsPossibles(execution.Statut);
 
+    private string? Erreur => CodeErreur switch
+    {
+        "introuvable" => "Élément introuvable.",
+        "droits" => "Droit manquant sur cet environnement pour cette action (SEC-004).",
+        "statut" => "Cette action n'est plus possible dans l'état actuel de l'exécution ou de l'étape.",
+        "confirmation" => "Confirmation explicite manquante — la case à cocher n'a pas été validée.",
+        "separation" => "Refusé : le demandeur d'une opération ne peut pas l'approuver, ni approuver son propre contournement (§2.3.2).",
+        "motif" => "Le motif du contournement est obligatoire.",
+        "preuve" => "La preuve de l'intervention manuelle est obligatoire.",
+        _ => null
+    };
+
     protected override async Task OnInitializedAsync()
     {
+        maintenant = Horloge.MaintenantUtc;
+
         await using var contexte = await Fabrique.CreateDbContextAsync();
 
         executions = await contexte.Executions
@@ -183,6 +478,199 @@ else
                 .Include(e => e.Approbations)
                 .FirstOrDefaultAsync(e => e.Id == id);
         }
+
+        if (execution is null)
+        {
+            return;
+        }
+
+        var version = await contexte.VersionsDeWorkflow
+            .AsNoTracking()
+            .Include(v => v.Etapes)
+            .FirstOrDefaultAsync(v => v.Id == execution.WorkflowVersionId);
+
+        definitionsParId = version?.Etapes.ToDictionary(d => d.Id) ?? [];
+
+        // SEC-004 — les droits d'exécution se gagnent le plus souvent par habilitation
+        // d'environnement, pas par rôle global : un <AuthorizeView Policy="..."> ne verrait
+        // jamais ce cas (défaut déjà trouvé et corrigé au Sprint 6 pour peutApprouver).
+        var identifiant = Accesseur.HttpContext?.User.FindFirst(
+            System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (identifiant is not null)
+        {
+            peutApprouver = await Habilitations.AutoriseAsync(
+                identifiant, execution.EnvironmentId, Droit.Approuver);
+            droitsEffectifs = await Habilitations.DroitsSurAsync(identifiant, execution.EnvironmentId);
+        }
+
+        var droitDEngagement = version?.ActionSensible == true
+            ? Droit.ExecuterUneOperationSensible
+            : Droit.ExecuterUneOperationAutorisee;
+
+        var confirmationSatisfaite = execution.Statut switch
+        {
+            ExecutionStatus.EnPreparation => execution.ConfirmeeLe is not null,
+            ExecutionStatus.EnAttenteDApprobation => execution.ApprouvePar is not null,
+            _ => false
+        };
+
+        peutEngager = confirmationSatisfaite && droitsEffectifs.Contains(droitDEngagement);
+        peutAvancer = execution.Statut == ExecutionStatus.EnCours && droitsEffectifs.Contains(droitDEngagement);
+    }
+
+    // — Sprint 7 : visibilité des actions par étape, une fois le droit détenu sur —
+    // l'environnement. La séparation demandeur/approbateur, elle, n'est revérifiable qu'au
+    // moment de l'action : un bouton visible ici peut donc être refusé côté serveur
+    // (erreur=separation), comme pour l'approbation d'exécution du Sprint 6.
+
+    private bool PeutConfirmer(ExecutionStep etape, WorkflowStepDefinition? definition) =>
+        droitsEffectifs.Contains(Droit.ConfirmerUneEtape)
+        && etape.Statut == StepStatus.EnAttente
+        && definition is { ApprobationRequise: false };
+
+    private bool PeutApprouverEtape(ExecutionStep etape, WorkflowStepDefinition? definition) =>
+        droitsEffectifs.Contains(Droit.Approuver)
+        && etape.Statut == StepStatus.EnAttente
+        && definition is { ApprobationRequise: true };
+
+    private bool PeutDemanderContournement(ExecutionStep etape, WorkflowStepDefinition? definition) =>
+        droitsEffectifs.Contains(Droit.DemanderUnContournement)
+        && etape.Statut == StepStatus.Bloque
+        && definition is { Contournable: true }
+        && (etape.Decision is null
+            || !etape.Decision.StartsWith("Contournement demandé", StringComparison.Ordinal));
+
+    private bool PeutApprouverContournement(ExecutionStep etape) =>
+        droitsEffectifs.Contains(Droit.Approuver)
+        && etape.Statut == StepStatus.Bloque
+        && etape.Decision is not null
+        && etape.Decision.StartsWith("Contournement demandé", StringComparison.Ordinal)
+        && !etape.Decision.Contains("approuvé par", StringComparison.Ordinal);
+
+    /// <summary>
+    /// L'arrêt forcé n'apparaît qu'une fois le délai normal de la commande dépassé — même règle
+    /// de domaine que celle appliquée par le moteur, pas une seconde formulation qui pourrait
+    /// diverger. Un bouton caché n'est pas une protection : le moteur refuse de son côté.
+    /// </summary>
+    private VerdictDEscalade Escalade(ExecutionStep etape, WorkflowStepDefinition? definition) =>
+        definition is null
+            // Sans définition, aucun délai n'est connu. Retomber sur zéro ouvrirait le forçage
+            // au bout d'une seconde : l'absence d'information n'autorise rien.
+            ? new VerdictDEscalade(false, TimeSpan.Zero,
+                "Définition de l'étape introuvable : le délai normal de la commande est inconnu.")
+            : PolitiqueDEscalade.EvaluerLArretForce(
+                etape.DebutLe, maintenant, definition.TimeoutSecondes);
+
+    private bool PeutForcer(ExecutionStep etape, WorkflowStepDefinition? definition) =>
+        droitsEffectifs.Contains(Droit.ExecuterUneOperationSensible)
+        && etape.Statut == StepStatus.EnCours
+        && etape.Action == ActionsDePilotage.ArreterServiceWindows
+        && Escalade(etape, definition).ArretForceOuvert;
+
+    private bool PeutIntervenir(ExecutionStep etape) =>
+        droitsEffectifs.Contains(Droit.AjouterObservationOuPreuve)
+        && etape.Statut == StepStatus.Bloque;
+
+    // — Volet d'aide à la décision —
+
+    /// <param name="Disponible">Vrai si l'option est ouverte ici et maintenant à cet acteur.</param>
+    /// <param name="Motif">Pourquoi elle l'est, ou ce qui manque pour qu'elle le devienne.</param>
+    private sealed record OptionDAide(string Libelle, bool Disponible, string Motif);
+
+    private string Ecoule(ExecutionStep etape) =>
+        etape.DebutLe is null
+            ? "jamais engagée"
+            : $"engagée depuis {(int)(maintenant - etape.DebutLe.Value).TotalSeconds} s";
+
+    /// <summary>
+    /// Les mêmes conditions que celles qui gouvernent l'affichage des boutons, énoncées cette
+    /// fois avec leur motif. Une option indisponible reste listée : savoir *pourquoi* on ne peut
+    /// pas forcer un arrêt vaut mieux qu'un bouton absent sans explication.
+    /// </summary>
+    private IReadOnlyList<OptionDAide> OptionsDAide(ExecutionStep etape, WorkflowStepDefinition? definition)
+    {
+        var options = new List<OptionDAide>();
+
+        if (etape.Statut == StepStatus.EnCours)
+        {
+            var escalade = Escalade(etape, definition);
+
+            options.Add(new OptionDAide("Attendre la fin de la commande", !escalade.ArretForceOuvert,
+                escalade.ArretForceOuvert
+                    ? "Le délai normal est dépassé : attendre davantage n'a plus d'effet attendu."
+                    : escalade.Motif));
+
+            options.Add(OptionDArretForce(etape, escalade));
+        }
+
+        if (etape.Statut == StepStatus.Bloque)
+        {
+            options.Add(OptionDeContournement(etape, definition));
+
+            options.Add(new OptionDAide("Consigner une intervention manuelle", PeutIntervenir(etape),
+                droitsEffectifs.Contains(Droit.AjouterObservationOuPreuve)
+                    ? "Preuve obligatoire : un opérateur atteste un effet que la vérification "
+                      + "automatique n'a pas pu établir."
+                    : "Exige le droit « Ajouter une observation ou une preuve » sur cet environnement."));
+        }
+
+        return options;
+    }
+
+    private OptionDAide OptionDArretForce(ExecutionStep etape, VerdictDEscalade escalade)
+    {
+        const string libelle = "Forcer l'arrêt";
+
+        if (etape.Action != ActionsDePilotage.ArreterServiceWindows)
+        {
+            return new OptionDAide(libelle, false,
+                $"L'action « {etape.Action} » n'a pas de variante forcée au catalogue (SEC-006).");
+        }
+
+        if (!escalade.ArretForceOuvert)
+        {
+            return new OptionDAide(libelle, false, escalade.Motif);
+        }
+
+        if (!droitsEffectifs.Contains(Droit.ExecuterUneOperationSensible))
+        {
+            return new OptionDAide(libelle, false,
+                "Exige le droit « Exécuter une opération sensible » sur cet environnement — "
+                + "le droit d'exécution ordinaire ne suffit pas.");
+        }
+
+        return new OptionDAide(libelle, true,
+            "Ouvert, sous confirmation explicite. Le processus sera tué : les traitements en "
+            + "cours de vidage ne seront pas terminés.");
+    }
+
+    private OptionDAide OptionDeContournement(ExecutionStep etape, WorkflowStepDefinition? definition)
+    {
+        const string libelle = "Demander un contournement";
+
+        if (definition is not { Contournable: true })
+        {
+            return new OptionDAide(libelle, false,
+                "La version validée du workflow ne déclare pas ce contrôle contournable.");
+        }
+
+        if (etape.Decision is not null
+            && etape.Decision.StartsWith("Contournement demandé", StringComparison.Ordinal))
+        {
+            return new OptionDAide(libelle, false,
+                "Contournement déjà demandé : il attend l'approbation d'un acteur distinct du demandeur.");
+        }
+
+        if (!droitsEffectifs.Contains(Droit.DemanderUnContournement))
+        {
+            return new OptionDAide(libelle, false,
+                "Exige le droit « Demander un contournement » sur cet environnement.");
+        }
+
+        return new OptionDAide(libelle, true,
+            "Motif obligatoire. L'approbation reviendra à un acteur distinct du demandeur, "
+            + "dans tous les environnements (§2.3.2).");
     }
 
     private static string Date(DateTimeOffset? date) =>
@@ -221,13 +709,12 @@ else
         _ => statut.ToString()
     };
 
-    // Le libellé porte l'information ; la couleur ne fait que l'appuyer (FR-055).
     private static string ClasseDExecution(ExecutionStatus statut) => statut switch
     {
         ExecutionStatus.TermineAvecSucces => "etat-favorable",
         ExecutionStatus.TermineAvecAvertissements => "etat-degrade",
-        ExecutionStatus.Echec => "etat-defavorable",
-        ExecutionStatus.EnCours => "etat-transition",
+        ExecutionStatus.Echec or ExecutionStatus.ReconciliationRequise => "etat-defavorable",
+        ExecutionStatus.EnCours or ExecutionStatus.EnAttenteDApprobation => "etat-transition",
         _ => "etat-indetermine"
     };
 

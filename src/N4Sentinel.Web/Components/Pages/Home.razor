@@ -7,91 +7,141 @@
 @inject IDbContextFactory<ApplicationDbContext> Fabrique
 @inject IHttpContextAccessor Accesseur
 
-<PageTitle>Accueil — N4 Sentinel</PageTitle>
+<PageTitle>Accueil — N4 Sentinel Control Room</PageTitle>
 
-<div style="background: var(--fond-carte); border: 1px solid var(--bordure); border-radius: 16px; padding: 32px; margin-bottom: 32px; box-shadow: var(--ombre-carte);">
-    <h1 style="color: var(--primaire); margin-bottom: 12px;">Bienvenue sur N4 SENTINEL, @NomAffiche</h1>
-    <p style="font-size: 16px; margin: 0; max-width: 800px;">
-        Plateforme d'orchestration, de supervision et de diagnostic sécurisé pour l'écosystème Navis N4 de CIT.
+<div class="en-tete-page">
+    <div>
+        <h1>
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--primaire)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            Tableau de Bord — Bienvenue, @NomAffiche
+        </h1>
+        <p>Console de supervision et d'orchestration pour l'écosystème Navis N4 de CIT</p>
+    </div>
+</div>
+
+<div class="grille-cartes">
+    <div class="carte">
+        <div class="carte-en-tete">
+            <span class="carte-titre">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--primaire)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                Environnement Actif
+            </span>
+            <span class="pastille-environnement @ClasseDePastille">@TypeEnvironnementText</span>
+        </div>
+        <div class="carte-valeur">@NomDeLEnvironnement</div>
+        <span class="mention">Désignation officielle dans le référentiel</span>
+    </div>
+
+    <div class="carte">
+        <div class="carte-en-tete">
+            <span class="carte-titre">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--succes)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                Habilitations Effectives
+            </span>
+        </div>
+        <div class="carte-valeur">@droits.Count <span class="unite-valeur">privilège(s)</span></div>
+        <span class="mention">Calculés selon la politique SEC-004</span>
+    </div>
+
+    <div class="carte">
+        <div class="carte-en-tete">
+            <span class="carte-titre">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Dernier Sprint Validé
+            </span>
+        </div>
+        <div class="carte-valeur texte-accent">Sprint 5</div>
+        <span class="mention">Moteur d'Orchestration & Reprise post-crash</span>
+    </div>
+</div>
+
+<div class="carte bloc-espace-court">
+    <div class="carte-en-tete">
+        <h2 class="carte-titre">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primaire)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Matrice des Droits Effectifs sur @NomDeLEnvironnement
+        </h2>
+    </div>
+
+    @if (droits.Count == 0)
+    {
+        <div class="alerte avertissement">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div>Aucune habilitation accordée sur cet environnement. Veuillez contacter un administrateur N4.</div>
+        </div>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead>
+                    <tr>
+                        <th>Intitulé du Droit</th>
+                        <th>Nature du Privilège</th>
+                        <th>Portée SEC-004</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var droit in droits.OrderBy(d => d.ToString(), StringComparer.Ordinal))
+                    {
+                        var estAction = Droits.EstUneAction(droit);
+                        <tr>
+                            <td>
+                                <strong>@droit</strong>
+                            </td>
+                            <td>
+                                @if (estAction)
+                                {
+                                    <span class="signal-attention signal-attention-primaire">
+                                        ⚡ Action
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="texte-attenue">👁️ Consultation</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="mention">
+                                    @(estAction && TypeEnvironnementText == "Production" ? "Habilitation spécifique requise" : "Accordé selon profil")
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <p class="mention mention-moyenne">
+        💡 <strong>Règle SEC-004</strong> : En Production, un profil global n'accorde que la consultation. Toute permission d'action y exige une habilitation explicite affectée à cet environnement.
     </p>
 </div>
-
-<!-- Quick Navigation Cards -->
-<div class="grille-kpi" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); margin-bottom: 36px;">
-    <a href="/supervision" style="text-decoration: none; color: inherit;">
-        <div class="carte-kpi" style="cursor: pointer; height: 100%;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                <span class="carte-kpi-titre">Supervision Temps Réel</span>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primaire)" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
-            </div>
-            <p style="font-size: 13px; color: var(--texte-attenue); margin: 0;">Cartographie consolidée de l'état des composants et détection d'alertes.</p>
-        </div>
-    </a>
-
-    <a href="/operations" style="text-decoration: none; color: inherit;">
-        <div class="carte-kpi" style="cursor: pointer; height: 100%;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                <span class="carte-kpi-titre">Opérations & Orchestration</span>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-            </div>
-            <p style="font-size: 13px; color: var(--texte-attenue); margin: 0;">Préparation, simulation et suivi pas-à-pas des exécutions séquencées.</p>
-        </div>
-    </a>
-
-    <a href="/referentiel/composants" style="text-decoration: none; color: inherit;">
-        <div class="carte-kpi" style="cursor: pointer; height: 100%;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                <span class="carte-kpi-titre">Référentiel N4</span>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--succes)" stroke-width="2"><rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><line x1="6" x2="6.01" y1="6" y2="6"/><line x1="6" x2="6.01" y1="18" y2="18"/></svg>
-            </div>
-            <p style="font-size: 13px; color: var(--texte-attenue); margin: 0;">Inventaire des composants, environnements et graphe des dépendances.</p>
-        </div>
-    </a>
-</div>
-
-<h2>Vos Droits Effectifs sur l'Environnement : <span style="color: var(--primaire);">@NomDeLEnvironnement</span></h2>
-
-@if (droits.Count == 0)
-{
-    <p>Aucun droit accordé sur cet environnement.</p>
-}
-else
-{
-    <div class="defilement">
-        <table class="tableau">
-            <thead>
-                <tr><th>Droit Attribué</th><th>Type d'Habilitation</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var droit in droits.OrderBy(d => d.ToString(), StringComparer.Ordinal))
-                {
-                    var estAction = Droits.EstUneAction(droit);
-                    <tr>
-                        <td><strong>@droit</strong></td>
-                        <td>
-                            @if (estAction)
-                            {
-                                <span class="etat-consolide etat-transition" style="font-size: 11px; padding: 3px 10px;">Action Mutative</span>
-                            }
-                            else
-                            {
-                                <span class="etat-consolide etat-indetermine" style="font-size: 11px; padding: 3px 10px;">Consultation Seule</span>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-}
-
-<p class="mention">
-    Garde-fou SEC-004 : En Production, un profil global n'accorde que la consultation. Toute permission d'action y exige une habilitation explicite nominative sur l'environnement.
-</p>
 
 @code {
     private IReadOnlyCollection<Droit> droits = [];
     private string NomDeLEnvironnement = "—";
+    private string TypeEnvironnementText = "N/A";
+    private string ClasseDePastille = "";
 
     private string NomAffiche => Accesseur.HttpContext?.User.Identity?.Name ?? string.Empty;
 
@@ -122,6 +172,14 @@ else
         }
 
         NomDeLEnvironnement = environnement.Nom;
+        TypeEnvironnementText = environnement.Type.ToString();
+        ClasseDePastille = environnement.Type switch
+        {
+            Domain.Common.EnvironmentType.Production => "production",
+            Domain.Common.EnvironmentType.Uat => "uat",
+            _ => string.Empty
+        };
+
         droits = [.. await Habilitations.DroitsSurAsync(identifiant, environnement.Id)];
     }
 }
