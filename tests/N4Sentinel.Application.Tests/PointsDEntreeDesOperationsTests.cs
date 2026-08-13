@@ -18,6 +18,7 @@ namespace N4Sentinel.Application.Tests;
 /// Chaque refus est vérifié deux fois : l'action n'a pas eu lieu, **et** elle a été tracée. Un
 /// refus non tracé ne vaut pas refus (SEC-008).
 /// </summary>
+[Collection(CollectionDHoteHttp.Nom)]
 public sealed class PointsDEntreeDesOperationsTests(HoteDeTestHttp hote) : IClassFixture<HoteDeTestHttp>
 {
     private static CancellationToken Jeton => TestContext.Current.CancellationToken;

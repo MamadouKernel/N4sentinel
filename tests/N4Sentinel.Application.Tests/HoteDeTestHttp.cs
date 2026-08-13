@@ -21,6 +21,21 @@ using N4Sentinel.Domain.Habilitations;
 namespace N4Sentinel.Application.Tests;
 
 /// <summary>
+/// Regroupe les classes qui montent un hôte ASP.NET, pour qu'elles s'exécutent l'une après
+/// l'autre. Deux <c>WebApplicationFactory</c> démarrées en parallèle invoquent par réflexion le
+/// même point d'entrée applicatif, et cette initialisation concurrente échoue de façon
+/// intermittente — chaque classe passe seule, plusieurs ensemble non.
+///
+/// Le regroupement ne partage aucun état : chaque classe conserve sa propre base par
+/// <c>IClassFixture</c>. Seule l'exécution est sérialisée.
+/// </summary>
+[CollectionDefinition(Nom)]
+public sealed class CollectionDHoteHttp
+{
+    public const string Nom = "Hôte HTTP";
+}
+
+/// <summary>
 /// Hôte HTTP réel de l'application, servi en mémoire, sur une base dédiée.
 ///
 /// Ce que les tests de moteur ne peuvent pas atteindre vit ici : les points d'entrée portent les

@@ -187,6 +187,7 @@ app.MapperLesPointsDEntreeDeCompte();
 app.MapperLesPointsDEntreeDeProfil();
 app.MapperLePointDEntreeDeTheme();
 app.MapperLesPointsDEntreeDuReferentiel();
+app.MapperLesPointsDEntreeDeTopologie();
 app.MapperLesPointsDEntreeDeSupervision();
 app.MapperLesPointsDEntreeDAdministration();
 app.MapperLesPointsDEntreeDuPilotage();

@@ -68,8 +68,13 @@ public sealed class ImportDeTopologie(
             IdentifiantDObjet = environnementId.ToString(),
             EnvironmentId = environnementId,
             ValeurAvant = $"{existants.Count} composant(s) au référentiel",
+            // Les anomalies partent au journal : le fichier n'est pas conservé, et sans elles
+            // personne ne pourrait plus dire, trois mois après, ce que l'import avait écarté.
             ValeurApres = $"{crees} créé(s), {misAJour} mis à jour, {inchanges} inchangé(s)"
-                          + (workflows.Count > 0 ? $" ; {workflows.Count} séquence(s) générée(s)" : string.Empty),
+                          + (workflows.Count > 0 ? $" ; {workflows.Count} séquence(s) générée(s)" : string.Empty)
+                          + (lecture.Anomalies.Count > 0
+                              ? $" ; écarté : {string.Join(" | ", lecture.Anomalies)}"
+                              : " ; aucune anomalie"),
             AdresseIp = acteur.AdresseIp,
             Origine = AuditOrigin.InterfaceWeb
         }, cancellationToken);

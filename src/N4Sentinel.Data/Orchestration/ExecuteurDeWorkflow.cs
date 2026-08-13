@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using N4Sentinel.Application.Orchestration;
+using N4Sentinel.Domain.Common;
 
 namespace N4Sentinel.Data.Orchestration;
 
@@ -113,9 +114,13 @@ internal static partial class JournalDExecution
                   + "n'avanceront que sur action explicite depuis l'écran.")]
     public static partial void ExecutionDesactivee(ILogger logger);
 
+    // Le statut est typé plutôt que passé en object : le boxing d'une énumération à chaque
+    // avancement, pour un message de niveau Debug le plus souvent désactivé, est un coût
+    // payé pour rien (CA1873).
     [LoggerMessage(EventId = 4002, Level = LogLevel.Debug,
         Message = "Exécution {ExecutionId} avancée : {Statut} — {Motif}")]
-    public static partial void EtapeAvancee(ILogger logger, Guid executionId, object statut, string motif);
+    public static partial void EtapeAvancee(
+        ILogger logger, Guid executionId, ExecutionStatus statut, string motif);
 
     [LoggerMessage(EventId = 4003, Level = LogLevel.Error,
         Message = "L'avancement de l'exécution {ExecutionId} a échoué ; les autres exécutions continuent.")]

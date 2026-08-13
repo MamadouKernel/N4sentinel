@@ -1,0 +1,221 @@
+@page "/referentiel/topologie"
+@using System.Globalization
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Application.Audit
+@using N4Sentinel.Application.Habilitations
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Entities
+@using N4Sentinel.Domain.Habilitations
+@attribute [Authorize(Policy = "Droit:Consulter")]
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IServiceDHabilitations Habilitations
+@inject IHttpContextAccessor Accesseur
+
+<PageTitle>Import de Topologie — N4 Sentinel Control Room</PageTitle>
+
+<div class="en-tete-page">
+    <div>
+        <h1>
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--primaire)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Import de Topologie N4
+        </h1>
+        <p class="mention">
+            Reprend un fichier <code>Navis-Config.json</code> — la configuration des scripts
+            d'exploitation (SOP-2) — dans le référentiel, et en dérive les séquences d'arrêt et
+            de démarrage.
+        </p>
+    </div>
+</div>
+
+@if (Message is not null)
+{
+    <div class="alerte @(EstUneErreur ? "" : "succes") alerte-espacee" role="alert">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <div>@Message</div>
+    </div>
+}
+
+<div class="carte bloc-espace">
+    <div class="carte-en-tete">
+        <h2 class="carte-titre">Reprendre une topologie</h2>
+    </div>
+
+    @if (!peutImporter)
+    {
+        <div class="alerte avertissement">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div>
+                Le droit <strong>Gérer le référentiel</strong> est requis sur l'environnement visé.
+                Importer une topologie réécrit la cartographie, donc l'ordre des séquences d'arrêt :
+                un profil global n'y suffit pas (SEC-004).
+            </div>
+        </div>
+    }
+    else
+    {
+        <form method="post" action="/referentiel/topologie/importer" enctype="multipart/form-data" class="formulaire">
+            <AntiforgeryToken />
+
+            <label for="environnementId">Environnement de destination</label>
+            <select id="environnementId" name="environnementId" required>
+                @foreach (var e in environnements)
+                {
+                    <option value="@e.Id" selected="@(e.Id == EnvironnementRetenu)">@e.Nom — @e.Type</option>
+                }
+            </select>
+
+            <label for="fichier">Fichier de configuration (<code>Navis-Config.json</code>)</label>
+            <input id="fichier" name="fichier" type="file" accept=".json,application/json" required />
+
+            <label class="case-confirmation">
+                <input type="checkbox" name="genererLesSequences" value="true" checked />
+                Générer aussi les séquences d'arrêt et de démarrage
+            </label>
+
+            <button type="submit" class="bouton-primaire">Importer la topologie</button>
+        </form>
+
+        <p class="mention mention-espacee">
+            Ce que l'import ne fait pas, et ne fera jamais : <strong>activer</strong> quoi que ce
+            soit — composants et séquences arrivent en brouillon, leur validation reste un geste
+            explicite — ni <strong>supprimer</strong> un composant absent du fichier, ce retrait
+            étant une décision et non un effet de bord. Réimporter la même topologie ne duplique rien.
+        </p>
+    }
+</div>
+
+<div class="carte">
+    <div class="carte-en-tete">
+        <h2 class="carte-titre">Imports précédents</h2>
+        <span class="mention">Relu du journal d'audit (SEC-008)</span>
+    </div>
+
+    @if (imports.Count == 0)
+    {
+        <p class="mention">Aucun import enregistré sur cet environnement.</p>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead>
+                    <tr>
+                        <th>Horodatage</th>
+                        <th>Acteur</th>
+                        <th>Référentiel avant</th>
+                        <th>Effet, et ce qui a été écarté</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entree in imports)
+                    {
+                        <tr>
+                            <td>@Date(entree.SurvenueLe)</td>
+                            <td>@entree.Acteur</td>
+                            <td><span class="mention">@(entree.ValeurAvant ?? "—")</span></td>
+                            <td><code class="preuve">@(entree.ValeurApres ?? "—")</code></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
+
+    [SupplyParameterFromQuery(Name = "environnementId")]
+    private Guid? EnvironnementDemande { get; set; }
+
+    [SupplyParameterFromQuery(Name = "importe")]
+    private string? Importe { get; set; }
+
+    [SupplyParameterFromQuery(Name = "crees")]
+    private int Crees { get; set; }
+
+    [SupplyParameterFromQuery(Name = "majs")]
+    private int MisAJour { get; set; }
+
+    [SupplyParameterFromQuery(Name = "inchanges")]
+    private int Inchanges { get; set; }
+
+    [SupplyParameterFromQuery(Name = "sequences")]
+    private int Sequences { get; set; }
+
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    private List<N4Environment> environnements = [];
+    private List<AuditEntry> imports = [];
+    private bool peutImporter;
+
+    private Guid? EnvironnementRetenu =>
+        EnvironnementDemande ?? environnements.FirstOrDefault()?.Id;
+
+    private bool EstUneErreur => CodeErreur is not null;
+
+    private string? Message => CodeErreur switch
+    {
+        "droits" => "Droit « Gérer le référentiel » manquant sur cet environnement (SEC-004).",
+        "fichier" => "Aucun fichier reçu.",
+        "taille" => "Fichier trop volumineux pour être une configuration de topologie.",
+        "json" => "Fichier illisible : ce n'est pas un JSON exploitable. Le motif exact est au journal d'audit.",
+        "vide" => "La configuration ne décrit aucun composant exploitable.",
+        _ => Importe is null
+            ? null
+            : $"Topologie reprise : {Crees} composant(s) créé(s), {MisAJour} mis à jour, "
+              + $"{Inchanges} inchangé(s), {Sequences} séquence(s) générée(s). "
+              + "Tout est en brouillon : la validation reste à faire."
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        environnements = await contexte.Environnements
+            .AsNoTracking()
+            .OrderBy(e => e.Type)
+            .ToListAsync();
+
+        if (EnvironnementRetenu is not { } environnementId)
+        {
+            return;
+        }
+
+        // SEC-004 — le droit se gagne par environnement. Le vérifier ici évite d'afficher un
+        // formulaire dont chaque soumission serait refusée, sans pour autant tenir lieu de
+        // contrôle : le point d'entrée le revérifie de son côté.
+        var identifiant = Accesseur.HttpContext?.User.FindFirst(
+            System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (identifiant is not null)
+        {
+            peutImporter = await Habilitations.AutoriseAsync(
+                identifiant, environnementId, Droit.GererLeReferentiel);
+        }
+
+        imports = await contexte.EntreesDAudit
+            .AsNoTracking()
+            .Where(e => e.EnvironmentId == environnementId
+                        && e.Action == ActionsAuditees.TopologieImportee)
+            .OrderByDescending(e => e.SurvenueLe)
+            .Take(10)
+            .ToListAsync();
+    }
+
+    private static string Date(DateTimeOffset date) =>
+        date.UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", Culture);
+}
