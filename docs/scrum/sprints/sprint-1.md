@@ -113,7 +113,7 @@ rester lisible après coup.
 
 | Référence | Objet | État |
 |---|---|---|
-| SEC-001 | Authentification applicative à deux facteurs (2FA), code par courriel | Fait |
+| SEC-001 | Authentification applicative à deux facteurs (2FA) | Fait, avec un écart validé par la DSI — voir ci-dessous |
 | SEC-002 | Moindre privilège, droits attribués séparément | Fait |
 | SEC-004 | Séparation des environnements, environnement visible | Fait |
 | SEC-008 | Audit des accès et des échecs d'autorisation | Fait |
@@ -179,6 +179,34 @@ Corrigé par un jeton aléatoire tiré à chaque réponse, présent dans l'en-t�
 carte d'importation. Ouvrir la politique à `'unsafe-inline'` aurait été plus simple et aurait
 autorisé, du même coup, tout script injecté. Vérifié : aucune erreur de console sur un onglet
 neuf.
+
+## Écart assumé — second facteur désactivable par l'utilisateur
+
+Validé par la DSI après le sprint. `SEC-001` classe le second facteur en « Must » ; un
+utilisateur peut désormais y renoncer depuis son profil. C'est un abaissement du niveau
+d'authentification sur des comptes capables d'arrêter des systèmes de production, et il est
+consigné ici comme tel, non présenté comme une fonctionnalité.
+
+Trois garanties l'encadrent, faute de pouvoir l'empêcher :
+
+1. **Le geste est explicite.** La désactivation exige une confirmation dédiée, et l'écran
+   énonce la conséquence avant le geste : « un mot de passe dérobé suffit alors à ouvrir une
+   session capable d'arrêter des systèmes de production ». Réactiver, à l'inverse, ne demande
+   aucune friction — on ne décourage pas un retour à un niveau de sécurité supérieur.
+2. **Le geste est tracé des deux côtés.** Activation et désactivation écrivent au journal
+   d'audit, avec l'acteur, son adresse et le motif. Une désactivation qui précéderait un
+   incident doit pouvoir être retrouvée.
+3. **Le geste n'est pas définitif.** Clé d'authentification et codes de récupération sont
+   conservés : réactiver ne demande pas de tout reconfigurer.
+
+Quatre tests HTTP tiennent ces propriétés, dont celui qui vérifie qu'un refus faute de
+confirmation laisse le compte protégé, et celui qui vérifie qu'aucune trace n'est écrite quand
+l'état demandé est déjà en place.
+
+**Ce que cet écart ne couvre pas** : rien n'empêche aujourd'hui un compte habilité en
+Production de se dispenser du second facteur. Une restriction par type d'environnement — ou une
+exemption accordée par un administrateur plutôt que par l'utilisateur lui-même — reste
+discutable si la DSI veut border davantage.
 
 ## Écart assumé — second facteur désactivé en développement
 

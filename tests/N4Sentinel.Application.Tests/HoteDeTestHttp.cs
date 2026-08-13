@@ -158,6 +158,29 @@ public sealed partial class HoteDeTestHttp : WebApplicationFactory<Program>, IAs
         return utilisateur.Id;
     }
 
+    /// <summary>Pose l'état du second facteur, que la création de compte laisse à faux.</summary>
+    public async Task PoserLeSecondFacteurAsync(string utilisateurId, bool actif)
+    {
+        using var portee = Services.CreateScope();
+        var gestionnaire = portee.ServiceProvider.GetRequiredService<UserManager<UtilisateurApplicatif>>();
+
+        var utilisateur = await gestionnaire.FindByIdAsync(utilisateurId);
+        Assert.NotNull(utilisateur);
+
+        await gestionnaire.SetTwoFactorEnabledAsync(utilisateur, actif);
+    }
+
+    public async Task<bool> LeSecondFacteurEstActifAsync(string utilisateurId)
+    {
+        using var portee = Services.CreateScope();
+        var gestionnaire = portee.ServiceProvider.GetRequiredService<UserManager<UtilisateurApplicatif>>();
+
+        var utilisateur = await gestionnaire.FindByIdAsync(utilisateurId);
+        Assert.NotNull(utilisateur);
+
+        return await gestionnaire.GetTwoFactorEnabledAsync(utilisateur);
+    }
+
     public async Task HabiliterAsync(string utilisateurId, Guid environnementId, ProfilUtilisateur profil)
     {
         using var portee = Services.CreateScope();

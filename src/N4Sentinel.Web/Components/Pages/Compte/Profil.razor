@@ -32,15 +32,64 @@ else
     }
 
     <h2>Second facteur d'authentification</h2>
-    <p>
-        Le second facteur est obligatoire et ne peut pas être désactivé. Vous choisissez
-        seulement par quel canal vous recevez votre code.
-    </p>
 
     <p>
-        Canal actuel :
-        <strong>@LibelleDuCanal(utilisateur.MethodeDeSecondFacteur)</strong>
+        État :
+        <strong>@(utilisateur.TwoFactorEnabled ? "activé" : "désactivé")</strong>
+        @if (utilisateur.TwoFactorEnabled)
+        {
+            <text> — canal : <strong>@LibelleDuCanal(utilisateur.MethodeDeSecondFacteur)</strong></text>
+        }
     </p>
+
+    @if (!utilisateur.TwoFactorEnabled)
+    {
+        <div class="alerte" role="alert">
+            <div>
+                <strong>Votre compte est protégé par un seul facteur.</strong> Un mot de passe
+                dérobé suffit alors à ouvrir une session capable d'arrêter des systèmes de
+                production. Le cahier des charges classe le second facteur en « Must » : sa
+                désactivation est un écart validé par la DSI, tracé au journal d'audit.
+            </div>
+        </div>
+
+        <form method="post" action="/compte/profil/second-facteur/activation" class="formulaire">
+            <AntiforgeryToken />
+            <input type="hidden" name="activer" value="true" />
+            <button type="submit" class="bouton-primaire">Réactiver le second facteur</button>
+        </form>
+    }
+    else
+    {
+        <p class="mention">
+            Vous choisissez par quel canal vous recevez votre code. Vous pouvez aussi renoncer
+            au second facteur, ce que la DSI a autorisé mais que rien n'oblige à faire.
+        </p>
+
+        <details class="recours">
+            <summary>Désactiver le second facteur</summary>
+
+            <p class="mention">
+                Votre compte ne sera plus protégé que par son mot de passe. La clé
+                d'authentification et les codes de récupération sont conservés : réactiver ne
+                demandera pas de tout reconfigurer.
+            </p>
+
+            <form method="post" action="/compte/profil/second-facteur/activation" class="formulaire">
+                <AntiforgeryToken />
+                <input type="hidden" name="activer" value="false" />
+
+                <label class="case-confirmation">
+                    <input type="checkbox" name="confirmation" value="true" required />
+                    Je comprends que mon compte ne sera plus protégé que par son mot de passe
+                </label>
+
+                <button type="submit" class="bouton-discret bouton-danger">
+                    Désactiver le second facteur
+                </button>
+            </form>
+        </details>
+    }
 
     @if (utilisateur.MethodeDeSecondFacteur != MethodeDeSecondFacteur.Courriel)
     {
@@ -216,12 +265,16 @@ else
         "canal-modifie" => "Canal du second facteur modifié.",
         "cle-regeneree" => "Clé régénérée. Le canal est revenu au courriel.",
         "codes-epuises" => "Dernier code de récupération consommé. Générez-en de nouveaux dès maintenant.",
+        "second-facteur-active" => "Second facteur réactivé.",
+        "second-facteur-desactive" => "Second facteur désactivé. La modification est tracée au journal d'audit.",
         _ => null
     };
 
     private string? Erreur => CodeErreur switch
     {
         "code" => "Code invalide. Le canal n'a pas été changé.",
+        "confirmation" => "Désactivation refusée : la confirmation n'a pas été cochée.",
+        "activation" => "Le réglage n'a pas pu être modifié.",
         _ => null
     };
 

@@ -100,8 +100,10 @@ public static class PointsDEntreeDeCompte
 
         if (resultat.Succeeded)
         {
-            // Cas résiduel : un compte sans double facteur. L'amorçage active toujours le second
-            // facteur ; ce chemin n'existe que si un compte a été créé hors de l'application.
+            // Compte dont le second facteur est désactivé. L'amorçage l'active toujours, et
+            // c'était longtemps le seul état possible ; depuis l'écart à SEC-001 validé par la
+            // DSI, l'utilisateur peut le désactiver depuis son profil. La désactivation est
+            // tracée, et chaque connexion qui en profite passe par ici.
             await MarquerLaConnexionAsync(identifiantSaisi, utilisateurs);
             await TracerAsync(piste, identifiantSaisi, ActionsAuditees.ConnexionReussie,
                 adresseIp, autorisee: true);

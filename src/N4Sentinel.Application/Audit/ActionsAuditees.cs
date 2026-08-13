@@ -22,6 +22,8 @@ public static class ActionsAuditees
     public const string ProfilGlobalRevoque = "Profil global révoqué";
     public const string CompteCree = "Compte créé";
     public const string CodesDeRecuperationGeneres = "Codes de récupération générés";
+    public const string SecondFacteurActive = "Second facteur activé";
+    public const string SecondFacteurDesactivePourLeCompte = "Second facteur désactivé pour le compte";
     public const string ConnexionParCodeDeRecuperation = "Connexion par code de récupération";
 
     // — Référentiel (Sprint 2) —
