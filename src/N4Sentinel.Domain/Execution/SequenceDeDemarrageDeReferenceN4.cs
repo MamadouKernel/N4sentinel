@@ -20,15 +20,24 @@ namespace N4Sentinel.Domain.Execution;
 /// </summary>
 public static class SequenceDeDemarrageDeReferenceN4
 {
-    /// <summary>Rang croissant = démarré plus tôt. Absent de la table = non contraint.</summary>
+    /// <summary>
+    /// Rang croissant = démarré plus tôt. Absent de la table = non contraint.
+    ///
+    /// Le Standby figure ici, mais reste exclu de la génération automatique. Le plan de sprints
+    /// le place après le Center ; les scripts d'exploitation ne le démarrent pas du tout. Les
+    /// deux se concilient : si un opérateur décide de le remettre en service, l'ordre lui est
+    /// imposé — jamais avant le Center, sans quoi deux instances se disputeraient le rôle actif —
+    /// mais cette décision reste la sienne, et aucune séquence générée ne la prend à sa place.
+    /// </summary>
     private static readonly Dictionary<N4ComponentKind, int> Rangs = new()
     {
         [N4ComponentKind.ClusterNode] = 0,
         [N4ComponentKind.CenterNode] = 1,
-        [N4ComponentKind.BridgeDaemon] = 2,
-        [N4ComponentKind.Xps] = 3,
-        [N4ComponentKind.Ecn4] = 4,
-        [N4ComponentKind.Ecn4Web] = 5
+        [N4ComponentKind.StandbyCenterNode] = 2,
+        [N4ComponentKind.BridgeDaemon] = 3,
+        [N4ComponentKind.Xps] = 4,
+        [N4ComponentKind.Ecn4] = 5,
+        [N4ComponentKind.Ecn4Web] = 6
     };
 
     /// <summary>
