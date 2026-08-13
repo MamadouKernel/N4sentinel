@@ -66,39 +66,57 @@ public class ControlesDeDemarrageTests
             verdict.ComposantsEnCause);
     }
 
-    // — « XPS bloqué tant que le Bridge n'est pas confirmé opérationnel » —
+    // — Chaîne de dépendances au démarrage (SOP-2) —
+    // « XPS a besoin du Bridge actif, le Bridge a besoin du Center, ECN4Web a besoin d'ECN4 »
 
-    [Fact]
-    public void Xps_demarre_si_le_bridge_est_operationnel()
+    [Theory]
+    [InlineData(N4ComponentKind.Xps, N4ComponentKind.BridgeDaemon)]
+    [InlineData(N4ComponentKind.BridgeDaemon, N4ComponentKind.CenterNode)]
+    [InlineData(N4ComponentKind.Ecn4Web, N4ComponentKind.Ecn4)]
+    public void Un_role_demarre_si_son_prerequis_est_operationnel(
+        N4ComponentKind kind, N4ComponentKind kindRequis)
     {
-        var verdict = ControlesDeDemarrage.VerifierLePrerequisDeXps(
-            Composant("Bridge", N4ComponentKind.BridgeDaemon, ComponentHealth.Operationnel));
+        var verdict = ControlesDeDemarrage.VerifierLaDependance(
+            kind, [Composant("Prérequis", kindRequis, ComponentHealth.Operationnel)]);
 
         Assert.True(verdict.Autorise);
     }
 
     [Theory]
-    [InlineData(ComponentHealth.Arrete)]
-    [InlineData(ComponentHealth.Degrade)]
-    [InlineData(ComponentHealth.AConfirmer)]
-    [InlineData(ComponentHealth.Inconnu)]
-    public void Xps_est_bloque_tant_que_le_bridge_n_est_pas_confirme(ComponentHealth sante)
+    [InlineData(N4ComponentKind.Xps, N4ComponentKind.BridgeDaemon, ComponentHealth.Arrete)]
+    [InlineData(N4ComponentKind.Xps, N4ComponentKind.BridgeDaemon, ComponentHealth.Degrade)]
+    [InlineData(N4ComponentKind.BridgeDaemon, N4ComponentKind.CenterNode, ComponentHealth.Arrete)]
+    [InlineData(N4ComponentKind.BridgeDaemon, N4ComponentKind.CenterNode, ComponentHealth.AConfirmer)]
+    [InlineData(N4ComponentKind.Ecn4Web, N4ComponentKind.Ecn4, ComponentHealth.Arrete)]
+    [InlineData(N4ComponentKind.Ecn4Web, N4ComponentKind.Ecn4, ComponentHealth.Inconnu)]
+    public void Un_role_est_bloque_tant_que_son_prerequis_n_est_pas_confirme(
+        N4ComponentKind kind, N4ComponentKind kindRequis, ComponentHealth sante)
     {
-        // Un Bridge dégradé n'est pas un Bridge sur lequel on démarre XPS.
-        var verdict = ControlesDeDemarrage.VerifierLePrerequisDeXps(
-            Composant("Bridge", N4ComponentKind.BridgeDaemon, sante));
+        // Dégradé n'est pas opérationnel : un composant qui répond mal n'est pas un socle.
+        var verdict = ControlesDeDemarrage.VerifierLaDependance(
+            kind, [Composant("Prérequis", kindRequis, sante)]);
 
         Assert.False(verdict.Autorise);
-        Assert.Equal(["Bridge"], verdict.ComposantsEnCause);
+        Assert.Equal(["Prérequis"], verdict.ComposantsEnCause);
     }
 
     [Fact]
-    public void Un_bridge_absent_du_referentiel_ne_vaut_pas_prerequis_satisfait()
+    public void Un_prerequis_absent_du_referentiel_ne_vaut_pas_prerequis_satisfait()
     {
-        var verdict = ControlesDeDemarrage.VerifierLePrerequisDeXps(null);
+        // L'ignorance n'est pas une autorisation.
+        var verdict = ControlesDeDemarrage.VerifierLaDependance(N4ComponentKind.Xps, []);
 
         Assert.False(verdict.Autorise);
         Assert.Contains("ne peut pas être vérifié", verdict.Motif, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(N4ComponentKind.CenterNode)]
+    [InlineData(N4ComponentKind.Ecn4)]
+    [InlineData(N4ComponentKind.ClusterNode)]
+    public void Un_role_sans_prerequis_declare_n_est_pas_bloque(N4ComponentKind kind)
+    {
+        Assert.True(ControlesDeDemarrage.VerifierLaDependance(kind, []).Autorise);
     }
 
     // — « Détection du conflit où deux Center seraient actifs » (§5.7) —

@@ -73,37 +73,61 @@ public static class ControlesDeDemarrage
     }
 
     /// <summary>
-    /// « XPS bloqué tant que le Bridge n'est pas confirmé opérationnel » (plan de sprints, S8).
+    /// Chaîne de dépendances au démarrage, telle que SOP-2 l'énonce : « XPS a besoin du Bridge
+    /// actif, le Bridge a besoin du Center, ECN4Web a besoin d'ECN4 ».
     ///
-    /// XPS parle à N4 par le Bridge. Démarré avant lui, il ne trouve pas son interlocuteur,
-    /// échoue à s'initialiser, et laisse un état intermédiaire dont on ne sort qu'en le
-    /// redémarrant — après avoir compris pourquoi, ce qui prend le plus de temps.
-    ///
-    /// « Confirmé opérationnel » exclut délibérément l'état dégradé : un Bridge qui répond mal
-    /// n'est pas un Bridge sur lequel on démarre XPS.
+    /// Le document en donne aussi la raison : « démarrer ou arrêter dans le mauvais ordre
+    /// provoque des erreurs en cascade qui ressemblent à de nouveaux incidents alors qu'il
+    /// s'agit simplement d'une séquence non respectée ». C'est le coût réel — non pas un
+    /// démarrage raté, mais un diagnostic lancé sur une fausse piste.
     /// </summary>
-    public static VerdictDeDemarrage VerifierLePrerequisDeXps(
-        EtatConstateDUnComposant? bridge)
+    private static readonly Dictionary<N4ComponentKind, N4ComponentKind> Prerequis = new()
     {
-        if (bridge is null)
+        [N4ComponentKind.Xps] = N4ComponentKind.BridgeDaemon,
+        [N4ComponentKind.BridgeDaemon] = N4ComponentKind.CenterNode,
+        [N4ComponentKind.Ecn4Web] = N4ComponentKind.Ecn4
+    };
+
+    /// <summary>
+    /// Vérifie que le prérequis d'un rôle est confirmé opérationnel avant de le démarrer.
+    ///
+    /// « Confirmé » exclut délibérément l'état dégradé : un Bridge qui répond mal n'est pas un
+    /// Bridge sur lequel on démarre XPS. Et un prérequis absent du référentiel ne vaut jamais
+    /// prérequis satisfait — l'ignorance n'est pas une autorisation.
+    /// </summary>
+    public static VerdictDeDemarrage VerifierLaDependance(
+        N4ComponentKind kind,
+        IReadOnlyList<EtatConstateDUnComposant> etats)
+    {
+        ArgumentNullException.ThrowIfNull(etats);
+
+        if (!Prerequis.TryGetValue(kind, out var kindRequis))
+        {
+            return new VerdictDeDemarrage(true, $"{kind} ne dépend d'aucun autre rôle au démarrage.", []);
+        }
+
+        var requis = etats.FirstOrDefault(e => e.Kind == kindRequis);
+
+        if (requis is null)
         {
             return new VerdictDeDemarrage(
                 false,
-                "Aucun Bridge daemon n'est connu du référentiel : le prérequis de XPS ne peut "
-                + "pas être vérifié, donc pas être tenu pour satisfait.",
+                $"Aucun composant de type {kindRequis} n'est connu du référentiel : le prérequis "
+                + $"de {kind} ne peut pas être vérifié, donc pas être tenu pour satisfait.",
                 []);
         }
 
-        if (bridge.Sante == ComponentHealth.Operationnel)
+        if (requis.Sante == ComponentHealth.Operationnel)
         {
-            return new VerdictDeDemarrage(true, $"{bridge.Nom} est opérationnel.", []);
+            return new VerdictDeDemarrage(true, $"{requis.Nom} est opérationnel.", []);
         }
 
         return new VerdictDeDemarrage(
             false,
-            $"XPS ne peut pas démarrer : {bridge.Nom} est « {bridge.Sante} » et non opérationnel. "
-            + "XPS communique avec N4 par le Bridge ; démarré avant lui, il échoue à s'initialiser.",
-            [bridge.Nom]);
+            $"{kind} ne peut pas démarrer : {requis.Nom} est « {requis.Sante} » et non "
+            + $"opérationnel. {kind} dépend de {kindRequis} ; démarré avant lui, il échoue à "
+            + "s'initialiser, et l'erreur ressemble à un incident alors que c'est un ordre non respecté.",
+            [requis.Nom]);
     }
 
     /// <summary>

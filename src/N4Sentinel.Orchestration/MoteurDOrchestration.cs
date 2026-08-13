@@ -751,19 +751,13 @@ public sealed class MoteurDOrchestration(
             l => l.ComposantId,
             l => new EtatConstateDUnComposant(l.Nom, l.Kind, Convertir(l.Etat.Etat)));
 
-        if (composant.Kind == N4ComponentKind.Xps)
-        {
-            var bridge = etats.Values.FirstOrDefault(e => e.Kind == N4ComponentKind.BridgeDaemon);
-            return ControlesDeDemarrage.VerifierLePrerequisDeXps(bridge);
-        }
-
         if (composant.Kind == N4ComponentKind.ClusterNode)
         {
             return ControlesDeDemarrage.VerifierLeNoeudPrecedent(
                 TrouverLeNoeudPrecedent(execution, etape, etats));
         }
 
-        return new VerdictDeDemarrage(true, "Aucun prérequis particulier pour ce rôle.", []);
+        return ControlesDeDemarrage.VerifierLaDependance(composant.Kind, [.. etats.Values]);
     }
 
     /// <summary>
