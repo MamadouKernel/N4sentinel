@@ -113,7 +113,7 @@ rester lisible après coup.
 
 | Référence | Objet | État |
 |---|---|---|
-| SEC-001 | Authentification applicative avec MFA par e-mail | Fait |
+| SEC-001 | Authentification applicative à deux facteurs (2FA), code par courriel | Fait |
 | SEC-002 | Moindre privilège, droits attribués séparément | Fait |
 | SEC-004 | Séparation des environnements, environnement visible | Fait |
 | SEC-008 | Audit des accès et des échecs d'autorisation | Fait |
@@ -183,8 +183,8 @@ neuf.
 ## Écart assumé — second facteur désactivé en développement
 
 Demandé par la DSI en cours de sprint. `Authentification:SecondFacteurDesactive` court-circuite
-l'étape de second facteur. C'est un écart à SEC-001, qui classe le MFA en « Must » : il est
-documenté ici comme tel, et non présenté comme une fonctionnalité.
+l'étape de second facteur. C'est un écart à SEC-001, qui classe le second facteur en « Must » :
+il est documenté ici comme tel, et non présenté comme une fonctionnalité.
 
 Trois garanties l'encadrent :
 
