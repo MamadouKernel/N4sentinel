@@ -3,6 +3,11 @@
 **Sprint 0 · à adresser à la DSI et à l'équipe Infrastructure CIT**
 **Échéance impérative** avant le début du Sprint 3
 
+> **Échéance dépassée.** Aucune ligne du tableau « À renseigner par l'Infrastructure » n'a été
+> complétée. Une relance précisée, service par service, est déposée dans
+> [`relance-acces-techniques.md`](relance-acces-techniques.md) : elle nomme les services, les
+> droits et les sources de signaux, à partir du corpus documentaire SOP.
+
 ## Pourquoi maintenant
 
 Le cahier des charges exige l'**exécution réelle** des commandes d'arrêt, de démarrage et de
