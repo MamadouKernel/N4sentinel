@@ -1,77 +1,109 @@
 # N4 Sentinel
 
-Application interne DSI de Côte d'Ivoire Terminal (CIT) pour standardiser, sécuriser et tracer les opérations
-de supervision, pilotage (arrêt/démarrage/redémarrage) et diagnostic de l'écosystème **Navis N4** (Cluster
-Nodes, Center/Standby Node, Bridge, XPS, ECN4/ECN4Web, SQL Server, ActiveMQ/KahaDB, dossiers partagés, EDI).
+Application interne de la DSI de Côte d'Ivoire Terminal pour **superviser, piloter et
+diagnostiquer l'écosystème Navis N4** : cartographie temps réel, opérations d'arrêt et de
+démarrage tracées et approuvées, analyse de journaux, diagnostic outillé et base documentaire.
 
-Développée en interne, en méthodologie Agile Scrum. Voir `docs/scrum/` pour le backlog produit, la vision, et
-le suivi sprint par sprint. Le document de référence fonctionnel est
-`../minignan/Cahier_de_charge_N4_Sentinel_v3.docx`. **Le comportement réel de l'écosystème N4 (séquences de
-démarrage/arrêt, noms de composants, statuts, journaux, causes d'incidents) est ancré dans les guides Navis
-officiels — voir [`docs/navis-reference.md`](docs/navis-reference.md), qui fait autorité sur tout le reste.**
+Elle remplace des procédures aujourd'hui manuelles, sensibles à l'erreur et non traçables.
 
-## Stack technique
+## État
 
-- **.NET 10** (LTS), Clean Architecture (Domain / Application / Infrastructure / Web)
-- **Blazor Server** (interactivité serveur) pour l'UI
-- **ASP.NET Core Identity** (authentification par rôles : Lecteur, Opérateur, Approbateur, Administrateur)
-- **SQL Server** (LocalDB en développement), **EF Core 10**
-- **MediatR** (CQRS) + **FluentValidation** (pipeline de validation automatique)
-- **Serilog** (journalisation structurée, sinks Console + SQL Server)
-- **xUnit**, **FluentAssertions 7.x** (licence Apache — la 8.x est commerciale), **NSubstitute**,
-  **Testcontainers** (tests d'intégration SQL Server réel, nécessite Docker)
+**Sprint 7 livré en développement, non recetté** — socle technique, modèle de données et
+intégration continue (S0) ; authentification avec second facteur, huit profils, droits par
+environnement et journal d'audit non modifiable (S1) ; référentiel des environnements et des
+composants, typage N4, graphe de dépendances avec refus des cycles et cycle de validation (S2) ;
+connecteurs de collecte en lecture seule et consolidation d'état multi-signaux (S3) ;
+supervision, huit états consolidés, alertes et tableau de bord (S4) ; moteur d'orchestration
+persistant, reprise après arrêt brutal avec recollecte de l'état réel, verrou d'environnement et
+vue pas-à-pas (S5) ; saisie des workflows, mode simulation avec pré-check à cinq statuts,
+sélection de scénario compatible avec les habilitations, circuit d'approbation simple ou double
+et confirmation explicite avant toute soumission (S6) ; connecteurs de commande sous catalogue
+d'actions fermé, exécution réelle pas-à-pas, séquence d'arrêt de l'éditeur vérifiée à
+l'activation, composants déjà arrêtés ignorés, arrêt forcé ouvert seulement après délai, sous
+confirmation et droit sensible, contournement et intervention manuelle tracés, masquage des
+secrets dans les preuves (S7).
 
-## Structure
+**Livré n'est pas recetté.** Un sprint est *livré* quand le code est écrit, les règles testées et
+le parcours rejoué localement ; il est *recetté* quand il a été vérifié contre un écosystème N4
+réel. Le développement n'attend pas l'ouverture des accès : ce qui en dépend est consigné dans
+le [registre de recette différée](docs/scrum/recette-differee.md), pour être rejoué le jour venu
+plutôt qu'oublié.
 
-```
-N4Sentinel/
-├── src/
-│   ├── N4Sentinel.Domain/          Entités et règles métier pures
-│   ├── N4Sentinel.Application/     CQRS (MediatR), DTOs, validation, interfaces d'infrastructure
-│   ├── N4Sentinel.Infrastructure/  EF Core, repositories, connecteurs (implémentation Simulation)
-│   └── N4Sentinel.Web/             Blazor Server, Identity, pages
-├── tests/
-│   ├── N4Sentinel.Domain.Tests
-│   ├── N4Sentinel.Application.Tests
-│   └── N4Sentinel.IntegrationTests   (nécessite Docker — sinon tests marqués skip)
-└── docs/scrum/                     Vision, backlog produit, Definition of Done/Ready, sprints
-```
+> **Réserve du Sprint 3** : les accès techniques aux serveurs N4 ne sont pas ouverts. La
+> mécanique de collecte est exercée contre de vraies ressources du poste de développement,
+> mais **aucune validation contre l'écosystème N4 de CIT n'a eu lieu**.
 
-## Démarrer en local
+> **Réserve du Sprint 7** : faute d'environnement UAT représentatif, le livrable de revue du
+> Sprint 7 — l'arrêt complet piloté d'un écosystème N4 (AC-05) — n'a pas pu être démontré.
+> Les commandes d'arrêt et de démarrage sont exercées contre des services et des processus du
+> poste de développement ; **aucune commande n'a été émise vers un composant N4 réel**. Le
+> Sprint 8 dépend de cette démonstration.
 
-Prérequis : .NET 10 SDK, SQL Server LocalDB (`MSSQLLocalDB`), outil `dotnet-ef` (`dotnet tool install -g
-dotnet-ef`).
+Le parcours d'exécution est joué à chaque génération contre une vraie base SQL Server
+(`tests/N4Sentinel.Application.Tests`) : commande évitée sur un composant déjà arrêté, effet
+relu avant de conclure, arrêt forcé refusé avant délai, secrets masqués à la persistance,
+verrou d'environnement. Les points d'entrée sont traversés par de vraies requêtes HTTP sur
+l'application montée en mémoire — droit vérifié sur l'environnement visé, séparation
+demandeur/approbateur, confirmation explicite, et chaque refus tracé au journal d'audit.
+
+Le plan complet — 25 sprints, 4 lots, 148 exigences — est dans
+[`docs/plan-de-sprints.html`](docs/plan-de-sprints.html).
+
+> La branche `main` porte une version antérieure du produit, construite sur un backlog
+> précédent. Le développement en cours vit sur `v2`, reparti d'un dépôt vide sur la base du
+> cahier des charges v3 et de la maquette validée.
+
+## Démarrer
 
 ```bash
-dotnet build
-
-# Appliquer les migrations (base + schéma Identity, puis référentiel métier)
-dotnet ef database update --project src/N4Sentinel.Web --startup-project src/N4Sentinel.Web --context ApplicationDbContext
-dotnet ef database update --project src/N4Sentinel.Infrastructure --startup-project src/N4Sentinel.Web --context AppDbContext
-
+dotnet build N4Sentinel.sln
+dotnet test N4Sentinel.sln
 dotnet run --project src/N4Sentinel.Web
 ```
 
-En développement, un compte Administrateur de démonstration est créé automatiquement au démarrage (voir
-`appsettings.Development.json`, section `Seed` — à ne jamais reproduire tel quel en Production).
+Prérequis : SDK .NET 8 et SQL Server LocalDB.
 
-## Déploiement
+> La solution ciblait .NET 10 jusqu'au Sprint 4. Elle a été rétrogradée en .NET 8 parce que
+> Visual Studio 2022 17.14 ne sait pas cibler .NET 10. **Le support de .NET 8 s'achève en
+> novembre 2026** : voir la note « Plateforme » du dossier d'architecture.
 
-Pas d'IIS : l'application s'auto-héberge et se déploie comme **Service Windows**. Voir
-[`docs/deployment.md`](docs/deployment.md) et les scripts `deploy/install-service.ps1` /
-`deploy/uninstall-service.ps1`.
-
-## Tests
+Avant le premier démarrage, poser le compte d'amorçage — il n'est jamais versionné (SEC-003) :
 
 ```bash
-dotnet test tests/N4Sentinel.Domain.Tests
-dotnet test tests/N4Sentinel.Application.Tests
-dotnet test tests/N4Sentinel.IntegrationTests   # nécessite Docker ; sinon "skip" propre
+dotnet user-secrets set "Amorcage:EmailAdministrateur" "prenom.nom@citcotedivoire.com" --project src/N4Sentinel.Web
 ```
 
-## État d'avancement
+Le mot de passe se pose de la même façon, sur la clé `Amorcage:MotDePasseAdministrateur`.
+Sans ces deux valeurs, l'application démarre et signale qu'aucun compte n'a été créé.
 
-Voir `docs/scrum/product-backlog.md` pour le détail. Sprint 0 (fondations) et Sprint 1 (référentiel
-Environnements/Composants, FR-001/FR-002/FR-006) sont livrés. Le reste du périmètre V1 (workflows,
-pilotage réel, tableau de bord, diagnostic, assistant documentaire, EDI, audit) est planifié sprint par
-sprint dans `docs/scrum/sprints/`.
+Faute de relais SMTP configuré, les codes de second facteur sont écrits dans
+`src/N4Sentinel.Web/courriels-sortants/`, avec un avertissement au journal.
+
+## Organisation du dépôt
+
+| Chemin | Contenu |
+|---|---|
+| `src/` | Les huit couches applicatives du §3.15 du cahier des charges |
+| `tests/` | Tests de domaine, d'application et d'architecture |
+| `deploy/` | Installation en service Windows |
+| `docs/architecture.md` | Dossier d'architecture soumis à la DSI |
+| `docs/maquette/` | Référence visuelle contraignante |
+| `docs/cadrage/` | Livrables de cadrage du Sprint 0 |
+| `docs/scrum/sprints/` | Compte rendu de chaque sprint |
+
+## Architecture
+
+Huit projets, un par couche, avec des règles de dépendance vérifiées par des tests : une couche
+qui référence une couche interdite fait échouer la génération. Le détail, les choix techniques
+et leurs motifs sont dans [`docs/architecture.md`](docs/architecture.md).
+
+## Deux conditions préalables au plan
+
+Elles ne relèvent pas du développement, mais elles conditionnent la livraison du Lot 1 :
+
+1. **Accès techniques aux serveurs N4 ouverts avant le Sprint 3.**
+2. **Environnement UAT représentatif disponible avant le Sprint 7.**
+
+Sans eux, le Lot 1 n'est pas livrable : le cahier des charges exige l'exécution réelle des
+commandes en V1, pas une simulation. Voir
+[`docs/cadrage/demande-acces-techniques.md`](docs/cadrage/demande-acces-techniques.md).

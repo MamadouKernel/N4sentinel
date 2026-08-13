@@ -1,0 +1,58 @@
+name: Publication du paquet de déploiement
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version du paquet (ex. 0.1.0)"
+        required: true
+        default: "0.1.0"
+  push:
+    tags: ['v*']
+
+env:
+  DOTNET_NOLOGO: true
+
+jobs:
+  publier:
+    name: Paquet service Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Récupération du dépôt
+        uses: actions/checkout@v4
+
+      - name: Installation du SDK .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Tests avant publication
+        run: dotnet test N4Sentinel.sln --configuration Release
+
+      # Publication autonome : le serveur applicatif CIT n'a pas nécessairement le runtime
+      # .NET installé, et un déploiement ne doit pas dépendre d'un prérequis à installer à la main.
+      - name: Publication
+        run: >
+          dotnet publish src/N4Sentinel.Web/N4Sentinel.Web.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --output artefacts/publication
+          -p:Version=${{ inputs.version || '0.0.0' }}
+
+      - name: Ajout des scripts de déploiement
+        run: Copy-Item -Recurse deploy artefacts/publication/deploy
+        shell: pwsh
+
+      - name: Dépôt de l'artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: n4sentinel-${{ inputs.version || github.ref_name }}
+          path: artefacts/publication
+          retention-days: 30
+
+  # L'installation sur les serveurs CIT n'est pas automatisée depuis GitHub : aucun exécuteur
+  # n'atteint le réseau du terminal. Le paquet est produit ici, puis installé par
+  # deploy/Install-N4Sentinel.ps1 depuis un poste d'administration du domaine.
+  # Cette étape sera remplacée par un exécuteur auto-hébergé si la DSI en ouvre un.

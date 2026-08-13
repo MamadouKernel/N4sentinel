@@ -1,3 +1,5 @@
+@using N4Sentinel.Web.Securite
+@inject IHttpContextAccessor Accesseur
 <!DOCTYPE html>
 <html lang="fr">
 
@@ -5,36 +7,33 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
-    @* Aucune police distante : l'outil est déployé sur le réseau d'exploitation CIT, où l'accès
-       Internet n'est pas garanti. La pile de polices système est définie dans Styles/app.css. *@
-    <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["N4Sentinel.Web.styles.css"]" />
-    <ImportMap />
-    <link rel="manifest" href="manifest.json" />
-    <link rel="icon" type="image/png" href="favicon.png" />
-    <HeadOutlet @rendermode="PageRenderMode" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="N4Sentinel.Web.styles.css" />
+    <HeadOutlet />
 </head>
 
-<body>
-    <Routes @rendermode="PageRenderMode" />
-    <ReconnectModal />
-    <script src="@Assets["_framework/blazor.web.js"]"></script>
-    <script src="@Assets["Components/Account/Shared/PasskeySubmit.razor.js"]" type="module"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('service-worker.js');
-        }
-    </script>
+@* Le thème est appliqué côté serveur, au rendu : la page arrive déjà dans la bonne
+   couleur, sans le clignotement d'un basculement fait après coup en JavaScript. *@
+<body class="@ClasseDeTheme">
+    <Routes />
+
+    @* Bandeau de reconnexion du circuit Blazor : le script du cadriciel l'affiche
+       lui-même quand la liaison est perdue. *@
+    <div id="components-reconnect-modal" class="reconnexion">
+        Liaison interrompue avec le serveur. Tentative de reconnexion…
+    </div>
+
+    <script src="_framework/blazor.web.js"></script>
+    <script src="js/interface.js"></script>
 </body>
 
 </html>
 
 @code {
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
-    private IComponentRenderMode? PageRenderMode =>
-        HttpContext.Request.Path.StartsWithSegments("/Account")
-            ? null
-            : InteractiveServer;
+    /// <summary>
+    /// Thème retenu, lu dans un cookie. Le sombre est le défaut — c'est celui de la maquette
+    /// validée, et celui d'un écran de supervision consulté en salle technique.
+    /// </summary>
+    private string? ClasseDeTheme =>
+        Accesseur.HttpContext?.Request.Cookies["theme"] == "clair" ? "theme-clair" : null;
 }

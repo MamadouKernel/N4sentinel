@@ -1,0 +1,55 @@
+@page "/administration/journal-audit"
+@using N4Sentinel.Application.Abstractions
+@attribute [Authorize(Policy = "Droit:ConsulterLeJournalDAudit")]
+@inject IAuditTrail Piste
+
+<PageTitle>Journal d'audit — N4 Sentinel</PageTitle>
+
+<h1>Journal d'audit</h1>
+<p>
+    FR-092 — ce journal est en ajout seul. Aucun écran, aucun service applicatif ne permet
+    d'en modifier ou d'en supprimer une entrée ; une tentative ferait échouer l'enregistrement.
+</p>
+
+<div class="defilement">
+    <table class="tableau">
+        <thead>
+            <tr>
+                <th>Date (UTC)</th>
+                <th>Acteur</th>
+                <th>Action</th>
+                <th>Objet</th>
+                <th>Issue</th>
+                <th>Origine</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var entree in entrees)
+            {
+                <tr>
+                    <td>@entree.SurvenueLe.UtcDateTime.ToString("dd/MM/yyyy HH:mm:ss", Culture)</td>
+                    <td>@entree.Acteur</td>
+                    <td>@entree.Action</td>
+                    <td>@entree.TypeDObjet @entree.IdentifiantDObjet</td>
+                    <td>@(entree.Autorisee ? "Autorisée" : $"Refusée — {entree.MotifDeRefus}")</td>
+                    <td>@entree.Origine</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (entrees.Count == 0)
+{
+    <p>Aucune entrée sur les sept derniers jours.</p>
+}
+
+@code {
+    private static readonly System.Globalization.CultureInfo Culture =
+        System.Globalization.CultureInfo.InvariantCulture;
+
+    private IReadOnlyList<Domain.Entities.AuditEntry> entrees = [];
+
+    protected override async Task OnInitializedAsync() =>
+        entrees = await Piste.LireAsync(DateTimeOffset.UtcNow.AddDays(-7), DateTimeOffset.UtcNow);
+}

@@ -1,0 +1,158 @@
+@page "/operations/nouvelle"
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Application.Habilitations
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Entities
+@using N4Sentinel.Domain.Habilitations
+@attribute [Authorize(Policy = "Droit:Consulter")]
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IServiceDHabilitations Habilitations
+@inject IHttpContextAccessor Accesseur
+
+<PageTitle>Nouvelle opération — N4 Sentinel</PageTitle>
+
+<h1>Préparer une opération — @NomDeLEnvironnement</h1>
+<p>
+    FR-005 — mode simulation : aucune commande n'est émise ici. Le scénario choisi est déroulé
+    à blanc, chaque étape est confrontée à l'état réel connu des composants, et le résultat est
+    conservé comme pièce du dossier avant toute demande d'approbation.
+</p>
+
+@if (Erreur is not null)
+{
+    <p class="alerte" role="alert">@Erreur</p>
+}
+
+@if (environnement is null)
+{
+    <p class="alerte" role="alert">Aucun environnement sélectionné.</p>
+}
+else if (scenarios.Count == 0)
+{
+    <p>
+        Aucun scénario actif n'est sélectionnable sur cet environnement avec vos habilitations.
+        Un scénario doit être validé puis activé depuis
+        <a href="/pilotage/workflows">Workflows</a>.
+    </p>
+}
+else
+{
+    @if (environnement.Type == EnvironmentType.Production)
+    {
+        <p class="mention">
+            Environnement de Production : motif, référence d'incident, fenêtre d'intervention,
+            périmètre et impact attendu sont tous obligatoires (FR-014).
+        </p>
+    }
+
+    <form method="post" action="/operations/preparer" class="formulaire">
+        <AntiforgeryToken />
+        <input type="hidden" name="environnementId" value="@environnement.Id" />
+
+        <label for="workflowVersionId">Scénario</label>
+        <select id="workflowVersionId" name="workflowVersionId" required>
+            @foreach (var scenario in scenarios)
+            {
+                <option value="@scenario.Version.Id">
+                    @scenario.NomDuWorkflow — v@(scenario.Version.NumeroDeVersion)
+                    (@scenario.Version.Circuit@(scenario.Version.ActionSensible ? ", sensible" : ""))
+                </option>
+            }
+        </select>
+
+        <label for="motif">Motif</label>
+        <input id="motif" name="motif" type="text" maxlength="1024" required />
+
+        <label for="referenceIncident">Référence d'incident / ticket</label>
+        <input id="referenceIncident" name="referenceIncident" type="text" maxlength="128" />
+
+        <label for="fenetreDebut">Fenêtre — début</label>
+        <input id="fenetreDebut" name="fenetreDebut" type="datetime-local" />
+
+        <label for="fenetreFin">Fenêtre — fin</label>
+        <input id="fenetreFin" name="fenetreFin" type="datetime-local" />
+
+        <label for="perimetre">Périmètre</label>
+        <input id="perimetre" name="perimetre" type="text" maxlength="1024" />
+
+        <label for="impactAttendu">Impact attendu</label>
+        <input id="impactAttendu" name="impactAttendu" type="text" maxlength="1024" />
+
+        <button type="submit">Lancer la simulation</button>
+    </form>
+}
+
+<p><a class="lien-retour" href="/operations">Revenir aux opérations</a></p>
+
+@code {
+    private sealed record Scenario(WorkflowVersion Version, string NomDuWorkflow);
+
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    [SupplyParameterFromQuery(Name = "champs")]
+    private string? ChampsManquants { get; set; }
+
+    private N4Environment? environnement;
+    private List<Scenario> scenarios = [];
+
+    private string NomDeLEnvironnement => environnement?.Nom ?? "—";
+
+    private string? Erreur => CodeErreur switch
+    {
+        "scenario" => "Ce scénario n'est plus disponible : il doit être actif sur cet environnement.",
+        "droits" => "Vous ne disposez pas du droit requis pour ce scénario sur cet environnement.",
+        "incomplet" => $"Champs obligatoires en Production manquants : {ChampsManquants}.",
+        "introuvable" => "Environnement introuvable.",
+        _ => null
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        var choisi = Guid.TryParse(Accesseur.HttpContext?.Request.Cookies["environnement"], out var id)
+            ? id
+            : Guid.Empty;
+
+        environnement = await contexte.Environnements
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == choisi)
+            ?? await contexte.Environnements.AsNoTracking().OrderBy(e => e.Type).FirstOrDefaultAsync();
+
+        if (environnement is null)
+        {
+            return;
+        }
+
+        var identifiant = Accesseur.HttpContext?.User.FindFirst(
+            System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (identifiant is null)
+        {
+            return;
+        }
+
+        var droits = await Habilitations.DroitsSurAsync(identifiant, environnement.Id);
+
+        var versionsActives = await contexte.VersionsDeWorkflow
+            .AsNoTracking()
+            .Where(v => v.Statut == ValidationStatus.Actif)
+            .ToListAsync();
+
+        var workflows = await contexte.Workflows
+            .AsNoTracking()
+            .Where(w => w.EnvironmentId == environnement.Id)
+            .ToDictionaryAsync(w => w.Id, w => w.Nom);
+
+        scenarios = [.. versionsActives
+            .Where(v => workflows.ContainsKey(v.WorkflowId))
+            .Where(v => droits.Contains(v.ActionSensible
+                ? Droit.ExecuterUneOperationSensible
+                : Droit.ExecuterUneOperationAutorisee))
+            .Select(v => new Scenario(v, workflows[v.WorkflowId]))
+            .OrderBy(s => s.NomDuWorkflow)
+            .ThenByDescending(s => s.Version.NumeroDeVersion)];
+    }
+}

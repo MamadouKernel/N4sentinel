@@ -1,0 +1,72 @@
+name: Intégration continue
+
+on:
+  push:
+    branches: [main, v2]
+  pull_request:
+    branches: [main, v2]
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build-et-tests:
+    name: Génération et tests
+    # Windows : c'est la cible de déploiement réelle (service Windows, DPAPI, connecteurs
+    # PowerShell). Valider ailleurs reviendrait à ne pas valider ce qui sera livré.
+    runs-on: windows-latest
+
+    steps:
+      - name: Récupération du dépôt
+        uses: actions/checkout@v4
+
+      - name: Installation du SDK .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restauration des dépendances
+        run: dotnet restore N4Sentinel.sln
+
+      - name: Génération
+        run: dotnet build N4Sentinel.sln --configuration Release --no-restore
+
+      - name: Tests
+        run: dotnet test N4Sentinel.sln --configuration Release --no-build --logger "trx;LogFileName=tests.trx" --results-directory artefacts/tests
+
+      - name: Publication des résultats de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resultats-tests
+          path: artefacts/tests
+
+  analyse-de-securite:
+    name: Analyse des dépendances
+    runs-on: windows-latest
+
+    steps:
+      - name: Récupération du dépôt
+        uses: actions/checkout@v4
+
+      - name: Installation du SDK .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restauration des dépendances
+        run: dotnet restore N4Sentinel.sln
+
+      # Échoue si une dépendance porte une vulnérabilité connue. Sur une application qui
+      # pilote la production d'un terminal portuaire, une alerte non lue est une alerte inutile.
+      - name: Recherche de vulnérabilités connues
+        shell: pwsh
+        run: |
+          $sortie = dotnet list N4Sentinel.sln package --vulnerable --include-transitive
+          $sortie
+          if ($sortie -match 'a des vulnérabilités|has the following vulnerable') {
+            Write-Error 'Dépendance vulnérable détectée.'
+            exit 1
+          }

@@ -1,0 +1,15 @@
+<Project>
+
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <!--
+      CA1707 interdit les traits de soulignement dans les noms de membres. Les noms de tests les
+      utilisent délibérément : « Le_domaine_ne_depend_d_aucune_autre_couche » se lit dans un rapport
+      d'exécution, pas « LeDomaineNeDependDAucuneAutreCouche ». Règle levée pour les tests seuls.
+    -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+
+</Project>

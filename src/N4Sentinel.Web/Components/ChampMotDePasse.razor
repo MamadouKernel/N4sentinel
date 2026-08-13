@@ -1,0 +1,54 @@
+@* Champ de mot de passe avec bascule d'affichage.
+   Les icônes sont des SVG intégrés : aucune police d'icônes externe n'est joignable
+   depuis un réseau isolé, et la politique de contenu l'interdirait de toute façon. *@
+
+<label for="@Id">@Libelle</label>
+
+<div class="champ-avec-icone">
+    <input id="@Id"
+           name="@Nom"
+           type="password"
+           autocomplete="@Autocompletion"
+           required="@Requis"
+           class="champ-mot-de-passe" />
+
+    <button type="button"
+            class="bouton-oeil"
+            data-bascule-mot-de-passe="@Id"
+            aria-label="Afficher le mot de passe"
+            aria-pressed="false"
+            title="Afficher le mot de passe">
+        <svg class="oeil" viewBox="0 0 24 24" width="19" height="19" fill="none"
+             stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true">
+            <path d="M1.8 12S5.4 5.2 12 5.2 22.2 12 22.2 12 18.6 18.8 12 18.8 1.8 12 1.8 12Z" />
+            <circle cx="12" cy="12" r="3.1" />
+        </svg>
+
+        <svg class="oeil-barre" hidden viewBox="0 0 24 24" width="19" height="19" fill="none"
+             stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+             stroke-linejoin="round" aria-hidden="true">
+            <path d="M9.9 5.5A9.6 9.6 0 0 1 12 5.2c6.6 0 10.2 6.8 10.2 6.8a18 18 0 0 1-2.8 3.9" />
+            <path d="M6.3 6.4A18 18 0 0 0 1.8 12S5.4 18.8 12 18.8a9.4 9.4 0 0 0 4.2-1" />
+            <path d="M10 10a3.1 3.1 0 0 0 4.2 4.2" />
+            <path d="M3 3l18 18" />
+        </svg>
+    </button>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Id { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public string Nom { get; set; } = default!;
+
+    [Parameter]
+    public string Libelle { get; set; } = "Mot de passe";
+
+    [Parameter]
+    public string Autocompletion { get; set; } = "current-password";
+
+    [Parameter]
+    public bool Requis { get; set; } = true;
+}

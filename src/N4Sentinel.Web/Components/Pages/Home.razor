@@ -1,96 +1,185 @@
 @page "/"
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Application.Habilitations
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Habilitations
+@inject IServiceDHabilitations Habilitations
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IHttpContextAccessor Accesseur
 
-@inject IOptions<BrandingOptions> BrandingOptions
+<PageTitle>Accueil — N4 Sentinel Control Room</PageTitle>
 
-<PageTitle>Accueil — N4 Sentinel</PageTitle>
-
-<div class="space-y-8">
-    <section class="panel-brand">
-        <div class="max-w-2xl">
-            <span class="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gold-200 ring-1 ring-inset ring-gold-300/30">
-                Supervision &amp; pilotage du TOS Navis N4
-            </span>
-
-            <h1 class="mt-5 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-                Standardiser et sécuriser les opérations N4
-            </h1>
-
-            <p class="mt-4 text-base leading-relaxed text-brand-100">
-                Orchestration guidée des séquences Cluster Nodes, Center Node, Bridge et XPS, supervision des
-                signaux d'exploitation et diagnostic outillé, pour @BrandingOptions.Value.OrganizationName.
-            </p>
-
-            <div class="mt-8 flex flex-wrap items-center gap-3">
-                <AuthorizeView>
-                    <Authorized>
-                        <a class="btn btn-accent btn-lg" href="dashboard">Accéder au tableau de bord</a>
-                        <a class="btn btn-lg border-white/25 bg-transparent text-white hover:bg-white/10" href="environments">
-                            Environnements
-                        </a>
-                    </Authorized>
-                    <NotAuthorized>
-                        <a class="btn btn-accent btn-lg" href="Account/Login">Se connecter à la plateforme</a>
-                    </NotAuthorized>
-                </AuthorizeView>
-            </div>
-        </div>
-    </section>
-
-    <section>
-        <h2 class="section-title">Ce que couvre la plateforme</h2>
-
-        <div class="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <article class="soft-card">
-                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13h4l3 7 4-16 3 9h4" />
-                    </svg>
-                </div>
-                <h3 class="mt-4 text-sm font-semibold text-brand-900">Supervision</h3>
-                <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
-                    Suivi des services, nœuds applicatifs, files ActiveMQ et dossiers partagés, avec alertes sur
-                    seuils explicites.
-                </p>
-            </article>
-
-            <article class="soft-card">
-                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-6 4h6" />
-                    </svg>
-                </div>
-                <h3 class="mt-4 text-sm font-semibold text-brand-900">Pilotage guidé</h3>
-                <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
-                    Workflows versionnés d'arrêt, de démarrage et de redémarrage, exécutés pas à pas avec double
-                    validation et reprise sur échec.
-                </p>
-            </article>
-
-            <article class="soft-card">
-                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
-                    </svg>
-                </div>
-                <h3 class="mt-4 text-sm font-semibold text-brand-900">Diagnostic</h3>
-                <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
-                    Corrélation des signaux collectés et des signatures de logs sur des règles administrées et
-                    versionnées.
-                </p>
-            </article>
-
-            <article class="soft-card">
-                <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.25C10.83 5.48 9.25 5 7.5 5S4.17 5.48 3 6.25v13C4.17 18.48 5.75 18 7.5 18s3.33.48 4.5 1.25m0-13C13.17 5.48 14.75 5 16.5 5S19.83 5.48 21 6.25v13C19.83 18.48 18.25 18 16.5 18s-3.33.48-4.5 1.25m0-13v13" />
-                    </svg>
-                </div>
-                <h3 class="mt-4 text-sm font-semibold text-brand-900">Assistant &amp; SOP</h3>
-                <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
-                    Recherche sourcée dans la base documentaire N4 et capitalisation des interventions en fiches
-                    réflexes réutilisables.
-                </p>
-            </article>
-        </div>
-    </section>
+<div class="en-tete-page">
+    <div>
+        <h1>
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--primaire)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            Tableau de Bord — Bienvenue, @NomAffiche
+        </h1>
+        <p>Console de supervision et d'orchestration pour l'écosystème Navis N4 de CIT</p>
+    </div>
 </div>
+
+<div class="grille-cartes">
+    <div class="carte">
+        <div class="carte-en-tete">
+            <span class="carte-titre">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--primaire)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                Environnement Actif
+            </span>
+            <span class="pastille-environnement @ClasseDePastille">@TypeEnvironnementText</span>
+        </div>
+        <div class="carte-valeur">@NomDeLEnvironnement</div>
+        <span class="mention">Désignation officielle dans le référentiel</span>
+    </div>
+
+    <div class="carte">
+        <div class="carte-en-tete">
+            <span class="carte-titre">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--succes)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                Habilitations Effectives
+            </span>
+        </div>
+        <div class="carte-valeur">@droits.Count <span class="unite-valeur">privilège(s)</span></div>
+        <span class="mention">Calculés selon la politique SEC-004</span>
+    </div>
+
+    <div class="carte">
+        <div class="carte-en-tete">
+            <span class="carte-titre">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Dernier Sprint Validé
+            </span>
+        </div>
+        <div class="carte-valeur texte-accent">Sprint 5</div>
+        <span class="mention">Moteur d'Orchestration & Reprise post-crash</span>
+    </div>
+</div>
+
+<div class="carte bloc-espace-court">
+    <div class="carte-en-tete">
+        <h2 class="carte-titre">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--primaire)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+            Matrice des Droits Effectifs sur @NomDeLEnvironnement
+        </h2>
+    </div>
+
+    @if (droits.Count == 0)
+    {
+        <div class="alerte avertissement">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <div>Aucune habilitation accordée sur cet environnement. Veuillez contacter un administrateur N4.</div>
+        </div>
+    }
+    else
+    {
+        <div class="defilement">
+            <table class="tableau">
+                <thead>
+                    <tr>
+                        <th>Intitulé du Droit</th>
+                        <th>Nature du Privilège</th>
+                        <th>Portée SEC-004</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var droit in droits.OrderBy(d => d.ToString(), StringComparer.Ordinal))
+                    {
+                        var estAction = Droits.EstUneAction(droit);
+                        <tr>
+                            <td>
+                                <strong>@droit</strong>
+                            </td>
+                            <td>
+                                @if (estAction)
+                                {
+                                    <span class="signal-attention signal-attention-primaire">
+                                        ⚡ Action
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="texte-attenue">👁️ Consultation</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="mention">
+                                    @(estAction && TypeEnvironnementText == "Production" ? "Habilitation spécifique requise" : "Accordé selon profil")
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <p class="mention mention-moyenne">
+        💡 <strong>Règle SEC-004</strong> : En Production, un profil global n'accorde que la consultation. Toute permission d'action y exige une habilitation explicite affectée à cet environnement.
+    </p>
+</div>
+
+@code {
+    private IReadOnlyCollection<Droit> droits = [];
+    private string NomDeLEnvironnement = "—";
+    private string TypeEnvironnementText = "N/A";
+    private string ClasseDePastille = "";
+
+    private string NomAffiche => Accesseur.HttpContext?.User.Identity?.Name ?? string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var contexteHttp = Accesseur.HttpContext;
+        var identifiant = contexteHttp?.User.FindFirst(
+            System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (identifiant is null)
+        {
+            return;
+        }
+
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        var environnementId = Guid.TryParse(contexteHttp!.Request.Cookies["environnement"], out var id)
+            ? id
+            : await contexte.Environnements.Select(e => e.Id).FirstOrDefaultAsync();
+
+        var environnement = await contexte.Environnements
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == environnementId);
+
+        if (environnement is null)
+        {
+            return;
+        }
+
+        NomDeLEnvironnement = environnement.Nom;
+        TypeEnvironnementText = environnement.Type.ToString();
+        ClasseDePastille = environnement.Type switch
+        {
+            Domain.Common.EnvironmentType.Production => "production",
+            Domain.Common.EnvironmentType.Uat => "uat",
+            _ => string.Empty
+        };
+
+        droits = [.. await Habilitations.DroitsSurAsync(identifiant, environnement.Id)];
+    }
+}

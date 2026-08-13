@@ -1,0 +1,135 @@
+@page "/referentiel/environnements"
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Referentiel
+@attribute [Authorize(Policy = "Droit:Consulter")]
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+
+<PageTitle>Environnements — N4 Sentinel</PageTitle>
+
+<h1>Environnements</h1>
+<p>
+    FR-001 — chaque environnement porte sa propre cartographie, ses composants, ses seuils et
+    ses règles d'autorisation. Seul un environnement actif peut servir à une opération.
+</p>
+
+@if (Erreur is not null)
+{
+    <p class="alerte" role="alert">@Erreur</p>
+}
+
+<div class="defilement">
+    <table class="tableau">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th>Type</th>
+                <th>Criticité</th>
+                <th>Statut</th>
+                <th>Composants</th>
+                <th>Cycle de validation</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var environnement in environnements)
+            {
+                <tr>
+                    <td>
+                        @environnement.Nom
+                        @if (environnement.Type == EnvironmentType.Production)
+                        {
+                            <span class="pastille-environnement production">Production</span>
+                        }
+                    </td>
+                    <td>@environnement.Type</td>
+                    <td>@environnement.Criticite</td>
+                    <td>@CycleDeValidation.Libelle(environnement.Statut)</td>
+                    <td>@NombreDeComposants(environnement.Id)</td>
+                    <td>
+                        <AuthorizeView Policy="Droit:GererLeReferentiel">
+                            @foreach (var suivant in CycleDeValidation.TransitionsPossiblesDepuis(environnement.Statut))
+                            {
+                                <form method="post" action="/referentiel/environnement/statut" class="ligne-action">
+                                    <AntiforgeryToken />
+                                    <input type="hidden" name="id" value="@environnement.Id" />
+                                    <input type="hidden" name="statut" value="@suivant" />
+                                    <button type="submit" class="bouton-discret">@CycleDeValidation.Libelle(suivant)</button>
+                                </form>
+                            }
+                        </AuthorizeView>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<AuthorizeView Policy="Droit:GererLeReferentiel">
+    <h2>Nouvel environnement</h2>
+    <form method="post" action="/referentiel/environnement" class="formulaire">
+        <AntiforgeryToken />
+
+        <label for="nom">Nom</label>
+        <input id="nom" name="nom" type="text" maxlength="128" required />
+
+        <label for="type">Type</label>
+        <select id="type" name="type">
+            @foreach (var type in Enum.GetValues<EnvironmentType>())
+            {
+                <option value="@type">@type</option>
+            }
+        </select>
+
+        <label for="criticite">Criticité</label>
+        <select id="criticite" name="criticite">
+            @foreach (var criticite in Enum.GetValues<Criticality>())
+            {
+                <option value="@criticite" selected="@(criticite == Criticality.Moyenne)">@criticite</option>
+            }
+        </select>
+
+        <label for="fuseauHoraire">Fuseau horaire</label>
+        <input id="fuseauHoraire" name="fuseauHoraire" type="text" maxlength="64" value="Africa/Abidjan" />
+
+        <label for="description">Description</label>
+        <input id="description" name="description" type="text" maxlength="512" />
+
+        <button type="submit">Créer</button>
+    </form>
+</AuthorizeView>
+
+@code {
+    private List<Domain.Entities.N4Environment> environnements = [];
+    private Dictionary<Guid, int> composantsParEnvironnement = [];
+
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    private string? Erreur => CodeErreur switch
+    {
+        "actif" => "Un environnement actif ne peut pas être modifié. Désactivez-le d'abord.",
+        "transition" => "Cette transition de statut n'est pas permise par le cycle de validation.",
+        "introuvable" => "Environnement introuvable.",
+        _ => null
+    };
+
+    private int NombreDeComposants(Guid id) =>
+        composantsParEnvironnement.TryGetValue(id, out var nombre) ? nombre : 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        environnements = await contexte.Environnements
+            .AsNoTracking()
+            .OrderBy(e => e.Type)
+            .ThenBy(e => e.Nom)
+            .ToListAsync();
+
+        composantsParEnvironnement = await contexte.Composants
+            .GroupBy(c => c.EnvironmentId)
+            .Select(g => new { g.Key, Nombre = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Nombre);
+    }
+}

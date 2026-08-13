@@ -1,0 +1,158 @@
+@page "/referentiel/composants"
+@using Microsoft.EntityFrameworkCore
+@using N4Sentinel.Data
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Domain.Entities
+@using N4Sentinel.Domain.Referentiel
+@attribute [Authorize(Policy = "Droit:Consulter")]
+@inject IDbContextFactory<ApplicationDbContext> Fabrique
+@inject IHttpContextAccessor Accesseur
+
+<PageTitle>Composants — N4 Sentinel</PageTitle>
+
+<h1>Composants — @NomDeLEnvironnement</h1>
+<p>
+    FR-002 — aucune action technique n'est autorisée sur un composant qui n'a pas été
+    enregistré, validé, puis activé. Le typage conditionne le calcul des séquences : un
+    composant non typé reste invisible de tout ordre d'arrêt ou de démarrage.
+</p>
+
+@if (environnement is null)
+{
+    <p class="alerte" role="alert">Aucun environnement sélectionné.</p>
+}
+else
+{
+    <div class="defilement">
+        <table class="tableau">
+            <thead>
+                <tr>
+                    <th>Nom</th>
+                    <th>Type N4</th>
+                    <th>Pilotage</th>
+                    <th>Hôte</th>
+                    <th>Criticité</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var composant in composants)
+                {
+                    <tr>
+                        <td><a href="/referentiel/composant/@composant.Id">@composant.Nom</a></td>
+                        <td>
+                            @composant.Kind
+                            @if (composant.Kind == N4ComponentKind.NonSpecifie)
+                            {
+                                <span class="signal-attention" title="Invisible des séquences tant qu'il n'est pas typé">à typer</span>
+                            }
+                        </td>
+                        <td>@composant.ModeDePilotage</td>
+                        <td>@composant.Serveur</td>
+                        <td>@composant.Criticite</td>
+                        <td>@CycleDeValidation.Libelle(composant.Statut)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (composants.Count == 0)
+    {
+        <p>Aucun composant enregistré sur cet environnement.</p>
+    }
+
+    <AuthorizeView Policy="Droit:GererLeReferentiel">
+        <h2>Nouveau composant</h2>
+        <form method="post" action="/referentiel/composant" class="formulaire">
+            <AntiforgeryToken />
+            <input type="hidden" name="environnementId" value="@environnement.Id" />
+
+            <label for="nom">Nom logique</label>
+            <input id="nom" name="nom" type="text" maxlength="128" required />
+
+            <label for="role">Rôle</label>
+            <input id="role" name="role" type="text" maxlength="256" required />
+
+            <label for="kind">Type N4</label>
+            <select id="kind" name="kind">
+                @foreach (var kind in Enum.GetValues<N4ComponentKind>())
+                {
+                    <option value="@kind">@kind</option>
+                }
+            </select>
+
+            <label for="modeDePilotage">Mode de pilotage</label>
+            <select id="modeDePilotage" name="modeDePilotage">
+                @foreach (var mode in Enum.GetValues<ModeDePilotage>())
+                {
+                    <option value="@mode" selected="@(mode == ModeDePilotage.UniquementSupervise)">@mode</option>
+                }
+            </select>
+
+            <label for="serveur">Serveur ou machine virtuelle</label>
+            <input id="serveur" name="serveur" type="text" maxlength="256" required />
+
+            <label for="adresseIp">Adresse IP</label>
+            <input id="adresseIp" name="adresseIp" type="text" maxlength="64" />
+
+            <label for="nomDns">Nom DNS</label>
+            <input id="nomDns" name="nomDns" type="text" maxlength="256" />
+
+            <label for="systemeDExploitation">Système d'exploitation</label>
+            <input id="systemeDExploitation" name="systemeDExploitation" type="text" maxlength="128" />
+
+            <label for="nomDuService">Service Windows</label>
+            <input id="nomDuService" name="nomDuService" type="text" maxlength="128" />
+
+            <label for="mecanisme">Processus ou mécanisme</label>
+            <input id="mecanisme" name="mecanisme" type="text" maxlength="256" />
+
+            <label for="criticite">Criticité</label>
+            <select id="criticite" name="criticite">
+                @foreach (var criticite in Enum.GetValues<Criticality>())
+                {
+                    <option value="@criticite" selected="@(criticite == Criticality.Moyenne)">@criticite</option>
+                }
+            </select>
+
+            <label for="responsable">Responsable technique ou fonctionnel</label>
+            <input id="responsable" name="responsable" type="text" maxlength="256" />
+
+            <button type="submit">Enregistrer</button>
+        </form>
+    </AuthorizeView>
+}
+
+@code {
+    private N4Environment? environnement;
+    private List<N4Component> composants = [];
+
+    private string NomDeLEnvironnement => environnement?.Nom ?? "—";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexte = await Fabrique.CreateDbContextAsync();
+
+        var choisi = Guid.TryParse(Accesseur.HttpContext?.Request.Cookies["environnement"], out var id)
+            ? id
+            : Guid.Empty;
+
+        environnement = await contexte.Environnements
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == choisi)
+            ?? await contexte.Environnements.AsNoTracking().OrderBy(e => e.Type).FirstOrDefaultAsync();
+
+        if (environnement is null)
+        {
+            return;
+        }
+
+        composants = await contexte.Composants
+            .AsNoTracking()
+            .Where(c => c.EnvironmentId == environnement.Id)
+            .OrderBy(c => c.Kind)
+            .ThenBy(c => c.Nom)
+            .ToListAsync();
+    }
+}

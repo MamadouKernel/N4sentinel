@@ -1,0 +1,339 @@
+@page "/compte/profil"
+@using Microsoft.AspNetCore.Identity
+@using N4Sentinel.Data.Identite
+@using N4Sentinel.Domain.Common
+@using N4Sentinel.Application.Abstractions
+@using N4Sentinel.Application.Audit
+@using N4Sentinel.Domain.Entities
+@using N4Sentinel.Web.Securite
+@inject UserManager<UtilisateurApplicatif> Utilisateurs
+@inject IHttpContextAccessor Accesseur
+@inject IAuditTrail Piste
+
+<PageTitle>Mon compte — N4 Sentinel</PageTitle>
+
+<h1>Mon compte</h1>
+
+@if (utilisateur is null)
+{
+    <p>Compte introuvable.</p>
+}
+else
+{
+    <p>@utilisateur.NomComplet — @utilisateur.Email</p>
+
+    @if (Message is not null)
+    {
+        <p class="alerte succes" role="status">@Message</p>
+    }
+    @if (Erreur is not null)
+    {
+        <p class="alerte" role="alert">@Erreur</p>
+    }
+
+    <h2>Second facteur d'authentification</h2>
+
+    <p>
+        État :
+        <strong>@(utilisateur.TwoFactorEnabled ? "activé" : "désactivé")</strong>
+        @if (utilisateur.TwoFactorEnabled)
+        {
+            <text> — canal : <strong>@LibelleDuCanal(utilisateur.MethodeDeSecondFacteur)</strong></text>
+        }
+    </p>
+
+    @if (!utilisateur.TwoFactorEnabled)
+    {
+        <div class="alerte" role="alert">
+            <div>
+                <strong>Votre compte est protégé par un seul facteur.</strong> Un mot de passe
+                dérobé suffit alors à ouvrir une session capable d'arrêter des systèmes de
+                production. Le cahier des charges classe le second facteur en « Must » : sa
+                désactivation est un écart validé par la DSI, tracé au journal d'audit.
+            </div>
+        </div>
+
+        <form method="post" action="/compte/profil/second-facteur/activation" class="formulaire">
+            <AntiforgeryToken />
+            <input type="hidden" name="activer" value="true" />
+            <button type="submit" class="bouton-primaire">Réactiver le second facteur</button>
+        </form>
+    }
+    else
+    {
+        <p class="mention">
+            Vous choisissez par quel canal vous recevez votre code. Vous pouvez aussi renoncer
+            au second facteur, ce que la DSI a autorisé mais que rien n'oblige à faire.
+        </p>
+
+        <details class="recours">
+            <summary>Désactiver le second facteur</summary>
+
+            <p class="mention">
+                Votre compte ne sera plus protégé que par son mot de passe. La clé
+                d'authentification et les codes de récupération sont conservés : réactiver ne
+                demandera pas de tout reconfigurer.
+            </p>
+
+            <form method="post" action="/compte/profil/second-facteur/activation" class="formulaire">
+                <AntiforgeryToken />
+                <input type="hidden" name="activer" value="false" />
+
+                <label class="case-confirmation">
+                    <input type="checkbox" name="confirmation" value="true" required />
+                    Je comprends que mon compte ne sera plus protégé que par son mot de passe
+                </label>
+
+                <button type="submit" class="bouton-discret bouton-danger">
+                    Désactiver le second facteur
+                </button>
+            </form>
+        </details>
+    }
+
+    @if (utilisateur.MethodeDeSecondFacteur != MethodeDeSecondFacteur.Courriel)
+    {
+        <h3>Revenir au code par courriel</h3>
+        <p>Le code sera envoyé à @utilisateur.Email à chaque connexion.</p>
+        <form method="post" action="/compte/profil/second-facteur">
+            <AntiforgeryToken />
+            <input type="hidden" name="methode" value="@MethodeDeSecondFacteur.Courriel" />
+            <button type="submit" class="bouton-discret">Utiliser le courriel</button>
+        </form>
+    }
+    else
+    {
+        <h3>Utiliser une application d'authentification</h3>
+        <p>
+            Recommandé sur un outil d'exploitation : l'application génère le code hors ligne,
+            donc la connexion reste possible quand la messagerie est indisponible.
+        </p>
+
+        <ol class="etapes">
+            <li>
+                Ouvrez Microsoft Authenticator, Google Authenticator ou équivalent, puis
+                choisissez d'ajouter un compte professionnel.
+            </li>
+            <li>
+                Scannez ce code :
+                @if (CodeQr is not null)
+                {
+                    <div class="code-qr">@((MarkupString)CodeQr)</div>
+                }
+                <span class="mention">
+                    Si l'appareil photo n'est pas disponible, ajoutez un compte en
+                    « saisie manuelle » et recopiez cette clé :
+                </span>
+                <code class="cle">@CleFormatee</code>
+                <span class="mention">Compte : @utilisateur.Email — Émetteur : N4 Sentinel</span>
+            </li>
+            <li>Saisissez ci-dessous le code affiché par l'application pour confirmer.</li>
+        </ol>
+
+        <p class="mention">
+            Ce code contient le secret partagé : il n'est affiché qu'à vous, sur cette page, et
+            n'est ni journalisé ni transmis à un service tiers.
+        </p>
+
+        <p class="mention">
+            Le canal ne bascule qu'une fois le code vérifié : une clé mal recopiée ne peut pas
+            vous enfermer dehors.
+        </p>
+
+        <form method="post" action="/compte/profil/second-facteur" class="formulaire">
+            <AntiforgeryToken />
+            <input type="hidden" name="methode" value="@MethodeDeSecondFacteur.ApplicationDAuthentification" />
+
+            <label for="code">Code affiché par l'application</label>
+            <input id="code" name="code" type="text" inputmode="numeric"
+                   autocomplete="one-time-code" maxlength="8" required />
+
+            <button type="submit">Activer l'application d'authentification</button>
+        </form>
+    }
+
+    <h3>Codes de récupération</h3>
+    <p>
+        Ils permettent d'entrer quand le second facteur habituel est hors d'atteinte — téléphone
+        perdu, ou messagerie indisponible, c'est-à-dire le moment où l'on a le plus besoin
+        d'accéder à un outil d'exploitation. Chaque code ne fonctionne qu'une fois.
+    </p>
+
+    @if (codesGeneres is not null)
+    {
+        <div class="alerte succes" role="alert">
+            <div>
+                <strong>Notez ces codes maintenant.</strong> Ils ne seront plus jamais affichés :
+                l'application n'en conserve qu'une empreinte, elle est incapable de vous les
+                remontrer. Conservez-les hors du téléphone qui porte l'application
+                d'authentification.
+            </div>
+        </div>
+
+        <ul class="codes-recuperation">
+            @* La variable ne s'appelle pas « code » : à l'intérieur d'une balise <code>,
+               Razor prendrait « @code » pour sa propre directive. *@
+            @foreach (var codeDeRecuperation in codesGeneres)
+            {
+                <li><code>@codeDeRecuperation</code></li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p class="mention">
+            @(codesRestants == 0
+                ? "Aucun code disponible. Sans code de récupération, la perte du second facteur exige l'intervention d'un administrateur."
+                : $"{codesRestants} code(s) encore utilisable(s).")
+        </p>
+    }
+
+    @* Traité par le composant et non par un point d'entrée avec redirection : les codes ne
+       doivent jamais transiter par une URL, où ils finiraient dans l'historique du navigateur
+       et dans les journaux du serveur. Ils n'existent que dans la réponse à ce POST. *@
+    <form method="post" @formname="codes-recuperation" @onsubmit="GenererLesCodesAsync" class="formulaire">
+        <AntiforgeryToken />
+        <button type="submit" class="bouton-discret">
+            @(codesRestants == 0 ? "Générer des codes de récupération" : "Générer de nouveaux codes")
+        </button>
+    </form>
+
+    <p class="mention">
+        Générer de nouveaux codes invalide immédiatement les précédents.
+    </p>
+
+    <h3>Téléphone perdu ou remplacé</h3>
+    <p>
+        La régénération invalide la clé actuelle et remet le canal sur le courriel, afin que
+        vous puissiez vous reconnecter et reconfigurer l'application.
+    </p>
+    <form method="post" action="/compte/profil/nouvelle-cle">
+        <AntiforgeryToken />
+        <button type="submit" class="bouton-discret">Régénérer la clé</button>
+    </form>
+}
+
+@code {
+    /// <summary>
+    /// Dix codes : assez pour couvrir plusieurs incidents sans que la liste devienne une
+    /// seconde clé, difficile à conserver et facile à photographier.
+    /// </summary>
+    private const int NombreDeCodes = 10;
+
+    private UtilisateurApplicatif? utilisateur;
+    private string? cle;
+    private int codesRestants;
+
+    /// <summary>
+    /// Codes en clair, le temps d'un seul rendu. Ils ne sont ni conservés en champ persistant,
+    /// ni journalisés, ni audités : le journal enregistre qu'une génération a eu lieu, jamais
+    /// ce qu'elle a produit.
+    /// </summary>
+    private IReadOnlyList<string>? codesGeneres;
+
+    private async Task GenererLesCodesAsync()
+    {
+        if (utilisateur is null)
+        {
+            return;
+        }
+
+        var codes = await Utilisateurs.GenerateNewTwoFactorRecoveryCodesAsync(utilisateur, NombreDeCodes);
+        codesGeneres = codes is null ? [] : [.. codes];
+        codesRestants = codesGeneres.Count;
+
+        await Piste.EnregistrerAsync(new AuditEntry
+        {
+            Acteur = utilisateur.UserName ?? utilisateur.Id,
+            Action = ActionsAuditees.CodesDeRecuperationGeneres,
+            TypeDObjet = ObjetsAudites.Compte,
+            IdentifiantDObjet = utilisateur.Id,
+            ValeurApres = $"{codesGeneres.Count} code(s) ; les précédents sont invalidés",
+            AdresseIp = Accesseur.HttpContext?.Connection.RemoteIpAddress?.ToString(),
+            Origine = AuditOrigin.InterfaceWeb
+        });
+    }
+
+    [SupplyParameterFromQuery(Name = "message")]
+    private string? CodeMessage { get; set; }
+
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    private string? Message => CodeMessage switch
+    {
+        "canal-modifie" => "Canal du second facteur modifié.",
+        "cle-regeneree" => "Clé régénérée. Le canal est revenu au courriel.",
+        "codes-epuises" => "Dernier code de récupération consommé. Générez-en de nouveaux dès maintenant.",
+        "second-facteur-active" => "Second facteur réactivé.",
+        "second-facteur-desactive" => "Second facteur désactivé. La modification est tracée au journal d'audit.",
+        _ => null
+    };
+
+    private string? Erreur => CodeErreur switch
+    {
+        "code" => "Code invalide. Le canal n'a pas été changé.",
+        "confirmation" => "Désactivation refusée : la confirmation n'a pas été cochée.",
+        "activation" => "Le réglage n'a pas pu être modifié.",
+        _ => null
+    };
+
+    // Clé découpée en groupes de quatre : elle se recopie à la main sur un téléphone,
+    // et une suite de 32 caractères d'affilée se recopie mal.
+    private string CleFormatee =>
+        string.Join(' ', Decouper(cle ?? string.Empty, 4));
+
+    /// <summary>
+    /// Code QR d'enrôlement, calculé à l'affichage et jamais conservé : il porte le secret
+    /// partagé, qui vit déjà là où il doit vivre — dans le compte, chiffré par Identity.
+    /// </summary>
+    private string? CodeQr =>
+        utilisateur?.Email is { Length: > 0 } compte && !string.IsNullOrWhiteSpace(cle)
+            ? CodeQrDuSecondFacteur.ConstruireLeSvg(compte, cle)
+            : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var principal = Accesseur.HttpContext?.User;
+        if (principal is null)
+        {
+            return;
+        }
+
+        utilisateur = await Utilisateurs.GetUserAsync(principal);
+        if (utilisateur is null)
+        {
+            return;
+        }
+
+        cle = await Utilisateurs.GetAuthenticatorKeyAsync(utilisateur);
+        if (string.IsNullOrWhiteSpace(cle))
+        {
+            // Aucune clé encore générée pour ce compte : on la crée à la première visite,
+            // sans changer le canal actif. Tant qu'aucun code n'est vérifié, elle ne sert à rien.
+            await Utilisateurs.ResetAuthenticatorKeyAsync(utilisateur);
+            cle = await Utilisateurs.GetAuthenticatorKeyAsync(utilisateur);
+        }
+
+        // Relu après une éventuelle génération : l'affichage doit refléter l'état d'après.
+        if (codesGeneres is null)
+        {
+            codesRestants = await Utilisateurs.CountRecoveryCodesAsync(utilisateur);
+        }
+    }
+
+    private static string LibelleDuCanal(MethodeDeSecondFacteur methode) => methode switch
+    {
+        MethodeDeSecondFacteur.Courriel => "code envoyé par courriel",
+        MethodeDeSecondFacteur.ApplicationDAuthentification => "application d'authentification",
+        _ => methode.ToString()
+    };
+
+    private static IEnumerable<string> Decouper(string valeur, int taille)
+    {
+        for (var position = 0; position < valeur.Length; position += taille)
+        {
+            yield return valeur.Substring(position, Math.Min(taille, valeur.Length - position));
+        }
+    }
+}

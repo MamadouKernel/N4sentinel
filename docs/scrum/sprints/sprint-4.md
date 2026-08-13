@@ -1,62 +1,121 @@
-# Sprint 4 — Premières opérations réelles (risque maîtrisé)
+# Sprint 4 — Supervision et tableau de bord
 
-**Objectif de sprint** : permettre le **premier pilotage réellement exécuté** (via le connecteur Simulation,
-toujours aucun accès réseau réel — cf. décision Sprint 2) d'un workflow, avec les garde-fous minimaux exigés
-par le cahier des charges avant toute action mutative en Production : motif/référence obligatoires (FR-011)
-et double validation (lancement ≠ approbation).
+**Semaines 9–10 · Lot 1 · Statut : livré, périmètre réduit par l'absence d'accès N4**
 
-## Sprint Backlog
+**Objectif** — donner à la DSI une vue temps réel exploitable de l'état de chaque environnement.
 
-| Story | Résultat |
+---
+
+## Ce qui a été livré
+
+### Les huit états consolidés (FR-052)
+
+`EtatDeSupervision` porte les huit états exigés — Disponible, Dégradé, Indisponible, Démarrage,
+Arrêt, Inconnu, Maintenance, Non supervisé — **plus « À confirmer »**, qu'impose FR-016.
+Les confondre ferait disparaître la distinction entre « je n'ai aucun signal » et « j'ai des
+signaux qui ne concordent pas ». Un test vérifie que les huit libellés du cahier des charges
+existent tous.
+
+L'ordre des règles d'évaluation n'est pas indifférent :
+
+1. **Non supervisé** court-circuite tout : rien n'est collecté.
+2. **Maintenance** prime sur n'importe quel signal défavorable. Un composant volontairement
+   arrêté pendant une intervention affiché « Indisponible » apprendrait aux exploitants à
+   ignorer l'écran.
+3. **Une transition observée prime sur un état bas.** Un service en `StartPending` n'est pas un
+   service en panne. La transition est constatée par le connecteur — seul endroit où
+   l'information existe — puis portée par le signal.
+4. Sinon, la consolidation du Sprint 3 s'applique.
+
+### Alertes (FR-054)
+
+`DetecteurDAlertes` couvre les six motifs du cahier des charges — timeout, échec, incohérence
+d'état, file qui augmente, heartbeat ancien, ressource critique — et en ajoute un septième :
+**donnée trop ancienne**. Sans lui, le tableau de bord afficherait indéfiniment le dernier état
+connu comme s'il était courant, ce qui est la façon la plus discrète de mentir.
+
+Les règles vivent dans le domaine : une alerte qui n'existerait qu'à l'affichage disparaîtrait
+dès qu'on regarde ailleurs.
+
+**Aucune alerte n'est levée en maintenance ni sur un composant non supervisé** — les deux cas
+où l'anomalie est attendue.
+
+Une file qui croît demande **deux relevés** : une mesure isolée ne dit rien d'une tendance.
+
+### Collecte et actualisation (FR-053)
+
+Un service de fond collecte toutes les 60 secondes (réglable), enregistre les relevés et purge
+au-delà de la rétention configurée (SEC-009).
+
+**Lire et collecter sont deux opérations distinctes.** Afficher le tableau de bord ne déclenche
+aucun appel réseau : dix exploitants devant le même écran multiplieraient sinon par dix la
+charge sur les serveurs supervisés. Le rafraîchissement à la demande existe, mais il est
+réservé au droit de gestion du référentiel, et il est tracé.
+
+**Une collecte qui échoue n'arrête jamais la boucle.** L'exploitation perdrait la supervision
+au moment précis où un composant devient injoignable — c'est-à-dire quand elle en a le plus
+besoin.
+
+La date de la donnée la plus récente est affichée en permanence, avec son ancienneté.
+
+### Code couleur accessible (FR-055)
+
+Chaque état porte un **libellé** ; la couleur ne fait que l'appuyer. Le cahier des charges
+l'exige au §7 (« statuts compréhensibles sans dépendre uniquement des couleurs »), et un écran
+de salle technique mal calibré suffit à rendre la couleur seule inutilisable.
+
+### Composants à valider (FR-050)
+
+Un composant non activé au référentiel est supervisé mais sa justification porte explicitement
+« aucune action autorisée ». La détection automatique de nouveaux nœuds, elle, suppose la
+lecture des Cluster Services — voir les limites.
+
+## Vérification
+
+Suite automatisée : **123 tests, 0 échec** (104 domaine, 12 connecteurs, 7 architecture).
+
+Tableau de bord observé sur l'application, alimenté par la collecte automatique :
+
+| Constat | Résultat |
 |---|---|
-| E2.2 — Motif et référence obligatoires en Production (FR-011) | Fait |
-| E3.4 — Opération partielle/unitaire | Fait |
-| E3.6 — Double validation (lancement ≠ approbation) | Fait |
+| Collecte de fond | démarrée, intervalle 60 s |
+| Donnée la plus récente | « il y a 2 s » |
+| Composants cartographiés | 6 |
+| Composants sans contrôle | **Inconnu** — pas « en bonne santé » |
+| Composant avec 3 contrôles dont un indisponible | **À confirmer** |
+| Alertes levées | 7, dont « aucun relevé disponible » sur les composants critiques |
+| Rafraîchissement à la demande | effectué et tracé |
 
-## Décisions de conception
+## Limites — le périmètre réduit
 
-- **`OperationRun`** est le nouvel agrégat racine du pilotage réel : il référence un `Workflow` +
-  `WorkflowVersion` (jamais une version Brouillon — seule une version Validée/Active peut faire l'objet d'une
-  opération, comme pour la simulation Sprint 3), porte les champs FR-011, un statut de cycle de vie
-  (`PendingApproval → Approved/Rejected → Running → Completed/Failed`), et un instantané d'exécution par étape
-  (`OperationStepExecution`).
-- **FR-011 conditionnel à l'environnement** : les 4 champs (motif, fenêtre d'intervention, impact, référence)
-  sont obligatoires uniquement si l'environnement ciblé est de type Production — géré par une règle de domaine
-  paramétrée (`isProductionEnvironment`), pas par une simple validation de formulaire côté UI qui pourrait être
-  contournée.
-- **Double validation = Production uniquement** : une opération sur un environnement non-Production passe
-  directement à `Approved` (auto-approuvée) ; en Production, elle reste `PendingApproval` jusqu'à ce qu'un
-  utilisateur **différent du demandeur** l'approuve. La règle "un Administrateur ne peut pas approuver son
-  propre contournement" (E11.2, séparation des responsabilités complète) est une épopée dédiée au Sprint 8 —
-  ici, on pose seulement le garde-fou minimal "demandeur ≠ approbateur", suffisant pour E3.6.
-- **"Opération partielle/unitaire" (E3.4) découle du périmètre déjà défini au workflow** (FR `Scope` +
-  `TargetComponentIds`, Sprint 2) — pas d'une sélection d'étapes à la volée au moment de l'exécution. Exécuter
-  un workflow dont le `Scope` est `Partial` ou `Unit` EST l'opération partielle/unitaire. Décision cohérente
-  avec l'architecture posée au Sprint 2, évite un système de sélection ad hoc redondant.
-- **Aucune tentative automatique / reprise sur échec dans ce sprint** : chaque étape s'exécute une seule fois ;
-  si elle échoue, la politique `OnFailurePolicy` de l'étape (Sprint 2, FR-004) détermine si l'exécution
-  s'arrête, continue avec avertissement, ou nécessite une décision manuelle. Les vraies tentatives automatiques
-  avec délai et la reprise depuis le dernier point de contrôle valide sont l'objet dédié du Sprint 5 (E3.5) —
-  ne pas les préconstruire ici évite une machinerie d'exécution en arrière-plan (jobs/Hangfire) non justifiée
-  avant que le besoin de reprise soit lui-même implémenté.
-- **L'orchestration (boucle sur les étapes, appel au connecteur) vit dans l'Application**, jamais dans le
-  Domain : `OperationRun` n'a aucune dépendance vers `IServerConnector`. Le handler `ExecuteOperationRunCommand`
-  appelle le connecteur puis reporte chaque résultat via de petites méthodes de mutation du domaine
-  (`RecordStepStarted`, `RecordStepSucceeded`, `RecordStepFailed`).
+Les accès techniques CIT ne sont toujours pas ouverts. Trois blocs du plan ne sont donc **pas**
+livrés, et n'ont pas été remplacés par des approximations :
 
-## Vérification de bout en bout (navigateur)
+- **Vue détaillée CPU, mémoire, disque, processus** (FR-051, partiel). Ces métriques supposent
+  un accès système aux serveurs N4. Les signaux disponibles — service, port, endpoint, dossier,
+  SQL — sont affichés ; les autres sont absents, pas simulés.
+- **Synchronisation N4-XPS** (FR-056) et **lenteurs vues par N4** (FR-058). Elles reposent
+  entièrement sur les heartbeats, files et logs N4, inaccessibles. Le détecteur d'alertes porte
+  déjà les règles « heartbeat ancien » et « file qui augmente » : elles se déclencheront dès que
+  les signaux correspondants existeront, sans modification.
+- **Détection automatique de nouveaux nœuds** (FR-050, partiel). Elle suppose la lecture des
+  Cluster Services. La moitié applicable est faite : tout composant non activé est signalé et
+  n'autorise aucune action.
 
-Exécutée avec succès le 2026-08-07, deux scénarios :
+**Vue réseau et base (FR-057)** est partiellement couverte : les connecteurs TCP et SQL en
+lecture seule alimentent disponibilité, latence et requêtes lentes. Ils n'ont simplement aucune
+base N4 à interroger.
 
-1. **Environnement Production** : lancement d'une opération sans les champs FR-011 → refusé côté domaine ;
-   formulaire rempli (motif, fenêtre, impact, référence) → opération créée au statut **En attente
-   d'approbation** ; le demandeur (même utilisateur admin) ne voit **pas** les boutons Approuver/Rejeter et un
-   message explique que E3.6 exige un autre utilisateur — garde-fou vérifié de bout en bout (UI → Application →
-   Domain).
-2. **Environnement UAT** (non-Production, créé pour ce test avec un composant "Pilotable" et un workflow
-   dédié) : opération créée directement au statut **Approuvée** (auto-approbation hors Production, conforme à
-   la décision de conception) → bouton "Exécuter l'opération" → statut passe à **Terminée**, l'étape affiche
-   **Réussie** avec le message renvoyé par `SimulationServerConnector` ("Action 'démarrage' simulée avec
-   succès.") — persistance confirmée en base (`OperationRuns`, `OperationStepExecutions`).
+Autres limites :
 
-76 tests unitaires verts (53 Domain + 23 Application) après la vérification.
+- **Pas de rafraîchissement automatique de la page.** L'écran affiche l'âge de la donnée ;
+  il faut recharger pour la mettre à jour. Le temps réel par SignalR viendra avec le pilotage,
+  qui en a un besoin plus fort.
+- **La rétention des relevés est configurée mais non différenciée** par type de donnée, alors
+  que SEC-009 demande des durées distinctes pour logs, rapports et audits.
+
+## Sprint suivant
+
+**Sprint 5 — Moteur d'orchestration** (semaines 11–12). Il ne dépend pas des accès N4 : un
+moteur qui reprend après un arrêt brutal se construit et se prouve sans serveur distant. C'est
+le dernier sprint du Lot 1 qui puisse avancer à pleine vitesse sans ouverture des accès.

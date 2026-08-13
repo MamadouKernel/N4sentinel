@@ -1,7 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -9,20 +10,28 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
-    <PackageReference Include="FluentAssertions" Version="7.2.0" />
-    <PackageReference Include="MediatR" Version="14.2.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="NSubstitute" Version="6.0.0" />
-    <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="xunit.v3" Version="3.2.2" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!--
+    Ces tests exercent le moteur contre une vraie base SQL Server LocalDB, migrations
+    appliquées : c'est la seule façon d'attraper ce qui ne se voit ni à la compilation ni en
+    test de domaine — requête non traduisible par EF Core, ajout confondu avec une
+    modification, valeur persistée différente de la valeur calculée. Trois des quatre défauts
+    du Sprint 6 étaient exactement de cette nature.
+  -->
   <ItemGroup>
     <ProjectReference Include="..\..\src\N4Sentinel.Application\N4Sentinel.Application.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Data\N4Sentinel.Data.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Orchestration\N4Sentinel.Orchestration.csproj" />
+    <ProjectReference Include="..\..\src\N4Sentinel.Web\N4Sentinel.Web.csproj" />
   </ItemGroup>
 
 </Project>

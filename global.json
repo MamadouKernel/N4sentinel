@@ -1,0 +1,13 @@
+{
+  "$comment": [
+    "Épingle le SDK sur la ligne 8.0. Plusieurs SDK sont installés sur les postes de l'équipe,",
+    "et sans cette épingle la ligne de commande choisit le plus récent — .NET 10 —, qui régénère",
+    "les fichiers de restauration pour net10.0. Visual Studio 2022, qui ne connaît pas cette",
+    "cible, échoue alors sur « aucune cible pour net8.0 » sans que rien n'ait changé dans le code.",
+    "rollForward latestFeature autorise n'importe quel 8.0.4xx sans imposer un correctif précis."
+  ],
+  "sdk": {
+    "version": "8.0.401",
+    "rollForward": "latestFeature"
+  }
+}

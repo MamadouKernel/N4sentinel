@@ -427,3 +427,7 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Codes de second facteur écrits sur disque faute de relais SMTP configuré (développement)
+courriels-sortants/
+

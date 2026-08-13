@@ -1,55 +1,127 @@
-# Sprint 5 — Pilotage : arrêt complet, confirmation aux étapes sensibles, reprise sur échec
+# Sprint 5 — Moteur d'orchestration
 
-**Objectif de sprint** : passer d'une exécution "tout ou rien" (Sprint 4) à une exécution **pas à pas**, qui
-marque une pause explicite avant toute étape critique/destructrice ou nécessitant une confirmation
-(Palier 1 du cahier des charges), et qui permet de **reprendre depuis le dernier point de contrôle valide**
-après un échec plutôt que de relancer l'opération depuis le début.
+**Semaines 11–12 · Lot 1 · Statut : livré**
 
-## Sprint Backlog
+**Objectif** — un moteur d'exécution persistant, qui survit à sa propre panne sans rejouer
+aveuglément une action déjà faite.
 
-| Story | Résultat |
+**Livrable démontrable en revue** — exécution reprise après arrêt brutal du serveur applicatif.
+
+---
+
+## La démonstration, d'abord
+
+Une exécution a été laissée dans l'état « En cours », puis le processus du serveur a été **tué
+brutalement** — pas arrêté proprement. Au redémarrage :
+
+```
+avant :  statut = En cours
+après :  statut = Réconciliation requise
+         « Reprise après redémarrage du serveur applicatif refusée.
+           État réel non établi pour : Center Node, Bridge, XPS, Base N4…
+           La reprise exige de savoir où l'on en est. »
+```
+
+Le moteur a retrouvé l'exécution, a refusé de la reprendre, et a dit pourquoi. C'est le
+comportement attendu : une exécution retrouvée « en cours » après un redémarrage **n'était pas
+en cours** — le processus qui la portait n'existe plus.
+
+## Les vingt états du cahier des charges
+
+FR-020 énumère dix états d'étape et dix états de workflow. Les deux énumérations sont fermées :
+un onzième état inventé ne serait affichable nulle part.
+
+Deux distinctions méritent d'être relevées, parce qu'elles sont faciles à écraser :
+
+- **« Vérification » n'est pas « En cours ».** La commande est passée ; son effet reste à
+  constater. Une étape ne conclut jamais directement depuis « En cours » — un test le vérifie.
+- **« Annulation demandée » n'est pas « Annulé ».** FR-025 : une annulation n'interrompt jamais
+  brutalement une commande engagée. Le moteur atteint d'abord un point sûr.
+
+## Les règles dures
+
+### Aucune reprise aveugle
+
+Avant toute reprise, l'état réel est recollecté par la supervision du Sprint 4 et comparé à
+l'état mémorisé. Trois issues, et une seule autorise la reprise :
+
+| Constat | Issue |
 |---|---|
-| E3.2 — Scénario d'arrêt complet avec confirmation aux étapes sensibles | Fait |
-| E3.5 — Arrêt sur échec + reprise depuis le dernier point de contrôle valide | Fait |
+| État réel conforme au mémorisé | Reprise autorisée |
+| Divergence | **Réconciliation requise**, avec la liste des écarts |
+| État non établi — Inconnu ou À confirmer | **Réconciliation requise**, sans prétendre à une divergence |
 
-## Décisions de conception
+La troisième ligne compte autant que la deuxième : ne pas savoir n'est pas une divergence, et
+le dire autrement serait inventer un constat.
 
-- **Exécution refactorée en pas à pas** : `ExecuteOperationRunCommand` (Sprint 4, qui exécutait toutes les
-  étapes en boucle dans un seul appel) est remplacé par `ExecuteNextOperationStepCommand`, qui traite une
-  seule étape puis rend la main. C'est le changement structurel qui rend possible la pause avant confirmation
-  — une boucle synchrone unique ne peut pas s'arrêter au milieu pour attendre un humain.
-- **Confirmation = nouvel état, pas une action automatique sautée** : une étape dont `RequiresConfirmation`
-  ou `RequiresApproval` est vraie passe au statut `AwaitingConfirmation` **sans appeler le connecteur** ;
-  seule la commande explicite `ConfirmOperationStepCommand` (déclenchée par un clic opérateur) exécute
-  réellement l'action. Aucune étape sensible ne s'exécute donc jamais sans un geste humain explicite.
-- **"Reprise depuis le dernier point de contrôle valide" = reprise pilotée par l'opérateur, pas une
-  automatisation en tâche de fond.** Quand une opération est `Failed`, `ResumeOperationRunCommand` remet
-  l'étape en échec à `Pending` et repasse l'opération à `Running` ; les étapes déjà `Succeeded` ne sont jamais
-  ré-exécutées. Décision assumée : implémenter de vraies nouvelles tentatives **automatiques** avec délai
-  (`RetryIsAutomatic`/`RetryDelaySeconds` du workflow, FR-004) nécessiterait une infrastructure de tâches de
-  fond (ex. `IHostedService`/queue) qui n'est pas justifiée tant que les connecteurs restent en mode
-  Simulation — une fausse temporisation dans une requête HTTP serait trompeuse. Cette automatisation réelle
-  est reportée à une story dédiée, une fois les connecteurs réels en place.
-- **Compatibilité ascendante** : `ExecuteOperationRunCommand` du Sprint 4 est retiré au profit du nouveau
-  modèle pas-à-pas — aucune opération n'était encore en cours d'exécution en base au moment du changement
-  (l'unique opération `Completed`/`Failed` de test du Sprint 4 reste lisible, son historique n'est pas affecté).
-- **Aucune migration EF Core nécessaire** : le nouveau statut `AwaitingConfirmation` est un ajout à un enum
-  déjà mappé en colonne `string` (`HasConversion<string>()`) — pas de nouvelle colonne. Une migration test a
-  été générée puis retirée (`dotnet ef migrations remove`) une fois confirmé qu'elle était vide, pour ne pas
-  polluer l'historique de migrations avec une entrée sans effet.
+Cette règle protège du scénario le plus coûteux : le serveur tombe pendant un arrêt, quelqu'un
+termine l'opération à la main, le moteur redémarre et rejoue ses étapes sur un système qui n'est
+plus dans l'état qu'il croit.
 
-## Vérification de bout en bout (navigateur)
+### Une seule opération mutative par environnement (FR-015)
 
-Exécutée avec succès le 2026-08-07, environnement UAT, deux scénarios :
+Le verrou est **persisté**, pas tenu en mémoire — un verrou en mémoire disparaîtrait avec le
+processus, laissant croire qu'aucune opération n'est en cours. Il porte une date d'expiration
+pour la raison inverse : sans elle, une panne au mauvais moment bloquerait l'environnement
+jusqu'à intervention manuelle en base.
 
-1. **Confirmation d'étape sensible** : workflow "Arrêt UAT avec confirmation" avec une étape
-   `RequiresConfirmation=true` → l'opération passe en "En cours" mais l'étape reste **Confirmation requise**
-   sans qu'aucune commande n'ait été envoyée au connecteur → clic sur "Confirmer et exécuter" → l'étape passe
-   à Réussie et l'opération à Terminée.
-2. **Échec puis reprise** : gouvernance du composant temporairement changée en "Supervisé uniquement" pour
-   forcer un échec → opération **Échouée**, bouton "Reprendre" visible → gouvernance corrigée en "Pilotable"
-   → clic sur "Reprendre" → l'étape repasse à **En attente**, l'opération à **En cours** (sans relancer les
-   étapes déjà réussies, ici il n'y en avait qu'une) → nouvelle exécution → **Réussie** → opération
-   **Terminée**.
+### Parallélisme déclaré, puis vérifié (FR-023)
 
-82 tests unitaires verts (57 Domain + 25 Application) après la vérification.
+Le parallélisme n'est jamais déduit. Quatre refus possibles :
+
+1. étape non déclarée indépendante dans la version validée ;
+2. **type N4 dont le séquencement est imposé** — Cluster Node, Center, Standby, Bridge, XPS ;
+3. même composant ou même serveur ;
+4. ressource partagée commune.
+
+La deuxième règle est la plus importante : les déclarer indépendants dans un workflow ne
+rendrait pas la chose vraie. Les Cluster Nodes démarrent un par un, XPS attend le Bridge.
+
+### Nouvelles tentatives (FR-004)
+
+Aucune reprise automatique par défaut. Sur une **action critique ou destructrice**, la reprise
+automatique est interdite — sauf autorisation explicite portée par une version validée du
+workflow. Une action destructrice rejouée automatiquement, c'est une double suppression que
+personne n'a demandée.
+
+### Passage à l'étape suivante (FR-022)
+
+Un contrôle bloquant ne peut être contourné que s'il a été **déclaré contournable dans une
+version validée**, et le contournement exige alors une confirmation. Le contournement est donc
+un paramètre du workflow, jamais une décision prise au moment de l'exécution : c'est ce qui
+empêche qu'une nuit difficile devienne un précédent.
+
+Un résultat non vérifiable interdit la poursuite par défaut.
+
+## Vérification
+
+Suite automatisée : **161 tests, 0 échec** (142 domaine, 12 connecteurs, 7 architecture).
+Les 38 tests ajoutés couvrent la machine à états, les seuils, la politique de transition, le
+planificateur de parallélisme et le contrôle de reprise.
+
+Les tests d'architecture continuent de passer : le contrat de persistance du moteur a été placé
+dans la couche partagée, précisément parce que la couche Données et l'Orchestrateur ne doivent
+pas se connaître.
+
+## Limites
+
+- **Le moteur ne fait encore rien exécuter.** Il gère les états, les verrous, les reprises et
+  les refus. L'exécution réelle des commandes suppose un contrat d'action que le Sprint 3 n'a
+  délibérément pas créé — un connecteur sachant lire et écrire finirait par être utilisé pour
+  écrire depuis un écran de consultation. La préparation d'une opération arrive au Sprint 6,
+  l'exécution réelle au Sprint 7.
+- **Aucun workflow n'est encore saisissable.** FR-003 demande des workflows configurables et
+  versionnés ; les entités existent depuis le Sprint 0, mais leur écran de saisie relève du
+  Sprint 6, avec la préparation d'opération.
+- **La vue pas-à-pas est en lecture seule** et n'affiche rien tant qu'aucune exécution
+  n'existe. Elle est livrée maintenant parce que FR-020 relève de ce sprint, et qu'un écran
+  écrit après coup se plie mal aux états qu'il doit montrer.
+- **Le rafraîchissement temps réel de cette vue** (FR-021) viendra avec l'exécution réelle :
+  afficher en direct une exécution qui n'existe pas n'apporte rien.
+
+## Sprint suivant
+
+**Sprint 6 — Préparation d'une opération et mode simulation** (semaines 13–14). Il ne dépend
+pas non plus des accès N4 : simuler une opération, c'est précisément ne rien exécuter. C'est
+donc le dernier sprint pleinement livrable avant que l'absence d'accès ne devienne bloquante,
+au Sprint 7.

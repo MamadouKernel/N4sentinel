@@ -1,190 +1,218 @@
-using System.Text.Json;
-using MediatR;
-using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using N4Sentinel.Application;
 using N4Sentinel.Application.Abstractions;
-using N4Sentinel.Application.Diagnostics.Queries;
-using N4Sentinel.Application.Sops.Queries;
-using N4Sentinel.Infrastructure;
-using N4Sentinel.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Authorization;
-using N4Sentinel.Application.Users;
+using N4Sentinel.Connectors;
+using N4Sentinel.Data;
+using N4Sentinel.Data.Orchestration;
+using N4Sentinel.Data.Supervision;
+using N4Sentinel.Orchestration;
+using N4Sentinel.Application.Orchestration;
+using N4Sentinel.Data.Amorcage;
+using N4Sentinel.Data.Identite;
 using N4Sentinel.Web.Components;
-using N4Sentinel.Web.Components.Account;
-using N4Sentinel.Web.Configuration;
-using N4Sentinel.Web.Data;
-using N4Sentinel.Web.Reports;
-using QuestPDF.Fluent;
-using QuestPDF.Infrastructure;
-using Serilog;
-
-// FR-090 : export PDF réel. Licence Community QuestPDF — gratuite pour une entité dont le chiffre d'affaires
-// annuel brut est inférieur à 1M$ US (cas d'un outil interne CIT non commercialisé).
-QuestPDF.Settings.License = LicenseType.Community;
+using N4Sentinel.Web.Administration;
+using N4Sentinel.Web.Comptes;
+using N4Sentinel.Web.Operations;
+using N4Sentinel.Web.Pilotage;
+using N4Sentinel.Web.Referentiel;
+using N4Sentinel.Web.Supervision;
+using N4Sentinel.Web.Courriel;
+using N4Sentinel.Web.Securite;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.Configure<BrandingOptions>(builder.Configuration.GetSection(BrandingOptions.SectionName));
-builder.Services.Configure<FeatureOptions>(builder.Configuration.GetSection(FeatureOptions.SectionName));
+// Hébergement en service Windows, sans IIS : le processus est piloté par le gestionnaire de
+// services, ce qui donne le démarrage automatique au boot du serveur applicatif.
+builder.Host.UseWindowsService(options => options.ServiceName = "N4 Sentinel");
 
-// Hébergement en Service Windows plutôt qu'IIS : no-op automatique hors installation en tant que service
-// (dotnet run en développement n'est pas affecté). Nom de service utilisé par les scripts install-service.ps1.
-builder.Host.UseWindowsService(options => options.ServiceName = "N4Sentinel");
-
-builder.Host.UseSerilog((context, services, configuration) => configuration
-    .ReadFrom.Configuration(context.Configuration)
-    .ReadFrom.Services(services)
-    .Enrich.FromLogContext());
-
-// Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddScoped<IdentityRedirectManager>();
-builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
-builder.Services.AddAuthentication(options =>
-    {
-        options.DefaultScheme = IdentityConstants.ApplicationScheme;
-        options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-    })
-    .AddIdentityCookies();
-builder.Services.AddAuthorization();
+// — Couche Données / Audit —
+var chaineDeConnexion = builder.Configuration["ChainesDeConnexion:BaseApplicative"];
+if (string.IsNullOrWhiteSpace(chaineDeConnexion))
+{
+    throw new InvalidOperationException(
+        "ChainesDeConnexion:BaseApplicative n'est pas renseignée. "
+        + "L'application ne démarre pas sans base : l'audit ne peut pas être différé.");
+}
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString, sql => sql.MigrationsHistoryTable("__EFMigrationsHistory_Identity"))
-    .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
-builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+// FR-053 — cadence de la collecte de fond, réglable par environnement d'exécution.
+var optionsDeCollecte = new OptionsDeCollecte();
+builder.Configuration.GetSection(OptionsDeCollecte.Section).Bind(optionsDeCollecte);
 
-builder.Services.AddIdentityCore<ApplicationUser>(options =>
-    {
-        options.SignIn.RequireConfirmedAccount = true;
-        options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
-    })
-    .AddRoles<IdentityRole>()
+// Sprint 7 — cadence de l'avancement automatique des exécutions engagées.
+var optionsDExecution = new OptionsDExecution();
+builder.Configuration.GetSection(OptionsDExecution.Section).Bind(optionsDExecution);
+
+builder.Services.AjouterLaCoucheDonnees(chaineDeConnexion, optionsDeCollecte, optionsDExecution);
+builder.Services.AjouterLaCoucheConnecteurs();
+builder.Services.AjouterLaCoucheOrchestrateur();
+
+// — SEC-001 : identité applicative avec second facteur par courriel —
+builder.Services.AddIdentity<UtilisateurApplicatif, IdentityRole>(options =>
+{
+    options.Password.RequiredLength = 12;
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+
+    options.User.RequireUniqueEmail = true;
+    options.SignIn.RequireConfirmedEmail = false;
+})
     .AddEntityFrameworkStores<ApplicationDbContext>()
-    .AddSignInManager()
     .AddDefaultTokenProviders();
 
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
-builder.Services.AddScoped<IUserRoleService, UserRoleService>();
-builder.Services.AddScoped<IEnvironmentAccessChecker, EnvironmentAccessChecker>();
+// Le code de second facteur est envoyé par courriel : il doit expirer vite, sans quoi
+// le second facteur ne protège plus que d'une négligence.
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+    options.TokenLifespan = TimeSpan.FromMinutes(5));
 
-builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+builder.Services.ConfigureApplicationCookie(options =>
 {
-    app.UseMigrationsEndPoint();
+    options.LoginPath = "/compte/connexion";
+    options.LogoutPath = "/compte/deconnexion";
+    options.AccessDeniedPath = "/compte/acces-refuse";
+    options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+    options.SlidingExpiration = true;
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
 
-    using var scope = app.Services.CreateScope();
-    var appDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await appDb.Database.MigrateAsync();
-    await appDb.Database.ExecuteSqlRawAsync(
-        "IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'Environments') AND name = 'AllowedExecutionMode') ALTER TABLE Environments ADD AllowedExecutionMode int NOT NULL DEFAULT 0;");
+// SEC-002 — une politique par droit élémentaire.
+//
+// Pas de règle de repli globale : elle s'appliquerait aussi aux requêtes sans point d'entrée,
+// et renverrait vers la page de connexion le script du cadriciel Blazor lui-même, cassant
+// l'interactivité. L'exigence d'authentification est posée explicitement sur les pages et sur
+// les groupes de points d'entrée, juste en dessous.
+builder.Services.AddAuthorizationBuilder()
+    .AjouterLesPolitiquesDeDroits();
 
-    var identityDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await identityDb.Database.MigrateAsync();
+// SEC-001 — assouplissements réservés au développement, refusés ailleurs.
+var optionsDAuthentification = new OptionsDAuthentification();
+builder.Configuration.GetSection(OptionsDAuthentification.Section).Bind(optionsDAuthentification);
+optionsDAuthentification.Verifier(builder.Environment);
+builder.Services.AddSingleton(optionsDAuthentification);
 
-    await IdentitySeeder.SeedAsync(scope.ServiceProvider, app.Configuration);
+builder.Services.AddScoped<IUtilisateurCourant, UtilisateurCourant>();
+builder.Services.AddSingleton<ISecretResolver, CoffreDeConfiguration>();
 
-    // Séquences d'arrêt/démarrage Navis : installées si absentes, jamais écrasées.
-    await SequenceTemplateSeeder.SeedAsync(scope.ServiceProvider);
+// — Messagerie —
+var optionsDeCourriel = new OptionsDeCourriel();
+builder.Configuration.GetSection("Courriel").Bind(optionsDeCourriel);
+builder.Services.AddSingleton(optionsDeCourriel);
+
+if (optionsDeCourriel.EstConfigure)
+{
+    builder.Services.AddScoped<IEnvoiDeCourriel, EnvoiDeCourrielSmtp>();
 }
 else
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    var dossier = Path.Combine(builder.Environment.ContentRootPath, "courriels-sortants");
+    builder.Services.AddScoped<IEnvoiDeCourriel>(fournisseur =>
+        new EnvoiDeCourrielVersFichier(
+            dossier,
+            fournisseur.GetRequiredService<ILogger<EnvoiDeCourrielVersFichier>>()));
 }
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 
-// Pas de redirection HTTPS/HSTS : la solution est hébergée en HTTP sur le réseau interne CIT, sans IIS ni
-// terminaison TLS pour l'instant (décision DSI). À revoir si l'accès s'étend hors du réseau de confiance.
-
-// Enforce defense-in-depth HTTP security headers (OWASP A05)
-app.Use(async (context, next) =>
+// — SEC-005 : chiffrement des données sensibles au repos —
+var cheminDesCles = builder.Configuration["Securite:CheminDesClesDeProtection"];
+if (!string.IsNullOrWhiteSpace(cheminDesCles))
 {
-    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
-    context.Response.Headers.Append("X-Frame-Options", "SAMEORIGIN");
-    context.Response.Headers.Append("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-    context.Response.Headers.Remove("Server");
-    await next();
+    var protection = builder.Services.AddDataProtection()
+        .SetApplicationName("N4Sentinel")
+        .PersistKeysToFileSystem(new DirectoryInfo(cheminDesCles));
+
+    if (OperatingSystem.IsWindows())
+    {
+        protection.ProtectKeysWithDpapi(protectToLocalMachine: true);
+    }
+}
+
+// — SEC-005 : chiffrement des communications —
+builder.Services.AddHttpsRedirection(options =>
+{
+    options.HttpsPort = builder.Configuration.GetValue<int?>("Securite:PortHttps") ?? 443;
 });
+
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = true;
+});
+
+var app = builder.Build();
+
+if (!optionsDeCourriel.EstConfigure)
+{
+    JournalDeCourriel.RelaisNonConfigure(
+        app.Services.GetRequiredService<ILogger<EnvoiDeCourrielVersFichier>>());
+}
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    app.UseHsts();
+}
+
+app.UseStatusCodePagesWithReExecute("/not-found");
+app.UseHttpsRedirection();
+app.UseSecurityHeaders();
+
+// Les ressources statiques sont servies avant l'autorisation. L'ordre n'est pas cosmétique :
+// la règle de repli s'applique aussi aux requêtes qui ne correspondent à aucun point d'entrée,
+// et renverrait donc la feuille de style de la page de connexion vers… la page de connexion.
+app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.UseAntiforgery();
 
-app.MapStaticAssets();
+// Toute page exige une authentification, sauf celles portant [AllowAnonymous] — connexion,
+// second facteur, accès refusé, page introuvable. L'oubli d'un attribut ne peut donc pas
+// ouvrir un écran.
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .RequireAuthorization();
 
-// Add additional endpoints required by the Identity /Account Razor components.
-app.MapAdditionalIdentityEndpoints();
+app.MapperLesPointsDEntreeDeCompte();
+app.MapperLesPointsDEntreeDeProfil();
+app.MapperLePointDEntreeDeTheme();
+app.MapperLesPointsDEntreeDuReferentiel();
+app.MapperLesPointsDEntreeDeTopologie();
+app.MapperLesPointsDEntreeDeSupervision();
+app.MapperLesPointsDEntreeDAdministration();
+app.MapperLesPointsDEntreeDuPilotage();
+app.MapperLesPointsDEntreeDesOperations();
 
-// FR-093/E10.2 : export structuré des rapports d'opération/incident (vue rendue, aucune entité "Rapport" persistée).
-var reportJsonOptions = new JsonSerializerOptions { WriteIndented = true };
-var exportAuthorizationPolicy = new AuthorizeAttribute { Roles = $"{Roles.Operateur},{Roles.Administrateur}" };
+// Sonde de disponibilité pour la supervision et le déploiement automatisé. Volontairement
+// muette sur l'état interne : elle ne renseigne pas un appelant non authentifié.
+app.MapGet("/sante", () => Results.Ok(new { statut = "ok" })).AllowAnonymous();
 
-app.MapGet("/reports/operations/{operationRunId:guid}/export", async (Guid operationRunId, ISender mediator) =>
+await AmorcageDeLIdentite.ExecuterAsync(
+    app.Services,
+    new ParametresDAmorcage(
+        builder.Configuration["Amorcage:EmailAdministrateur"],
+        builder.Configuration["Amorcage:MotDePasseAdministrateur"]));
+
+// Après l'amorçage seulement — il applique les migrations, et la reprise lit des tables.
+// Le moteur est persistant : il reprend en main les exécutions laissées « en cours » par un
+// arrêt brutal du serveur applicatif, en recollectant l'état réel avant toute décision.
+using (var portee = app.Services.CreateScope())
 {
-    var report = await mediator.Send(new GetOperationReportQuery(operationRunId));
-    return report is null
-        ? Results.NotFound()
-        : Results.File(
-            JsonSerializer.SerializeToUtf8Bytes(report, reportJsonOptions), "application/json",
-            $"rapport-operation-{operationRunId}.json");
-}).RequireAuthorization(exportAuthorizationPolicy);
+    var moteur = portee.ServiceProvider.GetRequiredService<IMoteurDOrchestration>();
+    await moteur.RecupererLesExecutionsInterrompuesAsync();
+}
 
-app.MapGet("/reports/operations/{operationRunId:guid}/export.pdf", async (Guid operationRunId, ISender mediator) =>
-{
-    var report = await mediator.Send(new GetOperationReportQuery(operationRunId));
-    return report is null
-        ? Results.NotFound()
-        : Results.File(
-            new OperationReportPdfDocument(report).GeneratePdf(), "application/pdf",
-            $"rapport-operation-{operationRunId}.pdf");
-}).RequireAuthorization(exportAuthorizationPolicy);
+await app.RunAsync();
 
-app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/export", async (Guid diagnosticCaseId, ISender mediator) =>
-{
-    var report = await mediator.Send(new GetIncidentReportQuery(diagnosticCaseId));
-    return report is null
-        ? Results.NotFound()
-        : Results.File(
-            JsonSerializer.SerializeToUtf8Bytes(report, reportJsonOptions), "application/json",
-            $"rapport-incident-{diagnosticCaseId}.json");
-}).RequireAuthorization(exportAuthorizationPolicy);
-
-app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/export.pdf", async (Guid diagnosticCaseId, ISender mediator) =>
-{
-    var report = await mediator.Send(new GetIncidentReportQuery(diagnosticCaseId));
-    return report is null
-        ? Results.NotFound()
-        : Results.File(
-            new IncidentReportPdfDocument(report).GeneratePdf(), "application/pdf",
-            $"rapport-incident-{diagnosticCaseId}.pdf");
-}).RequireAuthorization(exportAuthorizationPolicy);
-
-// FR-067 : export structuré du paquet d'escalade (journaux déjà expurgés à l'import, empreintes SHA-256 déjà calculées).
-app.MapGet("/reports/incidents/{diagnosticCaseId:guid}/escalation-package/export", async (Guid diagnosticCaseId, ISender mediator, HttpContext context) =>
-{
-    var userName = context.User.Identity?.Name ?? "inconnu";
-    var package = await mediator.Send(new GetEscalationPackageQuery(diagnosticCaseId, userName));
-    return package is null
-        ? Results.NotFound()
-        : Results.File(
-            JsonSerializer.SerializeToUtf8Bytes(package, reportJsonOptions), "application/json",
-            $"paquet-escalade-{diagnosticCaseId}.json");
-}).RequireAuthorization(exportAuthorizationPolicy);
-
-app.Run();
+/// <summary>Point d'entrée exposé aux tests d'intégration.</summary>
+public partial class Program;

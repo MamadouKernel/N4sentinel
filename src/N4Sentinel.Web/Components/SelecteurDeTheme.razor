@@ -1,0 +1,48 @@
+@inject IHttpContextAccessor Accesseur
+
+@* Un formulaire plutôt qu'un bouton JavaScript : le choix doit survivre au rechargement,
+   et il est appliqué au rendu côté serveur, donc sans clignotement.
+   Icône seule, libellé porté par aria-label et l'infobulle. *@
+<form method="post" action="/theme" class="selecteur-theme">
+    <AntiforgeryToken />
+    <input type="hidden" name="theme" value="@ThemeOppose" />
+    <input type="hidden" name="retour" value="@CheminCourant" />
+
+    <button type="submit" class="bouton-icone" title="@Libelle" aria-label="@Libelle">
+        @if (EstClair)
+        {
+            @* Lune : on propose de passer au sombre. *@
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20.5 14.4A8.6 8.6 0 0 1 9.6 3.5a8.6 8.6 0 1 0 10.9 10.9Z" />
+            </svg>
+        }
+        else
+        {
+            @* Soleil : on propose de passer au clair. *@
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4.2" />
+                <path d="M12 2.4v2.2M12 19.4v2.2M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2.4 12h2.2M19.4 12h2.2M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" />
+            </svg>
+        }
+    </button>
+</form>
+
+@code {
+    private bool EstClair =>
+        Accesseur.HttpContext?.Request.Cookies["theme"] == "clair";
+
+    private string ThemeOppose => EstClair ? "sombre" : "clair";
+
+    private string Libelle => EstClair ? "Basculer vers le thème sombre" : "Basculer vers le thème clair";
+
+    private string CheminCourant
+    {
+        get
+        {
+            var requete = Accesseur.HttpContext?.Request;
+            return requete is null ? "/" : $"{requete.Path}{requete.QueryString}";
+        }
+    }
+}

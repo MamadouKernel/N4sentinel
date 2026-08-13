@@ -1,0 +1,101 @@
+@page "/compte/double-facteur"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using N4Sentinel.Data.Identite
+@using N4Sentinel.Domain.Common
+@attribute [AllowAnonymous]
+@layout Components.Layout.MiseEnPageDAuthentification
+@inject SignInManager<UtilisateurApplicatif> Connexions
+
+<PageTitle>Vérification — N4 Sentinel</PageTitle>
+
+<div class="carte-auth">
+    <div class="marque">
+        <span class="marque-nom">N4 SENTINEL</span>
+        <span class="marque-sous-titre">Vérification en deux étapes</span>
+    </div>
+
+    @if (Erreur is not null)
+    {
+        <p class="alerte" role="alert">@Erreur</p>
+    }
+
+    <p class="mention">
+        @if (methode == MethodeDeSecondFacteur.Courriel)
+        {
+            <text>
+                Un code à six chiffres vient d'être envoyé à votre adresse professionnelle.
+                Il est valable cinq minutes.
+            </text>
+        }
+        else
+        {
+            <text>
+                Saisissez le code affiché par votre application d'authentification.
+                Il change toutes les trente secondes.
+            </text>
+        }
+    </p>
+
+    <form method="post" action="/compte/double-facteur" class="formulaire">
+        <AntiforgeryToken />
+
+        <label for="code">@LibelleDuChamp</label>
+        <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+               maxlength="8" required autofocus />
+
+        <button type="submit">Valider</button>
+    </form>
+
+    @* Dernier recours : téléphone perdu, ou messagerie indisponible — c'est-à-dire le moment
+       où l'on a le plus besoin d'entrer dans un outil d'exploitation. *@
+    <details class="recours">
+        <summary>Je n'ai pas accès à mon second facteur</summary>
+
+        <p class="mention">
+            Saisissez l'un des codes de récupération remis lors de la configuration. Chaque code
+            ne fonctionne qu'une fois.
+        </p>
+
+        <form method="post" action="/compte/code-recuperation" class="formulaire">
+            <AntiforgeryToken />
+
+            <label for="codeRecuperation">Code de récupération</label>
+            <input id="codeRecuperation" name="code" type="text" autocomplete="one-time-code"
+                   maxlength="32" required />
+
+            <button type="submit" class="bouton-discret">Utiliser ce code</button>
+        </form>
+    </details>
+
+    <a class="lien-retour" href="/compte/connexion">Revenir à la connexion</a>
+</div>
+
+@code {
+    private MethodeDeSecondFacteur methode = MethodeDeSecondFacteur.Courriel;
+
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    private string? Erreur => CodeErreur switch
+    {
+        "code" => "Code invalide ou expiré.",
+        "recuperation" => "Code de récupération invalide ou déjà consommé.",
+        _ => null
+    };
+
+    private string LibelleDuChamp => methode == MethodeDeSecondFacteur.Courriel
+        ? "Code reçu par courriel"
+        : "Code de l'application d'authentification";
+
+    // L'utilisateur n'est pas encore authentifié ici : son identité vient du cookie de
+    // second facteur, posé par l'étape précédente.
+    protected override async Task OnInitializedAsync()
+    {
+        var utilisateur = await Connexions.GetTwoFactorAuthenticationUserAsync();
+        if (utilisateur is not null)
+        {
+            methode = utilisateur.MethodeDeSecondFacteur;
+        }
+    }
+}

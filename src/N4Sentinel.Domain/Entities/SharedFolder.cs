@@ -1,87 +1,52 @@
-using N4Sentinel.Domain.Exceptions;
+using N4Sentinel.Domain.Common;
 
 namespace N4Sentinel.Domain.Entities;
 
 /// <summary>
-/// Un dossier partagé N4 rattaché à un environnement (configuration, stockage ActiveMQ/KahaDB, échanges EDI,
-/// archives, dossier d'erreur — FR-059A). Jamais la cible d'une étape de workflow (aucune action de pilotage
-/// N4 Sentinel n'a de sens dessus) — distinct de <see cref="N4Component"/> pour la même raison que
-/// <see cref="DependentSystem"/> (E1.6, Sprint 7). Porte son propre instantané de santé (FR-059B/FR-059D)
-/// plutôt que le vocabulaire <see cref="ComponentHealthStatus"/>, qui décrit un cycle de vie de service, pas
-/// des dimensions de capacité/structure.
+/// §3.18 — Shared Folder : catégorie, chemin logique, structure attendue, contrôles,
+/// sauvegarde, état et dernière vérification.
 /// </summary>
-public class SharedFolder
+public class SharedFolder : Entity
 {
-    private SharedFolder()
-    {
-        Name = string.Empty;
-        Path = string.Empty;
-    }
+    public Guid EnvironmentId { get; set; }
 
-    public SharedFolder(Guid environmentId, string name, SharedFolderCategory category, string path)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new DomainRuleException("Le nom du dossier partagé est obligatoire.");
-        }
+    public required string Nom { get; set; }
 
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            throw new DomainRuleException("Le chemin du dossier partagé est obligatoire.");
-        }
+    public SharedFolderCategory Categorie { get; set; } = SharedFolderCategory.Autre;
 
-        Id = Guid.NewGuid();
-        EnvironmentId = environmentId;
-        Name = name.Trim();
-        Category = category;
-        Path = path.Trim();
-        CorruptionStatus = CorruptionStatus.None;
-    }
+    /// <summary>Chemin logique déclaré ; la résolution physique reste du ressort du connecteur.</summary>
+    public required string CheminLogique { get; set; }
 
-    public Guid Id { get; private set; }
+    /// <summary>Arborescence attendue, servant de référence aux contrôles de structure.</summary>
+    public string? StructureAttendue { get; set; }
 
-    public Guid EnvironmentId { get; private set; }
+    public SharedFolderState Etat { get; set; } = SharedFolderState.Inconnu;
 
-    public string Name { get; private set; }
+    public DateTimeOffset? DerniereVerification { get; set; }
 
-    public SharedFolderCategory Category { get; private set; }
+    public DateTimeOffset? DerniereSauvegarde { get; set; }
 
-    public string Path { get; private set; }
+    public string? EmplacementDeSauvegarde { get; set; }
 
-    /// <summary>Accessibilité, droits, capacité de lecture/écriture non destructive (FR-059B).</summary>
-    public bool IsAccessible { get; private set; } = true;
+    public bool SauvegardeVerifiee { get; set; }
 
-    /// <summary>Espace utilisé en pourcentage (FR-059B) — null si jamais vérifié.</summary>
-    public int? UsedCapacityPercent { get; private set; }
+    public List<SharedFolderCheck> Controles { get; set; } = [];
+}
 
-    /// <summary>Structure attendue et fichiers obligatoires présents (FR-059B).</summary>
-    public bool StructureValid { get; private set; } = true;
+/// <summary>Contrôle périodique appliqué à un dossier partagé (présence, structure, volumétrie, âge).</summary>
+public class SharedFolderCheck : Entity
+{
+    public Guid SharedFolderId { get; set; }
 
-    /// <summary>Suspicion vs corruption confirmée (FR-059D).</summary>
-    public CorruptionStatus CorruptionStatus { get; private set; }
+    public required string Libelle { get; set; }
 
-    public string? AnomalyDescription { get; private set; }
+    public required string TypeDeControle { get; set; }
 
-    public DateTime? LastCheckedUtc { get; private set; }
+    public string? SeuilAttendu { get; set; }
 
-    private const int CapacityAlertThresholdPercent = 90;
+    public bool Actif { get; set; } = true;
 
-    /// <summary>Seuils simples documentés ici, pas un moteur de règles — cf. décision Sprint 10.</summary>
-    public bool HasAnomaly =>
-        !IsAccessible ||
-        !StructureValid ||
-        CorruptionStatus != CorruptionStatus.None ||
-        UsedCapacityPercent >= CapacityAlertThresholdPercent;
+    public DateTimeOffset? DernierResultatLe { get; set; }
 
-    public void RecordHealthCheck(
-        bool isAccessible, int? usedCapacityPercent, bool structureValid,
-        CorruptionStatus corruptionStatus, string? anomalyDescription)
-    {
-        IsAccessible = isAccessible;
-        UsedCapacityPercent = usedCapacityPercent;
-        StructureValid = structureValid;
-        CorruptionStatus = corruptionStatus;
-        AnomalyDescription = anomalyDescription?.Trim();
-        LastCheckedUtc = DateTime.UtcNow;
-    }
+    public bool? DernierResultatConforme { get; set; }
 }

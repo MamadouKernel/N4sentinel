@@ -1,0 +1,74 @@
+@page "/compte/connexion"
+@using Microsoft.AspNetCore.Authorization
+@using N4Sentinel.Web.Securite
+@attribute [AllowAnonymous]
+@layout Components.Layout.MiseEnPageDAuthentification
+@inject OptionsDAuthentification Options
+
+<PageTitle>Connexion — N4 Sentinel Control Room</PageTitle>
+
+<div class="carte-auth">
+    <div class="marque">
+        <div class="marque-logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <circle cx="12" cy="12" r="3" />
+            </svg>
+        </div>
+        <span class="marque-nom">N4 SENTINEL</span>
+        <span class="marque-sous-titre">Supervision & Pilotage d'Exploitation Navis N4</span>
+    </div>
+
+    @if (Erreur is not null)
+    {
+        <div class="alerte" role="alert">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span>@Erreur</span>
+        </div>
+    }
+
+    <form method="post" action="/compte/connexion" class="formulaire">
+        <AntiforgeryToken />
+
+        <label for="email">Adresse professionnelle</label>
+        <input id="email" name="email" type="email" autocomplete="username" placeholder="nom.prenom@cit-terminal.com" required autofocus />
+
+        <ChampMotDePasse Id="motDePasse" Nom="motDePasse" />
+
+        <button type="submit">Se connecter à la console</button>
+    </form>
+
+    <p class="mention mention-pied">
+        @if (Options.SecondFacteurDesactive)
+        {
+            <span class="texte-alerte">
+                ⚡ <strong>Mode Dev</strong> : Second facteur désactivé sur cet environnement local.<br/>
+                Toute tentative est enregistrée au journal d'audit (SEC-008).
+            </span>
+        }
+        else
+        {
+            <span>
+                🔒 Un code à usage unique vous sera demandé — authentification à deux facteurs (2FA).<br/>
+                Accès tracé conformément à la politique de sécurité SEC-001.
+            </span>
+        }
+    </p>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "erreur")]
+    private string? CodeErreur { get; set; }
+
+    private string? Erreur => CodeErreur switch
+    {
+        "identifiants" => "Identifiants invalides.",
+        "verrouille" => "Compte temporairement verrouillé après plusieurs tentatives. Réessayez dans 15 minutes.",
+        "session" => "Votre session de connexion a expiré. Recommencez.",
+        _ => null
+    };
+}

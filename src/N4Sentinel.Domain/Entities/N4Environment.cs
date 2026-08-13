@@ -1,129 +1,42 @@
-using N4Sentinel.Domain.Exceptions;
+using N4Sentinel.Domain.Common;
 
 namespace N4Sentinel.Domain.Entities;
 
 /// <summary>
-/// Un environnement N4 autorisé (Production, UAT, ou autre environnement technique validé par la DSI).
-/// Référentiel racine de la cartographie fonctionnelle (FR-001).
+/// §3.18 — Environnement : nom, type, criticité, statut, fuseau, responsables.
+/// L'environnement est l'unité de cloisonnement des droits (SEC-004) et reste visible en permanence.
 /// </summary>
-public class N4Environment
+public class N4Environment : Entity
 {
-    private readonly List<N4Component> _components = [];
+    public required string Nom { get; set; }
 
-    // EF Core requires a parameterless constructor.
-    private N4Environment()
-    {
-        Name = string.Empty;
-        Code = string.Empty;
-    }
+    public required EnvironmentType Type { get; set; }
 
-    public N4Environment(string name, string code, EnvironmentKind kind, string? description)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new DomainRuleException("Le nom de l'environnement est obligatoire.");
-        }
+    public Criticality Criticite { get; set; } = Criticality.Moyenne;
 
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            throw new DomainRuleException("Le code de l'environnement est obligatoire.");
-        }
+    public ValidationStatus Statut { get; set; } = ValidationStatus.Brouillon;
 
-        Id = Guid.NewGuid();
-        Name = name.Trim();
-        Code = code.Trim().ToUpperInvariant();
-        Kind = kind;
-        Description = description?.Trim();
-        Status = EnvironmentStatus.Draft;
-        CreatedAtUtc = DateTime.UtcNow;
-        UpdatedAtUtc = CreatedAtUtc;
-    }
+    /// <summary>Fuseau horaire IANA de l'environnement, utilisé pour les fenêtres d'exploitation.</summary>
+    public string FuseauHoraire { get; set; } = "Africa/Abidjan";
 
-    public Guid Id { get; private set; }
+    public string? Description { get; set; }
 
-    public string Name { get; private set; }
+    /// <summary>Responsables fonctionnels et techniques déclarés pour cet environnement.</summary>
+    public List<EnvironmentResponsible> Responsables { get; set; } = [];
 
-    /// <summary>Code court unique (ex. "PROD", "UAT").</summary>
-    public string Code { get; private set; }
+    public List<N4Component> Composants { get; set; } = [];
+}
 
-    public EnvironmentKind Kind { get; private set; }
+/// <summary>Responsable déclaré d'un environnement (contact, non compte applicatif).</summary>
+public class EnvironmentResponsible : Entity
+{
+    public Guid EnvironmentId { get; set; }
 
-    public EnvironmentStatus Status { get; private set; }
+    public required string Nom { get; set; }
 
-    /// <summary>Mode d'automatisation autorisé par la DSI (Palier 1 Semi-Auto vs Palier 2 Full-Auto, §2.2.3).</summary>
-    public ExecutionMode AllowedExecutionMode { get; private set; } = ExecutionMode.SemiAutomatic;
+    public required string Role { get; set; }
 
-    public string? Description { get; private set; }
+    public string? Email { get; set; }
 
-    public DateTime CreatedAtUtc { get; private set; }
-
-    public DateTime UpdatedAtUtc { get; private set; }
-
-    public void SetExecutionMode(ExecutionMode mode)
-    {
-        AllowedExecutionMode = mode;
-        UpdatedAtUtc = DateTime.UtcNow;
-    }
-
-    public IReadOnlyCollection<N4Component> Components => _components;
-
-    public bool IsUsableInProduction => Status == EnvironmentStatus.Active;
-
-    public void UpdateDetails(string name, string? description)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            throw new DomainRuleException("Le nom de l'environnement est obligatoire.");
-        }
-
-        Name = name.Trim();
-        Description = description?.Trim();
-        UpdatedAtUtc = DateTime.UtcNow;
-    }
-
-    /// <summary>Brouillon -&gt; À valider.</summary>
-    public void SubmitForValidation()
-    {
-        EnsureTransitionAllowed(EnvironmentStatus.Draft, EnvironmentStatus.PendingValidation);
-        Status = EnvironmentStatus.PendingValidation;
-        UpdatedAtUtc = DateTime.UtcNow;
-    }
-
-    /// <summary>À valider -&gt; Validé.</summary>
-    public void Validate()
-    {
-        EnsureTransitionAllowed(EnvironmentStatus.PendingValidation, EnvironmentStatus.Validated);
-        Status = EnvironmentStatus.Validated;
-        UpdatedAtUtc = DateTime.UtcNow;
-    }
-
-    /// <summary>Validé -&gt; Actif.</summary>
-    public void Activate()
-    {
-        EnsureTransitionAllowed(EnvironmentStatus.Validated, EnvironmentStatus.Active);
-        Status = EnvironmentStatus.Active;
-        UpdatedAtUtc = DateTime.UtcNow;
-    }
-
-    /// <summary>Actif (ou Validé) -&gt; Désactivé. Un environnement désactivé ne peut plus être réactivé directement.</summary>
-    public void Disable()
-    {
-        if (Status is not (EnvironmentStatus.Active or EnvironmentStatus.Validated))
-        {
-            throw new DomainRuleException(
-                $"Impossible de désactiver un environnement au statut '{Status}'.");
-        }
-
-        Status = EnvironmentStatus.Disabled;
-        UpdatedAtUtc = DateTime.UtcNow;
-    }
-
-    private void EnsureTransitionAllowed(EnvironmentStatus expectedCurrent, EnvironmentStatus target)
-    {
-        if (Status != expectedCurrent)
-        {
-            throw new DomainRuleException(
-                $"Transition invalide : un environnement au statut '{Status}' ne peut pas passer à '{target}'.");
-        }
-    }
+    public string? Telephone { get; set; }
 }
