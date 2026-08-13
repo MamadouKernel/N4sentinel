@@ -8,161 +8,85 @@
 @inject IDbContextFactory<ApplicationDbContext> Fabrique
 @inject IHttpContextAccessor Accesseur
 
-<PageTitle>Graphe de Dépendances — N4 Sentinel Control Room</PageTitle>
+<PageTitle>Dépendances — N4 Sentinel</PageTitle>
 
-<div class="en-tete-page">
-    <div>
-        <h1>
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="var(--primaire)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="18" cy="5" r="3"/>
-                <circle cx="6" cy="12" r="3"/>
-                <circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-            </svg>
-            Graphe de Dépendances N4 — @NomDeLEnvironnement
-        </h1>
-        <p class="mention">
-            §2.4 — Visualisation topologique pour calcul d'ordre de démarrage, vérification des prérequis et analyse d'impact.
-        </p>
-    </div>
-</div>
+<h1>Graphe de dépendances — @NomDeLEnvironnement</h1>
+<p>
+    §2.4 — cette cartographie sert à déterminer l'ordre des workflows, vérifier les prérequis,
+    analyser l'impact d'une action et empêcher l'exécution d'une séquence incompatible.
+</p>
 
 @if (composants.Count == 0)
 {
-    <div class="alerte avertissement">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-        <span>Aucun composant enregistré sur cet environnement dans le référentiel.</span>
-    </div>
+    <p>Aucun composant enregistré sur cet environnement.</p>
 }
 else if (cycle.Count > 0)
 {
-    <div class="alerte" role="alert">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-        <div>
-            <strong>Cycle de dépendances circulaire détecté !</strong><br/>
-            Chemin : @string.Join(" → ", cycle.Select(NomDe))<br/>
-            <em>Aucun ordre de démarrage ou d'arrêt ne peut être calculé tant que ce cycle subsiste.</em>
-        </div>
-    </div>
+    <p class="alerte" role="alert">
+        Les dépendances forment un cycle : @string.Join(" → ", cycle.Select(NomDe)).
+        Aucun ordre de démarrage n'est calculable tant qu'il subsiste.
+    </p>
 }
 else
 {
-    <!-- Visualiseur SVG Graphique de Dépendances -->
-    <div class="carte carte-compacte">
-        <div class="carte-en-tete carte-en-tete-serree">
-            <span class="carte-titre">Diagramme de Flux & Paliers de Démarrage</span>
-            <span class="mention">@noeuds.Count nœud(s) cartographié(s)</span>
-        </div>
+    <div class="defilement">
+        <svg viewBox="0 0 @Largeur @Hauteur" width="@Largeur" height="@Hauteur"
+             role="img" aria-label="Graphe des dépendances entre composants">
+            @foreach (var (depuis, vers) in Liens())
+            {
+                <line x1="@depuis.X" y1="@depuis.Y" x2="@vers.X" y2="@vers.Y"
+                      stroke="currentColor" stroke-opacity="0.35" stroke-width="1.4" />
+            }
 
-        <div class="defilement cadre-graphe">
-            <svg viewBox="0 0 @Largeur @Hauteur" width="@Largeur" height="@Hauteur"
-                 class="graphe-dependances" role="img" aria-label="Graphe interactif des dépendances N4">
-                
-                <defs>
-                    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--primaire)" opacity="0.8"/>
-                    </marker>
-                    <linearGradient id="nodeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="var(--fond-carte)"/>
-                        <stop offset="100%" stop-color="var(--fond-carte-survol)"/>
-                    </linearGradient>
-                </defs>
-
-                <!-- Connexions Bézier entre les composants -->
-                @foreach (var (depuis, vers) in LiensCourbes())
-                {
-                    <path d="M @depuis.X @depuis.Y C @((depuis.X + vers.X) / 2) @depuis.Y @((depuis.X + vers.X) / 2) @vers.Y @vers.X @vers.Y"
-                          class="lien" stroke="var(--primaire)" stroke-opacity="0.45" stroke-width="2" fill="none"
-                          marker-end="url(#arrow)" />
-                }
-
-                <!-- Nœuds de composants -->
-                @foreach (var noeud in noeuds)
-                {
-                    <g class="noeud-groupe noeud-cliquable">
-                        <rect x="@noeud.X" y="@noeud.Y" width="@LargeurBoite" height="@HauteurBoite"
-                              class="noeud" fill="url(#nodeGradient)" stroke="var(--bordure-accentuee)" stroke-width="1.5" rx="10" />
-                        
-                        <text x="@(noeud.X + 14)" y="@(noeud.Y + 22)" class="noeud-titre" fill="var(--texte)" font-size="13" font-weight="700">
-                            🖥️ @Tronquer(noeud.Composant.Nom, 20)
-                        </text>
-                        
-                        <text x="@(noeud.X + 14)" y="@(noeud.Y + 40)" fill="var(--primaire)" font-size="11" font-family="var(--police-mono)">
-                            @noeud.Composant.Kind
-                        </text>
-                    </g>
-                }
-            </svg>
-        </div>
-
-        <p class="mention mention-serree-haute">
-            💡 <strong>Algorithme Topologique</strong> : Chaque colonne représente un palier de démarrage (les dépendances se lisent de gauche à droite).
-        </p>
+            @foreach (var noeud in noeuds)
+            {
+                <g>
+                    <rect x="@noeud.X" y="@noeud.Y" width="@LargeurBoite" height="@HauteurBoite"
+                          rx="8" fill="none" stroke="currentColor" stroke-opacity="0.55" />
+                    <text x="@(noeud.X + 12)" y="@(noeud.Y + 22)" font-size="13" fill="currentColor">
+                        @Tronquer(noeud.Composant.Nom, 22)
+                    </text>
+                    <text x="@(noeud.X + 12)" y="@(noeud.Y + 38)" font-size="11"
+                          fill="currentColor" fill-opacity="0.6">
+                        @noeud.Composant.Kind
+                    </text>
+                </g>
+            }
+        </svg>
     </div>
 
-    <!-- Tableau d'ordre de démarrage calculé -->
-    <div class="carte">
-        <div class="carte-en-tete">
-            <h2 class="carte-titre">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--succes)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="8" y1="6" x2="21" y2="6"/>
-                    <line x1="8" y1="12" x2="21" y2="12"/>
-                    <line x1="8" y1="18" x2="21" y2="18"/>
-                    <line x1="3" y1="6" x2="3.01" y2="6"/>
-                    <line x1="3" y1="12" x2="3.01" y2="12"/>
-                    <line x1="3" y1="18" x2="3.01" y2="18"/>
-                </svg>
-                Séquence de Démarrage Déterministe Calculée
-            </h2>
-        </div>
+    <p class="mention">
+        Chaque colonne ne démarre qu'une fois la précédente opérationnelle. Cet ordre découle
+        des seules dépendances déclarées : le séquencement réel de l'écosystème N4, validé avec
+        l'Infrastructure, relève d'un sprint ultérieur et pourra s'en écarter — le démarrage
+        n'est pas l'exact inverse de l'arrêt.
+    </p>
 
-        <div class="defilement">
-            <table class="tableau">
-                <thead>
+    <h2>Ordre de démarrage calculé</h2>
+    <div class="defilement">
+        <table class="tableau">
+            <thead><tr><th>Rang</th><th>Composant</th><th>Type N4</th><th>Prérequis directs</th></tr></thead>
+            <tbody>
+                @foreach (var (identifiant, rang) in ordre.Select((id, index) => (id, index + 1)))
+                {
                     <tr>
-                        <th>Ordre / Rang</th>
-                        <th>Nom du Composant</th>
-                        <th>Type N4</th>
-                        <th>Prérequis Directs Exigés</th>
+                        <td>@rang</td>
+                        <td>@NomDe(identifiant)</td>
+                        <td>@(composants.Find(c => c.Id == identifiant)?.Kind)</td>
+                        <td>@Prerequis(identifiant)</td>
                     </tr>
-                </thead>
-                <tbody>
-                    @foreach (var (identifiant, rang) in ordre.Select((id, index) => (id, index + 1)))
-                    {
-                        <tr>
-                            <td>
-                                <span class="etat-consolide etat-transition etat-moyen">
-                                    Palier #@rang
-                                </span>
-                            </td>
-                            <td><strong>@NomDe(identifiant)</strong></td>
-                            <td><span class="mention texte-mono">@(composants.Find(c => c.Id == identifiant)?.Kind)</span></td>
-                            <td>
-                                <span class="texte-attenue">@Prerequis(identifiant)</span>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                }
+            </tbody>
+        </table>
     </div>
 }
 
 @code {
-    private const int LargeurBoite = 210;
-    private const int HauteurBoite = 56;
-    private const int EcartColonnes = 270;
-    private const int EcartLignes = 82;
-    private const int Marge = 24;
+    private const int LargeurBoite = 190;
+    private const int HauteurBoite = 52;
+    private const int EcartColonnes = 250;
+    private const int EcartLignes = 78;
+    private const int Marge = 20;
 
     private sealed record Noeud(N4Component Composant, int X, int Y);
 
@@ -173,8 +97,8 @@ else
     private IReadOnlyList<Guid> cycle = [];
     private List<Noeud> noeuds = [];
 
-    private int Largeur { get; set; } = 500;
-    private int Hauteur { get; set; } = 240;
+    private int Largeur { get; set; } = 400;
+    private int Hauteur { get; set; } = 200;
 
     private string NomDeLEnvironnement => environnement?.Nom ?? "—";
 
@@ -183,13 +107,14 @@ else
     private string Prerequis(Guid id)
     {
         var noms = aretes.Where(d => d.ComponentId == id).Select(d => NomDe(d.ComposantRequisId)).ToList();
-        return noms.Count == 0 ? "Aucun (Racine)" : string.Join(", ", noms);
+        return noms.Count == 0 ? "—" : string.Join(", ", noms);
     }
 
     private static string Tronquer(string valeur, int taille) =>
         valeur.Length <= taille ? valeur : string.Concat(valeur.AsSpan(0, taille - 1), "…");
 
-    private IEnumerable<((int X, int Y) Depuis, (int X, int Y) Vers)> LiensCourbes()
+    /// <summary>Segments reliant chaque prérequis à son dépendant, de la droite vers la gauche.</summary>
+    private IEnumerable<((int X, int Y) Depuis, (int X, int Y) Vers)> Liens()
     {
         foreach (var arete in aretes)
         {
@@ -250,6 +175,10 @@ else
         Disposer(graphe);
     }
 
+    /// <summary>
+    /// Place chaque composant dans la colonne de son niveau — un de plus que son prérequis le
+    /// plus profond. Les colonnes se lisent alors comme des paliers de démarrage.
+    /// </summary>
     private void Disposer(GrapheDeDependances graphe)
     {
         var niveaux = new Dictionary<Guid, int>();

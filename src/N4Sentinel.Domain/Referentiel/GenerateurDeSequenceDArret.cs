@@ -46,3 +46,34 @@ public static class GenerateurDeSequenceDArret
             paire.Composant.TimeoutSecondes))];
     }
 }
+
+/// <summary>
+/// Construit la séquence de démarrage d'une topologie.
+///
+/// Classe distincte de <see cref="GenerateurDeSequenceDArret"/>, et non un paramètre de celle-ci :
+/// le démarrage n'est pas l'arrêt inversé, et les deux tables de rangs sont différentes. Faire
+/// des deux séquences deux modes d'une même fonction inviterait tôt ou tard à écrire l'inversion.
+/// </summary>
+public static class GenerateurDeSequenceDeDemarrage
+{
+    public static IReadOnlyList<EtapeDArretPlanifiee> Generer(
+        IReadOnlyList<ComposantDeTopologie> composants)
+    {
+        ArgumentNullException.ThrowIfNull(composants);
+
+        var ordonnes = composants
+            .Where(c => c.ModeDePilotage == ModeDePilotage.Pilotable)
+            .Where(c => !SequenceDeDemarrageDeReferenceN4.ExclusDuDemarrageAutomatique.ContainsKey(c.Kind))
+            .Select(c => (Composant: c, Rang: SequenceDeDemarrageDeReferenceN4.RangDe(c.Kind)))
+            .Where(paire => paire.Rang is not null)
+            .OrderBy(paire => paire.Rang!.Value)
+            .ThenBy(paire => paire.Composant.Nom, StringComparer.Ordinal)
+            .ToList();
+
+        return [.. ordonnes.Select((paire, index) => new EtapeDArretPlanifiee(
+            index + 1,
+            paire.Composant.Nom,
+            paire.Composant.Kind,
+            paire.Composant.TimeoutSecondes))];
+    }
+}

@@ -273,4 +273,91 @@ public class GenerateurDeSequenceDArretTests
             [.. premiere.Select(e => $"{e.Ordre}:{e.ComposantNom}")],
             [.. seconde.Select(e => $"{e.Ordre}:{e.ComposantNom}")]);
     }
+
+    // — Démarrage : la table est distincte, et ce n'est pas un détail —
+
+    [Fact]
+    public void La_sequence_de_demarrage_suit_l_ordre_de_l_editeur()
+    {
+        var sequence = GenerateurDeSequenceDeDemarrage.Generer(TopologieDeReference());
+
+        Assert.Equal(
+        [
+            N4ComponentKind.ClusterNode,
+            N4ComponentKind.ClusterNode,
+            N4ComponentKind.ClusterNode,
+            N4ComponentKind.CenterNode,
+            N4ComponentKind.BridgeDaemon,
+            N4ComponentKind.Xps,
+            N4ComponentKind.Ecn4,
+            N4ComponentKind.Ecn4Web
+        ], [.. sequence.Select(e => e.Kind)]);
+    }
+
+    [Fact]
+    public void Le_demarrage_n_est_pas_l_arret_inverse()
+    {
+        // Le test qui protège du raccourci le plus tentant. Les Cluster Nodes démarrent avant
+        // le Center et s'arrêtent après lui : inverser l'arrêt produirait un ordre faux.
+        var arret = GenerateurDeSequenceDArret.Generer(TopologieDeReference());
+        var demarrage = GenerateurDeSequenceDeDemarrage.Generer(TopologieDeReference());
+
+        var arretInverse = arret.Select(e => e.Kind).Reverse().ToList();
+
+        Assert.NotEqual(arretInverse, [.. demarrage.Select(e => e.Kind)]);
+
+        var rangCluster = demarrage.First(e => e.Kind == N4ComponentKind.ClusterNode).Ordre;
+        var rangCenter = demarrage.First(e => e.Kind == N4ComponentKind.CenterNode).Ordre;
+        Assert.True(rangCluster < rangCenter, "Les Cluster Nodes doivent démarrer avant le Center.");
+
+        var arretCluster = arret.First(e => e.Kind == N4ComponentKind.ClusterNode).Ordre;
+        var arretCenter = arret.First(e => e.Kind == N4ComponentKind.CenterNode).Ordre;
+        Assert.True(arretCluster < arretCenter, "Les Cluster Nodes doivent s'arrêter avant le Center.");
+    }
+
+    [Fact]
+    public void Le_standby_n_est_jamais_genere_dans_une_sequence_de_demarrage()
+    {
+        var demarrage = GenerateurDeSequenceDeDemarrage.Generer(TopologieDeReference());
+
+        Assert.DoesNotContain(demarrage, e => e.Kind == N4ComponentKind.StandbyCenterNode);
+        Assert.Contains(
+            N4ComponentKind.StandbyCenterNode,
+            SequenceDeDemarrageDeReferenceN4.ExclusDuDemarrageAutomatique.Keys);
+    }
+
+    [Fact]
+    public void Le_standby_reste_sequencable_a_la_main_sans_etre_refuse()
+    {
+        // Exclu de la génération n'est pas interdit : un opérateur peut le séquencer sciemment.
+        var verdict = SequenceDeDemarrageDeReferenceN4.EvaluerLOrdre(
+        [
+            (1, N4ComponentKind.ClusterNode),
+            (2, N4ComponentKind.CenterNode),
+            (3, N4ComponentKind.StandbyCenterNode),
+            (4, N4ComponentKind.BridgeDaemon)
+        ]);
+
+        Assert.True(verdict.Conforme, verdict.Motif);
+    }
+
+    [Fact]
+    public void Demarrer_le_center_avant_les_cluster_nodes_est_refuse()
+    {
+        var verdict = SequenceDeDemarrageDeReferenceN4.EvaluerLOrdre(
+            [(1, N4ComponentKind.CenterNode), (2, N4ComponentKind.ClusterNode)]);
+
+        Assert.False(verdict.Conforme);
+    }
+
+    [Fact]
+    public void La_sequence_de_demarrage_generee_est_acceptee_par_son_propre_controle()
+    {
+        var demarrage = GenerateurDeSequenceDeDemarrage.Generer(TopologieDeReference());
+
+        var verdict = SequenceDeDemarrageDeReferenceN4.EvaluerLOrdre(
+            [.. demarrage.Select(e => (e.Ordre, e.Kind))]);
+
+        Assert.True(verdict.Conforme, verdict.Motif);
+    }
 }
