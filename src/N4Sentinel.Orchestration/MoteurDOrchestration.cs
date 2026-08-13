@@ -56,6 +56,24 @@ public sealed class MoteurDOrchestration(
                 $"Environnement déjà verrouillé. {verrou.Description(horloge.MaintenantUtc)}");
         }
 
+        // Sprint 8 — « démarrage complet impossible si un composant reste actif ». Le contrôle
+        // est ici, à l'engagement, et non à la première étape : refuser après avoir déjà
+        // verrouillé l'environnement et démarré un nœud laisserait l'écosystème dans un état
+        // pire que celui trouvé.
+        var typeDOperation = await etat.LireLeTypeDuWorkflowAsync(
+            execution.WorkflowVersionId, cancellationToken);
+
+        if (typeDOperation == WorkflowType.DemarrageComplet)
+        {
+            var verdict = await VerifierQueRienNEstDeboutAsync(execution, cancellationToken);
+            if (!verdict.Autorise)
+            {
+                return Refus(execution,
+                    verdict.Motif + " À arrêter dans cet ordre : "
+                    + string.Join(", ", verdict.ComposantsEnCause) + ".");
+            }
+        }
+
         if (verrou is null)
         {
             await etat.PoserLeVerrouAsync(new VerrouDOperation
@@ -667,6 +685,37 @@ public sealed class MoteurDOrchestration(
         }
 
         return (execution, etape, definition, null);
+    }
+
+    /// <summary>
+    /// Sprint 8 — aucun composant ne doit être resté debout avant d'engager un démarrage
+    /// complet. Démarrer par-dessus produit les incidents les plus difficiles à diagnostiquer :
+    /// deux instances du même rôle, des files consommées deux fois, un cluster qui refuse un
+    /// nœud déjà membre.
+    ///
+    /// Seuls les composants pilotables sont considérés. Une base de données en supervision
+    /// seule est censée rester debout : l'exiger arrêtée refuserait tout démarrage.
+    /// </summary>
+    private async Task<VerdictDeDemarrage> VerifierQueRienNEstDeboutAsync(
+        OperationExecution execution,
+        CancellationToken cancellationToken)
+    {
+        var cartographie = await supervision.LireAsync(execution.EnvironmentId, cancellationToken);
+        if (cartographie is null)
+        {
+            return new VerdictDeDemarrage(
+                false,
+                "Aucune cartographie disponible : impossible de confirmer que l'écosystème est "
+                + "à l'arrêt, donc impossible d'engager un démarrage complet.",
+                []);
+        }
+
+        var etats = cartographie.Lignes
+            .Where(l => l.ModeDePilotage == ModeDePilotage.Pilotable)
+            .Select(l => new EtatConstateDUnComposant(l.Nom, l.Kind, Convertir(l.Etat.Etat)))
+            .ToList();
+
+        return ControlesDeDemarrage.VerifierQueToutEstArrete(etats);
     }
 
     /// <summary>

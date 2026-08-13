@@ -80,6 +80,18 @@ public sealed class EtatDExecutionPersiste(ApplicationDbContext contexte, IClock
             .Where(d => d.WorkflowVersionId == workflowVersionId)
             .ToListAsync(cancellationToken);
 
+    public async Task<WorkflowType?> LireLeTypeDuWorkflowAsync(
+        Guid workflowVersionId, CancellationToken cancellationToken)
+    {
+        var types = await contexte.VersionsDeWorkflow
+            .AsNoTracking()
+            .Where(v => v.Id == workflowVersionId)
+            .Join(contexte.Workflows, v => v.WorkflowId, w => w.Id, (_, w) => w.Type)
+            .ToListAsync(cancellationToken);
+
+        return types.Count == 0 ? null : types[0];
+    }
+
     public Task<N4Component?> LireLeComposantAsync(Guid composantId, CancellationToken cancellationToken) =>
         contexte.Composants.AsNoTracking().FirstOrDefaultAsync(c => c.Id == composantId, cancellationToken);
 

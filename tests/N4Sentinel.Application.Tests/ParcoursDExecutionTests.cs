@@ -325,10 +325,14 @@ public sealed class ParcoursDExecutionTests(BaseDeTest baseDeTest) : IClassFixtu
         await using var contexte = banc.Contexte;
 
         var scenario = await Semis.SemerUnDemarrageDeXpsAsync(contexte, Jeton);
-        banc.Supervision.Poser(scenario.BridgeId, EtatDeSupervision.Degrade, N4ComponentKind.BridgeDaemon);
+        banc.Supervision.Poser(scenario.BridgeId, EtatDeSupervision.Indisponible, N4ComponentKind.BridgeDaemon);
         banc.Supervision.Poser(scenario.XpsId, EtatDeSupervision.Indisponible, N4ComponentKind.Xps);
 
         await banc.Moteur.DemarrerAsync(scenario.ExecutionId, Jeton);
+
+        // Une étape antérieure a démarré le Bridge, mais il ne répond que partiellement.
+        banc.Supervision.Poser(scenario.BridgeId, EtatDeSupervision.Degrade, N4ComponentKind.BridgeDaemon);
+
         await banc.Moteur.AvancerAsync(scenario.ExecutionId, Jeton);
 
         Assert.Empty(banc.Commandes.Demandes);
@@ -342,17 +346,63 @@ public sealed class ParcoursDExecutionTests(BaseDeTest baseDeTest) : IClassFixtu
         await using var contexte = banc.Contexte;
 
         var scenario = await Semis.SemerUnDemarrageDeXpsAsync(contexte, Jeton);
-        banc.Supervision.Poser(scenario.BridgeId, EtatDeSupervision.Disponible, N4ComponentKind.BridgeDaemon);
+
+        // Écosystème entièrement à l'arrêt : c'est la condition pour engager un démarrage.
+        banc.Supervision.Poser(scenario.BridgeId, EtatDeSupervision.Indisponible, N4ComponentKind.BridgeDaemon);
         banc.Supervision.Poser(scenario.XpsId, EtatDeSupervision.Indisponible, N4ComponentKind.Xps);
 
+        var engagement = await banc.Moteur.DemarrerAsync(scenario.ExecutionId, Jeton);
+        Assert.True(engagement.Accepte, engagement.Motif);
+
+        // Le Bridge est démarré par une étape antérieure de la séquence.
+        banc.Supervision.Poser(scenario.BridgeId, EtatDeSupervision.Disponible, N4ComponentKind.BridgeDaemon);
         banc.Commandes.ApresExecution =
             () => banc.Supervision.Poser(scenario.XpsId, EtatDeSupervision.Disponible, N4ComponentKind.Xps);
 
-        await banc.Moteur.DemarrerAsync(scenario.ExecutionId, Jeton);
         await banc.Moteur.AvancerAsync(scenario.ExecutionId, Jeton);
 
         Assert.True(banc.Commandes.ARecu(ActionsDePilotage.DemarrerServiceWindows));
         Assert.Equal(StepStatus.Reussi, (await RelireLEtapeParIdAsync(scenario.ExecutionId, scenario.EtapeId)).Statut);
+    }
+
+    [Fact]
+    public async Task Un_demarrage_complet_ne_s_engage_pas_par_dessus_un_composant_reste_actif()
+    {
+        var banc = CreerLeBanc();
+        await using var contexte = banc.Contexte;
+
+        var scenario = await Semis.SemerUnDemarrageDeXpsAsync(contexte, Jeton);
+
+        // Le Bridge est resté debout d'une exploitation précédente.
+        banc.Supervision.Poser(scenario.BridgeId, EtatDeSupervision.Disponible, N4ComponentKind.BridgeDaemon);
+        banc.Supervision.Poser(scenario.XpsId, EtatDeSupervision.Indisponible, N4ComponentKind.Xps);
+
+        var engagement = await banc.Moteur.DemarrerAsync(scenario.ExecutionId, Jeton);
+
+        Assert.False(engagement.Accepte);
+        Assert.Contains("encore actifs", engagement.Motif, StringComparison.Ordinal);
+        Assert.Contains("À arrêter dans cet ordre", engagement.Motif, StringComparison.Ordinal);
+
+        // Refusé avant d'avoir rien engagé : ni verrou posé, ni statut modifié.
+        var execution = await RelireLExecutionParIdAsync(scenario.ExecutionId);
+        Assert.Equal(ExecutionStatus.EnPreparation, execution.Statut);
+        Assert.Null(execution.DebutLe);
+    }
+
+    [Fact]
+    public async Task Un_arret_complet_s_engage_meme_si_tout_est_debout()
+    {
+        // Le contrôle est propre au démarrage : exiger un écosystème à l'arrêt avant un arrêt
+        // n'aurait aucun sens, et empêcherait la seule opération qui puisse y remédier.
+        var banc = CreerLeBanc();
+        await using var contexte = banc.Contexte;
+
+        var scenario = await Semis.SemerUnArretAsync(contexte, Jeton);
+        banc.Supervision.Poser(scenario.ComposantId, EtatDeSupervision.Disponible);
+
+        var engagement = await banc.Moteur.DemarrerAsync(scenario.ExecutionId, Jeton);
+
+        Assert.True(engagement.Accepte, engagement.Motif);
     }
 
     // — FR-015 : un environnement, une opération mutative à la fois —
@@ -376,6 +426,12 @@ public sealed class ParcoursDExecutionTests(BaseDeTest baseDeTest) : IClassFixtu
     }
 
     // — Utilitaires de relecture : toujours depuis la base, jamais depuis l'objet suivi —
+
+    private async Task<OperationExecution> RelireLExecutionParIdAsync(Guid executionId)
+    {
+        await using var contexte = baseDeTest.CreerLeContexte();
+        return await contexte.Executions.AsNoTracking().FirstAsync(e => e.Id == executionId, Jeton);
+    }
 
     private async Task<ExecutionStep> RelireLEtapeParIdAsync(Guid executionId, Guid etapeId)
     {

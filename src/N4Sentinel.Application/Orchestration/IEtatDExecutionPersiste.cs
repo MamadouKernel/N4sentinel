@@ -1,3 +1,4 @@
+using N4Sentinel.Domain.Common;
 using N4Sentinel.Domain.Entities;
 
 namespace N4Sentinel.Application.Orchestration;
@@ -32,6 +33,14 @@ public interface IEtatDExecutionPersiste
         Guid workflowVersionId, CancellationToken cancellationToken);
 
     Task<N4Component?> LireLeComposantAsync(Guid composantId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Nature de l'opération que porte une version de workflow. Le moteur en a besoin pour les
+    /// contrôles propres à un type — un démarrage complet ne s'engage pas dans les mêmes
+    /// conditions qu'un arrêt. <c>null</c> si la version est introuvable.
+    /// </summary>
+    Task<WorkflowType?> LireLeTypeDuWorkflowAsync(
+        Guid workflowVersionId, CancellationToken cancellationToken);
 
     /// <summary>Identifiants des exécutions actuellement « En cours » — ce que le fond de tâche fait avancer.</summary>
     Task<IReadOnlyList<Guid>> LireLesIdentifiantsDesExecutionsEnCoursAsync(CancellationToken cancellationToken);
