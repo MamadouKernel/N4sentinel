@@ -23,6 +23,12 @@ l'activation, composants déjà arrêtés ignorés, arrêt forcé ouvert seuleme
 confirmation et droit sensible, contournement et intervention manuelle tracés, masquage des
 secrets dans les preuves (S7).
 
+**Livré n'est pas recetté.** Un sprint est *livré* quand le code est écrit, les règles testées et
+le parcours rejoué localement ; il est *recetté* quand il a été vérifié contre un écosystème N4
+réel. Le développement n'attend pas l'ouverture des accès : ce qui en dépend est consigné dans
+le [registre de recette différée](docs/scrum/recette-differee.md), pour être rejoué le jour venu
+plutôt qu'oublié.
+
 > **Réserve du Sprint 3** : les accès techniques aux serveurs N4 ne sont pas ouverts. La
 > mécanique de collecte est exercée contre de vraies ressources du poste de développement,
 > mais **aucune validation contre l'écosystème N4 de CIT n'a eu lieu**.
