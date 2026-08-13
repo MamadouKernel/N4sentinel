@@ -29,6 +29,7 @@ public static class PointsDEntreeDeCompte
         // Ces deux-là doivent y échapper explicitement : ce sont eux qui authentifient.
         groupe.MapPost("/connexion", ConnexionAsync).AllowAnonymous();
         groupe.MapPost("/double-facteur", DoubleFacteurAsync).AllowAnonymous();
+        groupe.MapPost("/code-recuperation", CodeDeRecuperationAsync).AllowAnonymous();
 
         // Il n'y a rien à déconnecter pour un appelant qui n'est pas connecté.
         groupe.MapPost("/deconnexion", DeconnexionAsync).RequireAuthorization();
@@ -167,6 +168,69 @@ public static class PointsDEntreeDeCompte
             "Code de second facteur invalide ou expiré.");
 
         return Results.Redirect("/compte/double-facteur?erreur=code");
+    }
+
+    /// <summary>
+    /// SEC-001 — connexion par code de récupération, dernier recours quand le second facteur
+    /// habituel est hors d'atteinte : téléphone perdu, ou messagerie indisponible.
+    ///
+    /// Chaque code ne sert qu'une fois, Identity le consomme en le vérifiant. Le succès est
+    /// tracé comme tel et non comme une connexion ordinaire : se connecter par code de
+    /// récupération est un événement, et l'exploitation doit pouvoir le retrouver au journal.
+    /// </summary>
+    private static async Task<IResult> CodeDeRecuperationAsync(
+        [FromForm] string code,
+        HttpContext contexte,
+        SignInManager<UtilisateurApplicatif> connexions,
+        UserManager<UtilisateurApplicatif> utilisateurs,
+        IAuditTrail piste)
+    {
+        var adresseIp = contexte.Connection.RemoteIpAddress?.ToString();
+
+        var utilisateur = await connexions.GetTwoFactorAuthenticationUserAsync();
+        if (utilisateur is null)
+        {
+            return Results.Redirect("/compte/connexion?erreur=session");
+        }
+
+        // Les codes sont remis groupés par blocs ; on tolère les espaces et la casse plutôt
+        // que de refuser une saisie correcte recopiée telle qu'elle a été affichée.
+        var codeSaisi = (code ?? string.Empty)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal);
+
+        var resultat = await connexions.TwoFactorRecoveryCodeSignInAsync(codeSaisi);
+
+        if (resultat.Succeeded)
+        {
+            utilisateur.DerniereConnexionLe = DateTimeOffset.UtcNow;
+            await utilisateurs.UpdateAsync(utilisateur);
+
+            var restants = await utilisateurs.CountRecoveryCodesAsync(utilisateur);
+
+            await TracerAsync(piste, utilisateur.UserName ?? utilisateur.Id,
+                ActionsAuditees.ConnexionParCodeDeRecuperation, adresseIp,
+                autorisee: true, utilisateur.Id,
+                $"Code de récupération consommé ; {restants} restant(s).");
+
+            return Results.Redirect(restants == 0
+                ? "/compte/profil?message=codes-epuises"
+                : "/");
+        }
+
+        if (resultat.IsLockedOut)
+        {
+            await TracerAsync(piste, utilisateur.UserName ?? utilisateur.Id,
+                ActionsAuditees.CompteVerrouille, adresseIp, autorisee: false, utilisateur.Id,
+                "Trop de codes de récupération erronés.");
+            return Results.Redirect("/compte/connexion?erreur=verrouille");
+        }
+
+        await TracerAsync(piste, utilisateur.UserName ?? utilisateur.Id,
+            ActionsAuditees.SecondFacteurRefuse, adresseIp, autorisee: false, utilisateur.Id,
+            "Code de récupération invalide ou déjà consommé.");
+
+        return Results.Redirect("/compte/double-facteur?erreur=recuperation");
     }
 
     private static async Task<IResult> DeconnexionAsync(

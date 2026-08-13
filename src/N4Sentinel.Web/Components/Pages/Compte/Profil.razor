@@ -2,9 +2,13 @@
 @using Microsoft.AspNetCore.Identity
 @using N4Sentinel.Data.Identite
 @using N4Sentinel.Domain.Common
+@using N4Sentinel.Application.Abstractions
+@using N4Sentinel.Application.Audit
+@using N4Sentinel.Domain.Entities
 @using N4Sentinel.Web.Securite
 @inject UserManager<UtilisateurApplicatif> Utilisateurs
 @inject IHttpContextAccessor Accesseur
+@inject IAuditTrail Piste
 
 <PageTitle>Mon compte — N4 Sentinel</PageTitle>
 
@@ -99,6 +103,56 @@ else
         </form>
     }
 
+    <h3>Codes de récupération</h3>
+    <p>
+        Ils permettent d'entrer quand le second facteur habituel est hors d'atteinte — téléphone
+        perdu, ou messagerie indisponible, c'est-à-dire le moment où l'on a le plus besoin
+        d'accéder à un outil d'exploitation. Chaque code ne fonctionne qu'une fois.
+    </p>
+
+    @if (codesGeneres is not null)
+    {
+        <div class="alerte succes" role="alert">
+            <div>
+                <strong>Notez ces codes maintenant.</strong> Ils ne seront plus jamais affichés :
+                l'application n'en conserve qu'une empreinte, elle est incapable de vous les
+                remontrer. Conservez-les hors du téléphone qui porte l'application
+                d'authentification.
+            </div>
+        </div>
+
+        <ul class="codes-recuperation">
+            @* La variable ne s'appelle pas « code » : à l'intérieur d'une balise <code>,
+               Razor prendrait « @code » pour sa propre directive. *@
+            @foreach (var codeDeRecuperation in codesGeneres)
+            {
+                <li><code>@codeDeRecuperation</code></li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p class="mention">
+            @(codesRestants == 0
+                ? "Aucun code disponible. Sans code de récupération, la perte du second facteur exige l'intervention d'un administrateur."
+                : $"{codesRestants} code(s) encore utilisable(s).")
+        </p>
+    }
+
+    @* Traité par le composant et non par un point d'entrée avec redirection : les codes ne
+       doivent jamais transiter par une URL, où ils finiraient dans l'historique du navigateur
+       et dans les journaux du serveur. Ils n'existent que dans la réponse à ce POST. *@
+    <form method="post" @formname="codes-recuperation" @onsubmit="GenererLesCodesAsync" class="formulaire">
+        <AntiforgeryToken />
+        <button type="submit" class="bouton-discret">
+            @(codesRestants == 0 ? "Générer des codes de récupération" : "Générer de nouveaux codes")
+        </button>
+    </form>
+
+    <p class="mention">
+        Générer de nouveaux codes invalide immédiatement les précédents.
+    </p>
+
     <h3>Téléphone perdu ou remplacé</h3>
     <p>
         La régénération invalide la clé actuelle et remet le canal sur le courriel, afin que
@@ -111,8 +165,45 @@ else
 }
 
 @code {
+    /// <summary>
+    /// Dix codes : assez pour couvrir plusieurs incidents sans que la liste devienne une
+    /// seconde clé, difficile à conserver et facile à photographier.
+    /// </summary>
+    private const int NombreDeCodes = 10;
+
     private UtilisateurApplicatif? utilisateur;
     private string? cle;
+    private int codesRestants;
+
+    /// <summary>
+    /// Codes en clair, le temps d'un seul rendu. Ils ne sont ni conservés en champ persistant,
+    /// ni journalisés, ni audités : le journal enregistre qu'une génération a eu lieu, jamais
+    /// ce qu'elle a produit.
+    /// </summary>
+    private IReadOnlyList<string>? codesGeneres;
+
+    private async Task GenererLesCodesAsync()
+    {
+        if (utilisateur is null)
+        {
+            return;
+        }
+
+        var codes = await Utilisateurs.GenerateNewTwoFactorRecoveryCodesAsync(utilisateur, NombreDeCodes);
+        codesGeneres = codes is null ? [] : [.. codes];
+        codesRestants = codesGeneres.Count;
+
+        await Piste.EnregistrerAsync(new AuditEntry
+        {
+            Acteur = utilisateur.UserName ?? utilisateur.Id,
+            Action = ActionsAuditees.CodesDeRecuperationGeneres,
+            TypeDObjet = ObjetsAudites.Compte,
+            IdentifiantDObjet = utilisateur.Id,
+            ValeurApres = $"{codesGeneres.Count} code(s) ; les précédents sont invalidés",
+            AdresseIp = Accesseur.HttpContext?.Connection.RemoteIpAddress?.ToString(),
+            Origine = AuditOrigin.InterfaceWeb
+        });
+    }
 
     [SupplyParameterFromQuery(Name = "message")]
     private string? CodeMessage { get; set; }
@@ -124,6 +215,7 @@ else
     {
         "canal-modifie" => "Canal du second facteur modifié.",
         "cle-regeneree" => "Clé régénérée. Le canal est revenu au courriel.",
+        "codes-epuises" => "Dernier code de récupération consommé. Générez-en de nouveaux dès maintenant.",
         _ => null
     };
 
@@ -168,6 +260,12 @@ else
             // sans changer le canal actif. Tant qu'aucun code n'est vérifié, elle ne sert à rien.
             await Utilisateurs.ResetAuthenticatorKeyAsync(utilisateur);
             cle = await Utilisateurs.GetAuthenticatorKeyAsync(utilisateur);
+        }
+
+        // Relu après une éventuelle génération : l'affichage doit refléter l'état d'après.
+        if (codesGeneres is null)
+        {
+            codesRestants = await Utilisateurs.CountRecoveryCodesAsync(utilisateur);
         }
     }
 

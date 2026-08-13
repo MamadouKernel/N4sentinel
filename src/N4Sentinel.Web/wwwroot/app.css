@@ -843,6 +843,40 @@ body.theme-clair .tableau th {
     height: auto;
 }
 
+/* Codes de récupération : à recopier sans erreur, donc espacés et en chasse fixe. */
+.codes-recuperation {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px;
+    list-style: none;
+    margin: 12px 0;
+    padding: 14px;
+    background-color: var(--fond);
+    border: 1px solid var(--bordure-accentuee);
+    border-radius: 8px;
+}
+
+.codes-recuperation code {
+    font-family: var(--police-mono);
+    font-size: 15px;
+    letter-spacing: 1.5px;
+    color: var(--primaire);
+    user-select: all;
+}
+
+/* Repli de connexion : présent sans s'imposer, replié tant qu'on n'en a pas besoin. */
+.recours {
+    margin-top: 18px;
+    border-top: 1px solid var(--bordure);
+    padding-top: 14px;
+}
+
+.recours summary {
+    cursor: pointer;
+    color: var(--texte-attenue);
+    font-size: 13px;
+}
+
 .mention {
     font-size: 12.5px;
     line-height: 1.6;

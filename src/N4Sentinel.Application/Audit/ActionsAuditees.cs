@@ -21,6 +21,8 @@ public static class ActionsAuditees
     public const string ProfilGlobalAccorde = "Profil global accordé";
     public const string ProfilGlobalRevoque = "Profil global révoqué";
     public const string CompteCree = "Compte créé";
+    public const string CodesDeRecuperationGeneres = "Codes de récupération générés";
+    public const string ConnexionParCodeDeRecuperation = "Connexion par code de récupération";
 
     // — Référentiel (Sprint 2) —
     public const string EnvironnementCree = "Environnement créé";

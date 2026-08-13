@@ -47,6 +47,27 @@
         <button type="submit">Valider</button>
     </form>
 
+    @* Dernier recours : téléphone perdu, ou messagerie indisponible — c'est-à-dire le moment
+       où l'on a le plus besoin d'entrer dans un outil d'exploitation. *@
+    <details class="recours">
+        <summary>Je n'ai pas accès à mon second facteur</summary>
+
+        <p class="mention">
+            Saisissez l'un des codes de récupération remis lors de la configuration. Chaque code
+            ne fonctionne qu'une fois.
+        </p>
+
+        <form method="post" action="/compte/code-recuperation" class="formulaire">
+            <AntiforgeryToken />
+
+            <label for="codeRecuperation">Code de récupération</label>
+            <input id="codeRecuperation" name="code" type="text" autocomplete="one-time-code"
+                   maxlength="32" required />
+
+            <button type="submit" class="bouton-discret">Utiliser ce code</button>
+        </form>
+    </details>
+
     <a class="lien-retour" href="/compte/connexion">Revenir à la connexion</a>
 </div>
 
@@ -59,6 +80,7 @@
     private string? Erreur => CodeErreur switch
     {
         "code" => "Code invalide ou expiré.",
+        "recuperation" => "Code de récupération invalide ou déjà consommé.",
         _ => null
     };
 
