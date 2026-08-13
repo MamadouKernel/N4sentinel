@@ -821,6 +821,28 @@ body.theme-clair .tableau th {
     user-select: all;
 }
 
+/*
+  Code QR d'enrôlement du second facteur. Fond blanc en dur, y compris en thème sombre :
+  un lecteur de code QR attend un contraste sombre sur clair, et l'inverser fait échouer la
+  lecture sur une partie des téléphones.
+*/
+.code-qr {
+    display: block;
+    width: 200px;
+    max-width: 100%;
+    margin: 12px 0;
+    padding: 10px;
+    background-color: #ffffff;
+    border: 1px solid var(--bordure-accentuee);
+    border-radius: 8px;
+}
+
+.code-qr svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
 .mention {
     font-size: 12.5px;
     line-height: 1.6;

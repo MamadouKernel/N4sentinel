@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Identity
 @using N4Sentinel.Data.Identite
 @using N4Sentinel.Domain.Common
+@using N4Sentinel.Web.Securite
 @inject UserManager<UtilisateurApplicatif> Utilisateurs
 @inject IHttpContextAccessor Accesseur
 
@@ -57,17 +58,29 @@ else
 
         <ol class="etapes">
             <li>
-                Ouvrez Microsoft Authenticator, Google Authenticator ou équivalent, puis ajoutez
-                un compte de type « saisie manuelle ».
+                Ouvrez Microsoft Authenticator, Google Authenticator ou équivalent, puis
+                choisissez d'ajouter un compte professionnel.
             </li>
             <li>
-                Saisissez cette clé :
+                Scannez ce code :
+                @if (CodeQr is not null)
+                {
+                    <div class="code-qr">@((MarkupString)CodeQr)</div>
+                }
+                <span class="mention">
+                    Si l'appareil photo n'est pas disponible, ajoutez un compte en
+                    « saisie manuelle » et recopiez cette clé :
+                </span>
                 <code class="cle">@CleFormatee</code>
-                <br />
-                <span class="mention">Compte à renseigner : @utilisateur.Email — Émetteur : N4 Sentinel</span>
+                <span class="mention">Compte : @utilisateur.Email — Émetteur : N4 Sentinel</span>
             </li>
             <li>Saisissez ci-dessous le code affiché par l'application pour confirmer.</li>
         </ol>
+
+        <p class="mention">
+            Ce code contient le secret partagé : il n'est affiché qu'à vous, sur cette page, et
+            n'est ni journalisé ni transmis à un service tiers.
+        </p>
 
         <p class="mention">
             Le canal ne bascule qu'une fois le code vérifié : une clé mal recopiée ne peut pas
@@ -124,6 +137,15 @@ else
     // et une suite de 32 caractères d'affilée se recopie mal.
     private string CleFormatee =>
         string.Join(' ', Decouper(cle ?? string.Empty, 4));
+
+    /// <summary>
+    /// Code QR d'enrôlement, calculé à l'affichage et jamais conservé : il porte le secret
+    /// partagé, qui vit déjà là où il doit vivre — dans le compte, chiffré par Identity.
+    /// </summary>
+    private string? CodeQr =>
+        utilisateur?.Email is { Length: > 0 } compte && !string.IsNullOrWhiteSpace(cle)
+            ? CodeQrDuSecondFacteur.ConstruireLeSvg(compte, cle)
+            : null;
 
     protected override async Task OnInitializedAsync()
     {
