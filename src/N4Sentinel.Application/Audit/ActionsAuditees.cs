@@ -33,6 +33,7 @@ public static class ActionsAuditees
     public const string DependanceAjoutee = "Dépendance ajoutée";
     public const string DependanceRetiree = "Dépendance retirée";
     public const string ModificationRefusee = "Modification refusée";
+    public const string TopologieImportee = "Topologie importée";
     public const string ConfigurationTestee = "Configuration testée";
     public const string CollecteDemandee = "Collecte de supervision demandée";
 

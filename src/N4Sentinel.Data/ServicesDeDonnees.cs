@@ -8,7 +8,9 @@ using N4Sentinel.Data.Audit;
 using N4Sentinel.Data.Habilitations;
 using N4Sentinel.Application.Connecteurs;
 using N4Sentinel.Application.Orchestration;
+using N4Sentinel.Application.Referentiel;
 using N4Sentinel.Data.Orchestration;
+using N4Sentinel.Data.Referentiel;
 using N4Sentinel.Data.Supervision;
 using N4Sentinel.Data.Temps;
 
@@ -47,6 +49,7 @@ public static class ServicesDeDonnees
         services.AddScoped<ITesteurDeConfiguration, TesteurDeConfiguration>();
         services.AddScoped<IServiceDeSupervision, ServiceDeSupervision>();
         services.AddScoped<IEtatDExecutionPersiste, EtatDExecutionPersiste>();
+        services.AddScoped<IImportDeTopologie, ImportDeTopologie>();
 
         services.AddSingleton(optionsDeCollecte ?? new OptionsDeCollecte());
         services.AddHostedService<CollecteurPeriodique>();
