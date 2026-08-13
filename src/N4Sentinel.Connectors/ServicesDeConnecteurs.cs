@@ -21,6 +21,7 @@ public static class ServicesDeConnecteurs
         if (OperatingSystem.IsWindows())
         {
             services.AddScoped<IConnecteurDeSignaux, ConnecteurDeServiceWindows>();
+            services.AddScoped<IConnecteurDeSignaux, ConnecteurDHorloge>();
         }
 
         // Les Cluster Services N4 demandent un accès au cluster dont le projet ne dispose pas.
