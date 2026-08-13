@@ -82,6 +82,51 @@ public static class EvaluateurDePreChecks
     }
 
     /// <summary>
+    /// Sprint 8 — pré-checks portant sur l'opération entière et non sur une étape.
+    ///
+    /// Les verrous du démarrage ne se rattachent à aucune étape en particulier : « aucun
+    /// composant ne doit être resté debout » est une condition de l'opération. Les évaluer ici
+    /// les rend visibles **avant** l'engagement, dans l'aperçu, au lieu d'être découverts par un
+    /// refus en cours d'exécution — quand l'environnement est déjà verrouillé.
+    ///
+    /// Comme les autres prérequis du mode simulation, ils sont recalculés à chaque consultation
+    /// et jamais figés : un écosystème arrêté entre-temps doit lever le blocage sans qu'on ait à
+    /// refaire l'aperçu.
+    /// </summary>
+    public static IReadOnlyList<ResultatDePreCheck> EvaluerLOperation(
+        WorkflowType typeDOperation,
+        IReadOnlyList<Execution.EtatConstateDUnComposant> composants)
+    {
+        ArgumentNullException.ThrowIfNull(composants);
+
+        if (typeDOperation != WorkflowType.DemarrageComplet)
+        {
+            return [];
+        }
+
+        var resultats = new List<ResultatDePreCheck>();
+
+        var arret = Execution.ControlesDeDemarrage.VerifierQueToutEstArrete(composants);
+        resultats.Add(new ResultatDePreCheck(
+            null,
+            "Écosystème à l'arrêt avant démarrage",
+            arret.Autorise ? StatutDePreCheck.Satisfait : StatutDePreCheck.Bloquant,
+            arret.Autorise
+                ? arret.Motif
+                : arret.Motif + " À arrêter dans cet ordre : "
+                  + string.Join(", ", arret.ComposantsEnCause) + "."));
+
+        var conflit = Execution.ControlesDeDemarrage.DetecterUnConflitDeCenter(composants);
+        resultats.Add(new ResultatDePreCheck(
+            null,
+            "Rôle actif du Center",
+            conflit.Autorise ? StatutDePreCheck.Satisfait : StatutDePreCheck.Bloquant,
+            conflit.Motif));
+
+        return resultats;
+    }
+
+    /// <summary>
     /// État qui rendrait l'étape sans objet : un arrêt complet vise des composants encore
     /// opérationnels — s'il est déjà arrêté, rien à faire ; un démarrage complet vise des
     /// composants encore arrêtés — s'il tourne déjà, rien à faire. Les autres types de workflow

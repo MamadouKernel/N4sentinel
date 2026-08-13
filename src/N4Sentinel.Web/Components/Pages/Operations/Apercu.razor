@@ -5,6 +5,7 @@
 @using N4Sentinel.Data
 @using N4Sentinel.Domain.Common
 @using N4Sentinel.Domain.Entities
+@using N4Sentinel.Domain.Execution
 @using N4Sentinel.Domain.Operations
 @using N4Sentinel.Domain.Supervision
 @attribute [Authorize(Policy = "Droit:Consulter")]
@@ -32,7 +33,36 @@ else
         <p class="alerte" role="alert">@Erreur</p>
     }
 
-    <h2>Pré-checks</h2>
+    @* Sprint 8 — conditions portant sur l'opération entière et non sur une étape. Recalculées
+       à chaque consultation, jamais figées : un écosystème arrêté entre-temps lève le blocage
+       sans qu'il faille refaire l'aperçu. *@
+    @if (preChecksDOperation.Count > 0)
+    {
+        <h2>Conditions de l'opération</h2>
+        <div class="defilement">
+            <table class="tableau">
+                <thead>
+                    <tr><th>Condition</th><th>Statut</th><th>Motif</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var condition in preChecksDOperation)
+                    {
+                        <tr>
+                            <td>@condition.Libelle</td>
+                            <td>
+                                <span class="etat-consolide @ClassePreCheck(condition.Statut)">
+                                    @LibellePreCheck(condition.Statut)
+                                </span>
+                            </td>
+                            <td>@condition.Motif</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <h2>Pré-checks par étape</h2>
     <div class="defilement">
         <table class="tableau">
             <thead>
@@ -143,6 +173,7 @@ else
     private List<string> risques = [];
     private List<string> prerequisNonSatisfaits = [];
     private TypeDeCircuitDApprobation circuit;
+    private IReadOnlyList<ResultatDePreCheck> preChecksDOperation = [];
 
     private string? Erreur => CodeErreur switch
     {
@@ -152,6 +183,20 @@ else
     };
 
     private string NomDeComposant(Guid id) => composants.Find(c => c.Id == id)?.Nom ?? "?";
+
+    /// <summary>
+    /// Ramène les états de supervision aux cinq états de santé consolidée, même conversion que
+    /// celle déjà faite par le moteur : un état en transition, en maintenance ou non supervisé
+    /// ne permet pas de conclure, donc reste « Inconnu ».
+    /// </summary>
+    private static ComponentHealth ConvertirEnSante(EtatDeSupervision etat) => etat switch
+    {
+        EtatDeSupervision.Disponible => ComponentHealth.Operationnel,
+        EtatDeSupervision.Degrade => ComponentHealth.Degrade,
+        EtatDeSupervision.Indisponible => ComponentHealth.Arrete,
+        EtatDeSupervision.AConfirmer => ComponentHealth.AConfirmer,
+        _ => ComponentHealth.Inconnu
+    };
 
     private static string LibellePreCheck(StatutDePreCheck? statut) => statut switch
     {
@@ -205,6 +250,31 @@ else
             .AsNoTracking()
             .Where(c => idsCibles.Contains(c.Id))
             .ToListAsync();
+
+        // Sprint 8 — conditions de l'opération entière, recalculées à chaque consultation sur
+        // l'état déjà collecté. Comme le reste de l'aperçu, cette lecture ne déclenche jamais
+        // de collecte : afficher une simulation ne doit pas solliciter les serveurs supervisés.
+        var typeDOperation = version is null
+            ? null
+            : await contexte.Workflows.AsNoTracking()
+                .Where(w => w.Id == version.WorkflowId)
+                .Select(w => (WorkflowType?)w.Type)
+                .FirstOrDefaultAsync();
+
+        if (typeDOperation is { } type)
+        {
+            var vueDeLEnvironnement = await Supervision.LireAsync(execution.EnvironmentId);
+
+            var etats = vueDeLEnvironnement is null
+                ? []
+                : vueDeLEnvironnement.Lignes
+                    .Where(l => l.ModeDePilotage == ModeDePilotage.Pilotable)
+                    .Select(l => new EtatConstateDUnComposant(
+                        l.Nom, l.Kind, ConvertirEnSante(l.Etat.Etat)))
+                    .ToList();
+
+            preChecksDOperation = EvaluateurDePreChecks.EvaluerLOperation(type, etats);
+        }
 
         risques = [.. composants
             .Where(c => c.Criticite is Criticality.Haute or Criticality.Critique)
